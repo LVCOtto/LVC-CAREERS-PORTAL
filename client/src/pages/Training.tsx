@@ -56,6 +56,31 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
+function generateOutlookCalendarUrl(
+  title: string,
+  startDate: string,
+  description: string,
+  attendees: string[] = []
+): string {
+  const start = new Date(startDate);
+  start.setHours(9, 0, 0);
+  const end = new Date(startDate);
+  end.setHours(10, 0, 0);
+  
+  const formatDate = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  
+  const params = new URLSearchParams({
+    path: '/calendar/action/compose',
+    rru: 'addevent',
+    subject: title,
+    startdt: formatDate(start),
+    enddt: formatDate(end),
+    body: description,
+  });
+  
+  return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
+}
+
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
   const level = competencyLevels[rating];
   
@@ -637,6 +662,24 @@ export default function Training() {
                       </div>
                       {session.notes && (
                         <p className="text-xs text-muted-foreground mt-2 italic">{session.notes}</p>
+                      )}
+                      {session.status === 'scheduled' && (
+                        <div className="mt-3 pt-2 border-t">
+                          <a
+                            href={generateOutlookCalendarUrl(
+                              `Training: ${session.competencyName}`,
+                              session.scheduledDate,
+                              `Training session for ${session.attendees.map(a => a.name).join(', ')}.\n\nTrainer: ${session.trainer}\nCategory: ${session.categoryName}${session.notes ? `\nNotes: ${session.notes}` : ''}`
+                            )}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                            data-testid={`link-outlook-${session.id}`}
+                          >
+                            <Calendar className="h-3 w-3" />
+                            Add to Outlook Calendar
+                          </a>
+                        </div>
                       )}
                     </div>
                   ))}

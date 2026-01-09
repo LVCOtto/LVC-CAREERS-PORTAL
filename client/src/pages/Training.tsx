@@ -315,6 +315,17 @@ export default function Training() {
 
   const isAdmin = currentUser.role === 'admin';
   const isManager = currentUser.role === 'manager' || isAdmin;
+  const isColleague = currentUser.role === 'colleague';
+
+  // For colleagues, find their own matrix data
+  const myMatrix: EngineerMatrix = {
+    id: 'self',
+    name: currentUser.name,
+    role: currentUser.department === 'Engineering' ? 'Engineer' : 'Administrator',
+    department: currentUser.department,
+    ratings: engineerMatrices[1].ratings, // Use sample ratings for demo
+    lastAssessment: '2025-12-01',
+  };
 
   const currentCategories = activeTab === 'engineering' ? engineeringCategories : adminCategories;
   const currentEngineers = activeTab === 'engineering' ? engineerMatrices : adminMatrices;
@@ -368,18 +379,21 @@ export default function Training() {
 
         <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); setViewMode('team'); setSelectedEngineer(null); }}>
           <div className="flex items-center justify-between mb-4">
-            <TabsList>
-              <TabsTrigger value="engineering" className="gap-2" data-testid="tab-engineering">
-                <Wrench className="h-4 w-4" />
-                Engineering
-              </TabsTrigger>
-              <TabsTrigger value="admin" className="gap-2" data-testid="tab-admin">
-                <Headphones className="h-4 w-4" />
-                Service Admin
-              </TabsTrigger>
-            </TabsList>
+            {!isColleague && (
+              <TabsList>
+                <TabsTrigger value="engineering" className="gap-2" data-testid="tab-engineering">
+                  <Wrench className="h-4 w-4" />
+                  Engineering
+                </TabsTrigger>
+                <TabsTrigger value="admin" className="gap-2" data-testid="tab-admin">
+                  <Headphones className="h-4 w-4" />
+                  Service Admin
+                </TabsTrigger>
+              </TabsList>
+            )}
+            {isColleague && <div />}
 
-            {viewMode === 'individual' && selectedEngineer && (
+            {viewMode === 'individual' && selectedEngineer && !isColleague && (
               <Button variant="ghost" onClick={handleBackToTeam} data-testid="button-back-to-team">
                 ← Back to Team View
               </Button>
@@ -392,7 +406,7 @@ export default function Training() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-primary" />
-                    {viewMode === 'team' ? 'Engineering Team Competency Matrix' : 'Individual Assessment'}
+                    {isColleague ? 'My Competency Matrix' : viewMode === 'team' ? 'Engineering Team Competency Matrix' : 'Individual Assessment'}
                   </CardTitle>
                   {viewMode === 'team' && (
                     <Badge variant="outline" className="gap-1">
@@ -403,7 +417,12 @@ export default function Training() {
                 </div>
               </CardHeader>
               <CardContent>
-                {viewMode === 'team' ? (
+                {isColleague ? (
+                  <EngineerDetailView
+                    engineer={myMatrix}
+                    categories={engineeringCategories}
+                  />
+                ) : viewMode === 'team' ? (
                   <>
                     <CompetencyLegend />
                     <div className="mt-6">
@@ -433,7 +452,7 @@ export default function Training() {
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-5 w-5 text-primary" />
-                    {viewMode === 'team' ? 'Service Admin Team Competency Matrix' : 'Individual Assessment'}
+                    {isColleague ? 'My Competency Matrix' : viewMode === 'team' ? 'Service Admin Team Competency Matrix' : 'Individual Assessment'}
                   </CardTitle>
                   {viewMode === 'team' && (
                     <Badge variant="outline" className="gap-1">
@@ -444,7 +463,12 @@ export default function Training() {
                 </div>
               </CardHeader>
               <CardContent>
-                {viewMode === 'team' ? (
+                {isColleague ? (
+                  <EngineerDetailView
+                    engineer={myMatrix}
+                    categories={adminCategories}
+                  />
+                ) : viewMode === 'team' ? (
                   <>
                     <CompetencyLegend />
                     <div className="mt-6">

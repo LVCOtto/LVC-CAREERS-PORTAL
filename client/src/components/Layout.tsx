@@ -24,7 +24,7 @@ import {
   Award,
   Briefcase,
 } from 'lucide-react';
-import lvcLogo from '@assets/lvc-logo.svg';
+import lvcLogo from '@assets/image-1_1767968047751.png';
 
 interface LayoutProps {
   children: ReactNode;
@@ -130,7 +130,7 @@ export function Layout({ children }: LayoutProps) {
       <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col">
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3 mb-2">
-            <img src={lvcLogo} alt="LVC UK" className="h-10 w-auto brightness-0 invert" />
+            <img src={lvcLogo} alt="LVC UK" className="h-12 w-auto" />
           </div>
           <p className="text-sm text-sidebar-foreground/60">
             Career Portal

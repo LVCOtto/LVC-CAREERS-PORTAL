@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserRole, users } from '@/lib/mockData';
 import { Users, Shield, User } from 'lucide-react';
-import lvcLogo from '@assets/lvc-logo.svg';
+import lvcLogo from '@assets/image-1_1767968047751.png';
 
 export default function Login() {
   const { loginAs } = useAuth();
@@ -46,7 +46,7 @@ export default function Login() {
     <div className="min-h-screen lvc-gradient flex items-center justify-center p-8">
       <div className="w-full max-w-4xl animate-fade-in">
         <div className="text-center mb-12">
-          <img src={lvcLogo} alt="LVC UK" className="h-16 w-auto mx-auto mb-6 brightness-0 invert" />
+          <img src={lvcLogo} alt="LVC UK" className="h-20 w-auto mx-auto mb-6" />
           <h1 className="font-display text-4xl font-bold text-white mb-3">
             Career Portal
           </h1>

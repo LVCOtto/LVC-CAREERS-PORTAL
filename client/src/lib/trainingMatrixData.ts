@@ -276,3 +276,97 @@ export function calculateOverallAverage(ratings: Record<string, number>, categor
   });
   return count > 0 ? total / count : 0;
 }
+
+export interface SkillGap {
+  engineerId: string;
+  engineerName: string;
+  competencyId: string;
+  competencyName: string;
+  categoryName: string;
+  currentRating: number;
+  targetRating: number;
+}
+
+export interface ScheduledTraining {
+  id: string;
+  competencyId: string;
+  competencyName: string;
+  categoryName: string;
+  attendees: { id: string; name: string }[];
+  scheduledDate: string;
+  trainer: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  notes?: string;
+}
+
+export function identifySkillGaps(
+  engineers: EngineerMatrix[],
+  categories: CompetencyCategory[],
+  threshold: number = 1
+): SkillGap[] {
+  const gaps: SkillGap[] = [];
+  
+  engineers.forEach(engineer => {
+    categories.forEach(category => {
+      category.items.forEach(item => {
+        const rating = engineer.ratings[item.id] ?? 0;
+        if (rating <= threshold) {
+          gaps.push({
+            engineerId: engineer.id,
+            engineerName: engineer.name,
+            competencyId: item.id,
+            competencyName: item.name,
+            categoryName: category.name,
+            currentRating: rating,
+            targetRating: 3,
+          });
+        }
+      });
+    });
+  });
+  
+  return gaps.sort((a, b) => a.currentRating - b.currentRating);
+}
+
+export const scheduledTrainingSessions: ScheduledTraining[] = [
+  {
+    id: 'ts-1',
+    competencyId: 'battery-safety',
+    competencyName: 'Battery Safety (including transport and storage)',
+    categoryName: 'Occupational Safety and Health',
+    attendees: [
+      { id: 'eng-3', name: 'David Thompson' },
+      { id: 'eng-2', name: 'Michael Brown' },
+    ],
+    scheduledDate: '2026-01-15',
+    trainer: 'James Wilson',
+    status: 'scheduled',
+    notes: 'Focus on lithium battery handling procedures',
+  },
+  {
+    id: 'ts-2',
+    competencyId: 'hydraulic-systems',
+    competencyName: 'Hydraulic Systems',
+    categoryName: 'Technical Expertise - Misc and Specialist',
+    attendees: [
+      { id: 'eng-3', name: 'David Thompson' },
+    ],
+    scheduledDate: '2026-01-22',
+    trainer: 'External - Hydraulics Ltd',
+    status: 'scheduled',
+  },
+  {
+    id: 'ts-3',
+    competencyId: 'coshh',
+    competencyName: 'Chemical COSHH training',
+    categoryName: 'Occupational Safety and Health',
+    attendees: [
+      { id: 'eng-2', name: 'Michael Brown' },
+      { id: 'eng-3', name: 'David Thompson' },
+      { id: 'eng-4', name: 'Robert Clarke' },
+    ],
+    scheduledDate: '2025-12-10',
+    trainer: 'i-Hasco (Online)',
+    status: 'completed',
+  },
+];

@@ -21,6 +21,11 @@ import {
   XCircle,
   Wrench,
   Headphones,
+  Plus,
+  Clock,
+  Target,
+  UserPlus,
+  CalendarPlus,
 } from 'lucide-react';
 import {
   engineeringCategories,
@@ -31,9 +36,25 @@ import {
   getCompetencyColor,
   calculateCategoryAverage,
   calculateOverallAverage,
+  identifySkillGaps,
+  scheduledTrainingSessions,
   type CompetencyCategory,
   type EngineerMatrix,
+  type SkillGap,
+  type ScheduledTraining,
 } from '@/lib/trainingMatrixData';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
   const level = competencyLevels[rating];
@@ -307,6 +328,7 @@ function TeamOverviewGrid({
 
 export default function Training() {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('engineering');
   const [selectedEngineer, setSelectedEngineer] = useState<EngineerMatrix | null>(null);
   const [viewMode, setViewMode] = useState<'team' | 'individual'>('team');
@@ -492,6 +514,137 @@ export default function Training() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {isManager && (
+          <div className="grid lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Target className="h-5 w-5 text-red-500" />
+                    Skills Gaps Identified
+                  </CardTitle>
+                  <Badge variant="destructive">
+                    {identifySkillGaps(activeTab === 'engineering' ? engineerMatrices : adminMatrices, activeTab === 'engineering' ? engineeringCategories : adminCategories).length} gaps
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  {identifySkillGaps(
+                    activeTab === 'engineering' ? engineerMatrices : adminMatrices,
+                    activeTab === 'engineering' ? engineeringCategories : adminCategories
+                  ).slice(0, 8).map((gap, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{gap.competencyName}</p>
+                        <p className="text-xs text-muted-foreground">{gap.engineerName}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className={`${getCompetencyColor(gap.currentRating)} w-8 h-8 rounded flex items-center justify-center font-semibold text-sm`}>
+                          {gap.currentRating}
+                        </div>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button size="sm" variant="outline" className="gap-1" data-testid={`button-schedule-gap-${idx}`}>
+                              <CalendarPlus className="h-3 w-3" />
+                              Schedule
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Schedule Training Session</DialogTitle>
+                              <DialogDescription>
+                                Create a training session to address this skill gap
+                              </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 py-4">
+                              <div className="bg-muted/50 p-3 rounded-lg">
+                                <p className="text-sm font-medium">{gap.competencyName}</p>
+                                <p className="text-xs text-muted-foreground mt-1">For: {gap.engineerName} • Current Level: {gap.currentRating}/4</p>
+                              </div>
+                              <div className="grid gap-4">
+                                <div className="grid gap-2">
+                                  <Label htmlFor="date">Training Date</Label>
+                                  <Input id="date" type="date" />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="trainer">Trainer / Provider</Label>
+                                  <Input id="trainer" placeholder="e.g., James Wilson, i-Hasco, External" />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="notes">Notes</Label>
+                                  <Input id="notes" placeholder="Additional details..." />
+                                </div>
+                              </div>
+                            </div>
+                            <DialogFooter>
+                              <Button onClick={() => toast({ title: 'Training Scheduled', description: `Training session for ${gap.competencyName} has been scheduled.` })}>
+                                Schedule Training
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {identifySkillGaps(activeTab === 'engineering' ? engineerMatrices : adminMatrices, activeTab === 'engineering' ? engineeringCategories : adminCategories).length > 8 && (
+                  <p className="text-xs text-muted-foreground text-center mt-3">
+                    + {identifySkillGaps(activeTab === 'engineering' ? engineerMatrices : adminMatrices, activeTab === 'engineering' ? engineeringCategories : adminCategories).length - 8} more gaps identified
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    Scheduled Training Sessions
+                  </CardTitle>
+                  <Button size="sm" variant="outline" className="gap-1" data-testid="button-add-training">
+                    <Plus className="h-3 w-3" />
+                    Add
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {scheduledTrainingSessions.map((session) => (
+                    <div key={session.id} className={`p-3 rounded-lg border ${session.status === 'completed' ? 'bg-emerald-50 border-emerald-200' : 'bg-background'}`}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm truncate">{session.competencyName}</p>
+                            {session.status === 'completed' && (
+                              <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{session.categoryName}</p>
+                        </div>
+                        <Badge variant={session.status === 'completed' ? 'secondary' : 'default'} className="flex-shrink-0">
+                          {new Date(session.scheduledDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        </Badge>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Users className="h-3 w-3" />
+                          <span>{session.attendees.map(a => a.name.split(' ')[0]).join(', ')}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">Trainer: {session.trainer}</span>
+                      </div>
+                      {session.notes && (
+                        <p className="text-xs text-muted-foreground mt-2 italic">{session.notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="p-4">

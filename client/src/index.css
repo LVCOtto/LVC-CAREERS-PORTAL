@@ -50,6 +50,7 @@
   --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
+/* LVC UK Brand Colors: Dark Navy Blue (#1a2a4a) with Yellow/Gold accent (#f7b500) */
 :root {
   --button-outline: rgba(0,0,0, .08);
   --badge-outline: rgba(0,0,0, .05);
@@ -58,39 +59,42 @@
   --elevate-2: rgba(0,0,0, .06);
 
   --background: 210 20% 98%;
-  --foreground: 215 25% 15%;
+  --foreground: 220 30% 15%;
 
-  --border: 214 20% 90%;
-  --input: 214 20% 88%;
+  --border: 220 20% 90%;
+  --input: 220 20% 88%;
 
   --card: 0 0% 100%;
-  --card-foreground: 215 25% 15%;
-  --card-border: 214 20% 92%;
+  --card-foreground: 220 30% 15%;
+  --card-border: 220 20% 92%;
 
-  --sidebar: 215 30% 18%;
+  /* LVC Navy Blue Sidebar */
+  --sidebar: 220 45% 18%;
   --sidebar-foreground: 210 20% 95%;
-  --sidebar-border: 215 25% 25%;
-  --sidebar-primary: 173 58% 45%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 215 25% 25%;
+  --sidebar-border: 220 40% 25%;
+  --sidebar-primary: 45 95% 50%;
+  --sidebar-primary-foreground: 220 45% 15%;
+  --sidebar-accent: 220 40% 25%;
   --sidebar-accent-foreground: 210 20% 95%;
-  --sidebar-ring: 173 58% 45%;
+  --sidebar-ring: 45 95% 50%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 215 25% 15%;
-  --popover-border: 214 20% 90%;
+  --popover-foreground: 220 30% 15%;
+  --popover-border: 220 20% 90%;
 
-  --primary: 173 58% 39%;
+  /* LVC Primary: Navy Blue */
+  --primary: 220 45% 25%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 214 15% 93%;
-  --secondary-foreground: 215 25% 25%;
+  --secondary: 220 15% 93%;
+  --secondary-foreground: 220 30% 25%;
 
-  --muted: 214 15% 95%;
-  --muted-foreground: 215 15% 45%;
+  --muted: 220 15% 95%;
+  --muted-foreground: 220 15% 45%;
 
-  --accent: 38 92% 50%;
-  --accent-foreground: 0 0% 100%;
+  /* LVC Accent: Yellow/Gold */
+  --accent: 45 95% 50%;
+  --accent-foreground: 220 45% 15%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
@@ -101,22 +105,22 @@
   --warning: 38 92% 50%;
   --warning-foreground: 0 0% 100%;
 
-  --ring: 173 58% 39%;
+  --ring: 220 45% 25%;
   --radius: 0.625rem;
 
-  --chart-1: 173 58% 39%;
-  --chart-2: 215 25% 27%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 142 71% 45%;
-  --chart-5: 0 72% 51%;
+  --chart-1: 220 45% 25%;
+  --chart-2: 45 95% 50%;
+  --chart-3: 142 71% 45%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 220 30% 50%;
 
-  --primary-border: hsl(173 58% 32%);
-  --secondary-border: hsl(214 15% 88%);
-  --muted-border: hsl(214 15% 90%);
-  --accent-border: hsl(38 92% 42%);
+  --primary-border: hsl(220 45% 18%);
+  --secondary-border: hsl(220 15% 88%);
+  --muted-border: hsl(220 15% 90%);
+  --accent-border: hsl(45 95% 42%);
   --destructive-border: hsl(0 72% 44%);
-  --sidebar-primary-border: hsl(173 58% 38%);
-  --sidebar-accent-border: hsl(215 25% 20%);
+  --sidebar-primary-border: hsl(45 95% 42%);
+  --sidebar-accent-border: hsl(220 40% 20%);
 }
 
 .dark {
@@ -126,40 +130,40 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .08);
 
-  --background: 215 30% 9%;
+  --background: 220 35% 8%;
   --foreground: 210 20% 95%;
 
-  --border: 215 25% 18%;
-  --input: 215 25% 20%;
+  --border: 220 30% 18%;
+  --input: 220 30% 20%;
 
-  --card: 215 28% 12%;
+  --card: 220 32% 11%;
   --card-foreground: 210 20% 95%;
-  --card-border: 215 25% 18%;
+  --card-border: 220 30% 18%;
 
-  --sidebar: 215 32% 8%;
+  --sidebar: 220 40% 7%;
   --sidebar-foreground: 210 20% 95%;
-  --sidebar-border: 215 25% 15%;
-  --sidebar-primary: 173 58% 45%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 215 25% 15%;
+  --sidebar-border: 220 35% 15%;
+  --sidebar-primary: 45 95% 50%;
+  --sidebar-primary-foreground: 220 45% 15%;
+  --sidebar-accent: 220 35% 15%;
   --sidebar-accent-foreground: 210 20% 95%;
-  --sidebar-ring: 173 58% 45%;
+  --sidebar-ring: 45 95% 50%;
 
-  --popover: 215 28% 12%;
+  --popover: 220 32% 11%;
   --popover-foreground: 210 20% 95%;
-  --popover-border: 215 25% 18%;
+  --popover-border: 220 30% 18%;
 
-  --primary: 173 58% 45%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 45 95% 50%;
+  --primary-foreground: 220 45% 15%;
 
-  --secondary: 215 25% 18%;
+  --secondary: 220 30% 18%;
   --secondary-foreground: 210 20% 90%;
 
-  --muted: 215 25% 15%;
-  --muted-foreground: 215 15% 55%;
+  --muted: 220 30% 15%;
+  --muted-foreground: 220 15% 55%;
 
-  --accent: 38 92% 50%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 45 95% 50%;
+  --accent-foreground: 220 45% 15%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
@@ -170,13 +174,13 @@
   --warning: 38 92% 50%;
   --warning-foreground: 0 0% 100%;
 
-  --ring: 173 58% 45%;
+  --ring: 45 95% 50%;
 
-  --chart-1: 173 58% 45%;
-  --chart-2: 215 25% 35%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 142 71% 45%;
-  --chart-5: 0 72% 51%;
+  --chart-1: 45 95% 50%;
+  --chart-2: 220 35% 35%;
+  --chart-3: 142 71% 45%;
+  --chart-4: 0 72% 51%;
+  --chart-5: 220 30% 50%;
 }
 
 @layer base {
@@ -206,6 +210,10 @@
   
   .animate-slide-in-right {
     animation: slideInRight 0.3s ease-out forwards;
+  }
+
+  .lvc-gradient {
+    background: linear-gradient(135deg, hsl(220 45% 18%) 0%, hsl(220 45% 25%) 100%);
   }
 }
 

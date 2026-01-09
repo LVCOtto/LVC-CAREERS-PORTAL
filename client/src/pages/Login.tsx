@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserRole, users } from '@/lib/mockData';
 import { Users, Shield, User } from 'lucide-react';
+import lvcLogo from '@assets/lvc-logo.svg';
 
 export default function Login() {
   const { loginAs } = useAuth();
@@ -42,11 +43,12 @@ export default function Login() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sidebar via-sidebar to-primary/20 flex items-center justify-center p-8">
+    <div className="min-h-screen lvc-gradient flex items-center justify-center p-8">
       <div className="w-full max-w-4xl animate-fade-in">
         <div className="text-center mb-12">
+          <img src={lvcLogo} alt="LVC UK" className="h-16 w-auto mx-auto mb-6 brightness-0 invert" />
           <h1 className="font-display text-4xl font-bold text-white mb-3">
-            LVC Career Portal
+            Career Portal
           </h1>
           <p className="text-lg text-white/70">
             Training & Development Management System

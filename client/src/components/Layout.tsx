@@ -46,7 +46,7 @@ const navItems: NavItem[] = [
   },
   {
     href: '/induction',
-    label: 'Induction',
+    label: 'Induction & Role',
     icon: <ClipboardCheck className="w-5 h-5" />,
     roles: ['colleague', 'manager', 'admin'],
   },

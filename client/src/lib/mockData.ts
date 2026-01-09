@@ -1,0 +1,582 @@
+export type UserRole = 'colleague' | 'manager' | 'admin';
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  jobRole: string;
+  department: string;
+  managerId?: string;
+  avatar?: string;
+  startDate: string;
+}
+
+export interface ChecklistItem {
+  id: string;
+  section: string;
+  title: string;
+  description?: string;
+  requiresEvidence: boolean;
+  completed: boolean;
+  completedDate?: string;
+  signedOffBy?: string;
+  signedOffDate?: string;
+  dueDate?: string;
+}
+
+export interface InductionInstance {
+  id: string;
+  userId: string;
+  templateName: string;
+  status: 'not_started' | 'in_progress' | 'awaiting_signoff' | 'complete';
+  items: ChecklistItem[];
+  createdDate: string;
+}
+
+export interface TrainingRequirement {
+  id: string;
+  category: string;
+  name: string;
+  renewalPeriodDays?: number;
+  requiresEvidence: boolean;
+}
+
+export interface TrainingRecord {
+  id: string;
+  userId: string;
+  requirementId: string;
+  requirementName: string;
+  category: string;
+  completedDate?: string;
+  expiresDate?: string;
+  status: 'compliant' | 'due_soon' | 'overdue' | 'missing';
+  certificateFile?: string;
+}
+
+export interface Resource {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  url: string;
+  icon: string;
+}
+
+export interface CareerMilestone {
+  id: string;
+  userId: string;
+  title: string;
+  date: string;
+  description: string;
+}
+
+export const users: User[] = [
+  {
+    id: 'admin-1',
+    name: 'Sarah Mitchell',
+    email: 'sarah.mitchell@lvc.com',
+    role: 'admin',
+    jobRole: 'HR Director',
+    department: 'Human Resources',
+    startDate: '2019-03-15',
+  },
+  {
+    id: 'manager-1',
+    name: 'James Wilson',
+    email: 'james.wilson@lvc.com',
+    role: 'manager',
+    jobRole: 'Operations Manager',
+    department: 'Operations',
+    startDate: '2020-06-01',
+  },
+  {
+    id: 'manager-2',
+    name: 'Emma Thompson',
+    email: 'emma.thompson@lvc.com',
+    role: 'manager',
+    jobRole: 'Engineering Lead',
+    department: 'Engineering',
+    startDate: '2020-09-14',
+  },
+  {
+    id: 'colleague-1',
+    name: 'Michael Chen',
+    email: 'michael.chen@lvc.com',
+    role: 'colleague',
+    jobRole: 'Engineer',
+    department: 'Engineering',
+    managerId: 'manager-2',
+    startDate: '2024-11-01',
+  },
+  {
+    id: 'colleague-2',
+    name: 'Sophie Williams',
+    email: 'sophie.williams@lvc.com',
+    role: 'colleague',
+    jobRole: 'Engineer',
+    department: 'Engineering',
+    managerId: 'manager-2',
+    startDate: '2024-08-15',
+  },
+  {
+    id: 'colleague-3',
+    name: 'David Brown',
+    email: 'david.brown@lvc.com',
+    role: 'colleague',
+    jobRole: 'Operations Coordinator',
+    department: 'Operations',
+    managerId: 'manager-1',
+    startDate: '2024-10-01',
+  },
+  {
+    id: 'colleague-4',
+    name: 'Lisa Martinez',
+    email: 'lisa.martinez@lvc.com',
+    role: 'colleague',
+    jobRole: 'Operations Coordinator',
+    department: 'Operations',
+    managerId: 'manager-1',
+    startDate: '2023-05-20',
+  },
+  {
+    id: 'colleague-5',
+    name: 'Tom Harris',
+    email: 'tom.harris@lvc.com',
+    role: 'colleague',
+    jobRole: 'Engineer',
+    department: 'Engineering',
+    managerId: 'manager-2',
+    startDate: '2024-01-08',
+  },
+  {
+    id: 'colleague-6',
+    name: 'Rachel Green',
+    email: 'rachel.green@lvc.com',
+    role: 'colleague',
+    jobRole: 'Operations Coordinator',
+    department: 'Operations',
+    managerId: 'manager-1',
+    startDate: '2024-12-02',
+  },
+];
+
+export const inductionItems: ChecklistItem[] = [
+  {
+    id: 'ind-1',
+    section: 'Pre-Induction',
+    title: 'Complete pre-employment documentation',
+    description: 'Submit all required personal documents and contracts',
+    requiresEvidence: true,
+    completed: true,
+    completedDate: '2024-11-02',
+    signedOffBy: 'manager-2',
+    signedOffDate: '2024-11-02',
+  },
+  {
+    id: 'ind-2',
+    section: 'Pre-Induction',
+    title: 'IT systems access setup',
+    description: 'Email, Teams, and core systems configured',
+    requiresEvidence: false,
+    completed: true,
+    completedDate: '2024-11-01',
+    signedOffBy: 'manager-2',
+    signedOffDate: '2024-11-01',
+  },
+  {
+    id: 'ind-3',
+    section: 'Day 1',
+    title: 'Welcome meeting with manager',
+    description: 'Introduction to team and role overview',
+    requiresEvidence: false,
+    completed: true,
+    completedDate: '2024-11-01',
+    signedOffBy: 'manager-2',
+    signedOffDate: '2024-11-01',
+  },
+  {
+    id: 'ind-4',
+    section: 'Day 1',
+    title: 'Health & Safety briefing',
+    description: 'Complete mandatory H&S induction',
+    requiresEvidence: true,
+    completed: true,
+    completedDate: '2024-11-01',
+    signedOffBy: 'manager-2',
+    signedOffDate: '2024-11-02',
+  },
+  {
+    id: 'ind-5',
+    section: 'Day 1',
+    title: 'Workplace tour',
+    description: 'Familiarization with facilities and emergency exits',
+    requiresEvidence: false,
+    completed: true,
+    completedDate: '2024-11-01',
+  },
+  {
+    id: 'ind-6',
+    section: 'Week 1',
+    title: 'Read Employee Handbook',
+    description: 'Review company policies and procedures',
+    requiresEvidence: true,
+    completed: true,
+    completedDate: '2024-11-05',
+  },
+  {
+    id: 'ind-7',
+    section: 'Week 1',
+    title: 'Complete mandatory e-learning modules',
+    description: 'Data Protection, Equality & Diversity, Information Security',
+    requiresEvidence: true,
+    completed: false,
+    dueDate: '2024-11-15',
+  },
+  {
+    id: 'ind-8',
+    section: 'Week 1',
+    title: 'Meet key stakeholders',
+    description: 'Introduction meetings with cross-functional teams',
+    requiresEvidence: false,
+    completed: false,
+    dueDate: '2024-11-15',
+  },
+  {
+    id: 'ind-9',
+    section: 'Week 2',
+    title: 'Week 2 progress review',
+    description: 'Check-in meeting with line manager',
+    requiresEvidence: false,
+    completed: false,
+    dueDate: '2024-11-15',
+  },
+  {
+    id: 'ind-10',
+    section: 'Week 2',
+    title: 'Role-specific training plan agreed',
+    description: 'Document training requirements for first 3 months',
+    requiresEvidence: true,
+    completed: false,
+    dueDate: '2024-11-18',
+  },
+  {
+    id: 'ind-11',
+    section: 'Month 1',
+    title: 'Month 1 competency check',
+    description: 'Assessment of initial role competencies',
+    requiresEvidence: true,
+    completed: false,
+    dueDate: '2024-12-01',
+  },
+  {
+    id: 'ind-12',
+    section: 'Month 3',
+    title: 'Probation review meeting',
+    description: 'Formal review of probation period progress',
+    requiresEvidence: true,
+    completed: false,
+    dueDate: '2025-02-01',
+  },
+];
+
+export const trainingRecords: TrainingRecord[] = [
+  {
+    id: 'tr-1',
+    userId: 'colleague-1',
+    requirementId: 'req-1',
+    requirementName: 'Health & Safety Fundamentals',
+    category: 'Mandatory',
+    completedDate: '2024-11-01',
+    expiresDate: '2025-11-01',
+    status: 'compliant',
+  },
+  {
+    id: 'tr-2',
+    userId: 'colleague-1',
+    requirementId: 'req-2',
+    requirementName: 'Data Protection & GDPR',
+    category: 'Mandatory',
+    completedDate: '2024-11-05',
+    expiresDate: '2025-11-05',
+    status: 'compliant',
+  },
+  {
+    id: 'tr-3',
+    userId: 'colleague-1',
+    requirementId: 'req-3',
+    requirementName: 'Fire Safety Awareness',
+    category: 'Mandatory',
+    completedDate: '2024-06-15',
+    expiresDate: '2025-01-15',
+    status: 'due_soon',
+  },
+  {
+    id: 'tr-4',
+    userId: 'colleague-1',
+    requirementId: 'req-4',
+    requirementName: 'Manual Handling',
+    category: 'Mandatory',
+    completedDate: '2023-10-20',
+    expiresDate: '2024-10-20',
+    status: 'overdue',
+  },
+  {
+    id: 'tr-5',
+    userId: 'colleague-1',
+    requirementId: 'req-5',
+    requirementName: 'First Aid at Work',
+    category: 'Role-Specific',
+    status: 'missing',
+  },
+  {
+    id: 'tr-6',
+    userId: 'colleague-1',
+    requirementId: 'req-6',
+    requirementName: 'Technical Equipment Training',
+    category: 'Role-Specific',
+    completedDate: '2024-11-10',
+    status: 'compliant',
+  },
+  {
+    id: 'tr-7',
+    userId: 'colleague-1',
+    requirementId: 'req-7',
+    requirementName: 'Quality Assurance Procedures',
+    category: 'Role-Specific',
+    completedDate: '2024-11-08',
+    status: 'compliant',
+  },
+  {
+    id: 'tr-8',
+    userId: 'colleague-1',
+    requirementId: 'req-8',
+    requirementName: 'Environmental Awareness',
+    category: 'Optional',
+    status: 'missing',
+  },
+  {
+    id: 'tr-9',
+    userId: 'colleague-1',
+    requirementId: 'req-9',
+    requirementName: 'Leadership Fundamentals',
+    category: 'Development',
+    status: 'missing',
+  },
+  {
+    id: 'tr-10',
+    userId: 'colleague-1',
+    requirementId: 'req-10',
+    requirementName: 'Project Management Basics',
+    category: 'Development',
+    completedDate: '2024-09-15',
+    status: 'compliant',
+  },
+];
+
+export const resources: Resource[] = [
+  {
+    id: 'res-1',
+    title: 'Employee Handbook',
+    description: 'Complete guide to company policies and procedures',
+    category: 'Policies',
+    url: '#',
+    icon: 'book-open',
+  },
+  {
+    id: 'res-2',
+    title: 'Health & Safety Policy',
+    description: 'Workplace safety guidelines and procedures',
+    category: 'Policies',
+    url: '#',
+    icon: 'shield-check',
+  },
+  {
+    id: 'res-3',
+    title: 'IT Security Guidelines',
+    description: 'Information security and acceptable use policy',
+    category: 'Policies',
+    url: '#',
+    icon: 'lock',
+  },
+  {
+    id: 'res-4',
+    title: 'Benefits Portal',
+    description: 'Access your employee benefits and pension information',
+    category: 'HR',
+    url: '#',
+    icon: 'gift',
+  },
+  {
+    id: 'res-5',
+    title: 'Leave Request System',
+    description: 'Book annual leave and view team calendar',
+    category: 'HR',
+    url: '#',
+    icon: 'calendar',
+  },
+  {
+    id: 'res-6',
+    title: 'Expenses Claim Form',
+    description: 'Submit and track expense claims',
+    category: 'HR',
+    url: '#',
+    icon: 'receipt',
+  },
+  {
+    id: 'res-7',
+    title: 'Training Catalog',
+    description: 'Browse available training courses and certifications',
+    category: 'Learning',
+    url: '#',
+    icon: 'graduation-cap',
+  },
+  {
+    id: 'res-8',
+    title: 'Company Intranet',
+    description: 'Latest news, announcements, and team updates',
+    category: 'Company',
+    url: '#',
+    icon: 'globe',
+  },
+  {
+    id: 'res-9',
+    title: 'Organisation Chart',
+    description: 'View company structure and reporting lines',
+    category: 'Company',
+    url: '#',
+    icon: 'network',
+  },
+  {
+    id: 'res-10',
+    title: 'IT Support Desk',
+    description: 'Log tickets and get technical support',
+    category: 'Support',
+    url: '#',
+    icon: 'headphones',
+  },
+];
+
+export const careerMilestones: CareerMilestone[] = [
+  {
+    id: 'cm-1',
+    userId: 'colleague-1',
+    title: 'Joined LVC',
+    date: '2024-11-01',
+    description: 'Started as Engineer in the Engineering department',
+  },
+  {
+    id: 'cm-2',
+    userId: 'colleague-1',
+    title: 'Completed Induction',
+    date: '2024-11-15',
+    description: 'Successfully completed initial onboarding program',
+  },
+];
+
+export const jobRoles = [
+  {
+    id: 'jr-1',
+    title: 'Engineer',
+    department: 'Engineering',
+    summary: 'Responsible for technical operations and equipment maintenance',
+    responsibilities: [
+      'Maintain and repair technical equipment',
+      'Follow safety protocols and procedures',
+      'Document work completed and issues identified',
+      'Collaborate with team members on complex projects',
+      'Participate in continuous improvement initiatives',
+    ],
+  },
+  {
+    id: 'jr-2',
+    title: 'Operations Coordinator',
+    department: 'Operations',
+    summary: 'Coordinates daily operations and supports team efficiency',
+    responsibilities: [
+      'Schedule and coordinate team activities',
+      'Monitor operational metrics and KPIs',
+      'Liaise with internal stakeholders',
+      'Prepare reports and documentation',
+      'Support process improvement initiatives',
+    ],
+  },
+  {
+    id: 'jr-3',
+    title: 'Engineering Lead',
+    department: 'Engineering',
+    summary: 'Leads the engineering team and manages technical projects',
+    responsibilities: [
+      'Lead and mentor engineering team members',
+      'Plan and oversee technical projects',
+      'Ensure quality standards are maintained',
+      'Manage team training and development',
+      'Report to senior management on team performance',
+    ],
+  },
+  {
+    id: 'jr-4',
+    title: 'Operations Manager',
+    department: 'Operations',
+    summary: 'Manages operations team and optimizes processes',
+    responsibilities: [
+      'Manage and develop operations team',
+      'Optimize operational processes',
+      'Ensure compliance with policies and regulations',
+      'Manage budgets and resources',
+      'Drive continuous improvement',
+    ],
+  },
+];
+
+export function getTeamMembers(managerId: string): User[] {
+  return users.filter(u => u.managerId === managerId);
+}
+
+export function getUserById(userId: string): User | undefined {
+  return users.find(u => u.id === userId);
+}
+
+export function getTrainingRecordsForUser(userId: string): TrainingRecord[] {
+  return trainingRecords.filter(tr => tr.userId === userId);
+}
+
+export function getInductionForUser(userId: string): InductionInstance {
+  return {
+    id: `ind-instance-${userId}`,
+    userId,
+    templateName: 'Standard Induction Checklist',
+    status: 'in_progress',
+    items: inductionItems,
+    createdDate: '2024-11-01',
+  };
+}
+
+export function getComplianceStats(records: TrainingRecord[]) {
+  const compliant = records.filter(r => r.status === 'compliant').length;
+  const dueSoon = records.filter(r => r.status === 'due_soon').length;
+  const overdue = records.filter(r => r.status === 'overdue').length;
+  const missing = records.filter(r => r.status === 'missing').length;
+  
+  return {
+    compliant,
+    dueSoon,
+    overdue,
+    missing,
+    total: records.length,
+    complianceRate: Math.round((compliant / records.length) * 100),
+  };
+}
+
+export function getInductionProgress(items: ChecklistItem[]) {
+  const completed = items.filter(i => i.completed).length;
+  const signedOff = items.filter(i => i.signedOffBy).length;
+  
+  return {
+    completed,
+    signedOff,
+    total: items.length,
+    progressPercent: Math.round((completed / items.length) * 100),
+    signOffPercent: Math.round((signedOff / items.length) * 100),
+  };
+}

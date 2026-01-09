@@ -15,9 +15,18 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   getInductionForUser,
   getInductionProgress,
   ChecklistItem,
+  getUserById,
 } from '@/lib/mockData';
 import { getRoleForDepartment } from '@/lib/roleResponsibilities';
 import {
@@ -32,6 +41,9 @@ import {
   Building2,
   ListChecks,
   BookOpen,
+  PenLine,
+  UserCheck,
+  Users,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,7 +51,10 @@ export default function Induction() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('checklist');
-  const [acknowledged, setAcknowledged] = useState(false);
+  const [roleAcknowledged, setRoleAcknowledged] = useState(false);
+  const [showSignOffDialog, setShowSignOffDialog] = useState(false);
+  const [colleagueSignedOff, setColleagueSignedOff] = useState(false);
+  const [managerSignedOff, setManagerSignedOff] = useState(false);
 
   if (!currentUser) return null;
 
@@ -50,8 +65,11 @@ export default function Induction() {
 
   const sections = Array.from(new Set(items.map(item => item.section)));
 
+  const allItemsCompleted = items.every(item => item.completed);
+  const inductionComplete = colleagueSignedOff && managerSignedOff;
+
   const handleToggleItem = (itemId: string) => {
-    if (currentUser.role === 'colleague') {
+    if (currentUser.role === 'manager' || currentUser.role === 'admin') {
       setItems(prev =>
         prev.map(item =>
           item.id === itemId
@@ -61,39 +79,40 @@ export default function Induction() {
                 completedDate: !item.completed
                   ? new Date().toISOString().split('T')[0]
                   : undefined,
+                signedOffBy: !item.completed ? currentUser.id : undefined,
+                signedOffDate: !item.completed
+                  ? new Date().toISOString().split('T')[0]
+                  : undefined,
               }
             : item
         )
       );
       toast({
-        title: 'Progress updated',
-        description: 'Your induction progress has been saved.',
+        title: 'Item updated',
+        description: 'Induction item has been marked.',
       });
     }
   };
 
-  const handleSignOff = (itemId: string) => {
-    if (currentUser.role === 'manager' || currentUser.role === 'admin') {
-      setItems(prev =>
-        prev.map(item =>
-          item.id === itemId
-            ? {
-                ...item,
-                signedOffBy: currentUser.id,
-                signedOffDate: new Date().toISOString().split('T')[0],
-              }
-            : item
-        )
-      );
-      toast({
-        title: 'Item signed off',
-        description: 'You have signed off this induction item.',
-      });
-    }
+  const handleColleagueSignOff = () => {
+    setColleagueSignedOff(true);
+    toast({
+      title: 'Colleague Sign-Off Complete',
+      description: 'You have signed off on your induction.',
+    });
   };
 
-  const handleAcknowledge = () => {
-    setAcknowledged(true);
+  const handleManagerSignOff = () => {
+    setManagerSignedOff(true);
+    setShowSignOffDialog(false);
+    toast({
+      title: 'Manager Sign-Off Complete',
+      description: 'You have approved this colleague\'s induction.',
+    });
+  };
+
+  const handleRoleAcknowledge = () => {
+    setRoleAcknowledged(true);
     toast({
       title: 'Role Acknowledged',
       description: 'You have acknowledged your roles and responsibilities.',
@@ -107,6 +126,9 @@ export default function Induction() {
     return Math.round((completed / sectionItems.length) * 100);
   };
 
+  const isColleagueView = currentUser.role === 'colleague';
+  const isManagerView = currentUser.role === 'manager' || currentUser.role === 'admin';
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -115,7 +137,9 @@ export default function Induction() {
             Induction & Role
           </h1>
           <p className="text-muted-foreground mt-1">
-            Complete your onboarding and understand your role responsibilities
+            {isColleagueView 
+              ? 'Track your onboarding progress and understand your role responsibilities'
+              : 'Manage colleague induction and sign off completed items'}
           </p>
         </div>
 
@@ -144,7 +168,14 @@ export default function Induction() {
                       <CardDescription>Started {induction.createdDate}</CardDescription>
                     </div>
                   </div>
-                  <StatusBadge status={induction.status} />
+                  {inductionComplete ? (
+                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Induction Complete
+                    </Badge>
+                  ) : (
+                    <StatusBadge status={induction.status} />
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -169,6 +200,21 @@ export default function Induction() {
                     <p className="text-sm text-muted-foreground">Items Signed Off</p>
                   </div>
                 </div>
+
+                {isColleagueView && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <User className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-blue-900">Colleague View</p>
+                        <p className="text-sm text-blue-700">
+                          Your line manager will tick off each item as you complete them together. 
+                          Once all items are complete, you'll both sign off to finish the induction.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -213,14 +259,14 @@ export default function Induction() {
                               id={item.id}
                               checked={item.completed}
                               onCheckedChange={() => handleToggleItem(item.id)}
-                              disabled={currentUser.role !== 'colleague'}
+                              disabled={isColleagueView}
                               className="mt-1"
                               data-testid={`checkbox-${item.id}`}
                             />
                             <div className="flex-1">
                               <label
                                 htmlFor={item.id}
-                                className={`font-medium cursor-pointer ${
+                                className={`font-medium ${isManagerView ? 'cursor-pointer' : ''} ${
                                   item.completed ? 'line-through text-muted-foreground' : ''
                                 }`}
                               >
@@ -241,41 +287,30 @@ export default function Induction() {
                                 {item.dueDate && !item.completed && (
                                   <Badge variant="outline" className="text-xs">
                                     <Clock className="w-3 h-3 mr-1" />
-                                    Due: {new Date(item.dueDate).toLocaleDateString()}
+                                    Due: {new Date(item.dueDate).toLocaleDateString('en-GB')}
                                   </Badge>
                                 )}
                                 {item.completedDate && (
                                   <span className="text-xs text-muted-foreground">
                                     <CheckCircle2 className="w-3 h-3 inline mr-1" />
-                                    Completed {new Date(item.completedDate).toLocaleDateString()}
+                                    Completed {new Date(item.completedDate).toLocaleDateString('en-GB')}
                                   </span>
                                 )}
                                 {item.signedOffBy && (
                                   <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30">
                                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    Signed Off
+                                    Signed Off by Manager
                                   </Badge>
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              {item.requiresEvidence && currentUser.role === 'colleague' && (
+                              {item.requiresEvidence && isManagerView && (
                                 <Button variant="outline" size="sm" data-testid={`button-upload-${item.id}`}>
                                   <Upload className="w-4 h-4 mr-1" />
                                   Upload
                                 </Button>
                               )}
-                              {item.completed &&
-                                !item.signedOffBy &&
-                                (currentUser.role === 'manager' || currentUser.role === 'admin') && (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleSignOff(item.id)}
-                                    data-testid={`button-signoff-${item.id}`}
-                                  >
-                                    Sign Off
-                                  </Button>
-                                )}
                             </div>
                           </div>
                         </div>
@@ -285,6 +320,106 @@ export default function Induction() {
                 </AccordionItem>
               ))}
             </Accordion>
+
+            {allItemsCompleted && (
+              <Card className="mt-6 border-primary/30 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <PenLine className="h-5 w-5" />
+                    Final Sign-Off
+                  </CardTitle>
+                  <CardDescription>
+                    All checklist items are complete. Both colleague and manager must sign off to complete the induction.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className={`p-4 rounded-lg border ${colleagueSignedOff ? 'bg-emerald-50 border-emerald-200' : 'bg-background'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${colleagueSignedOff ? 'bg-emerald-100' : 'bg-muted'}`}>
+                            <UserCheck className={`h-5 w-5 ${colleagueSignedOff ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                          </div>
+                          <div>
+                            <p className="font-medium">Colleague Sign-Off</p>
+                            {colleagueSignedOff ? (
+                              <p className="text-sm text-emerald-700">Signed on {new Date().toLocaleDateString('en-GB')}</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Awaiting signature</p>
+                            )}
+                          </div>
+                        </div>
+                        {!colleagueSignedOff && isColleagueView && (
+                          <Button onClick={handleColleagueSignOff} data-testid="button-colleague-signoff">
+                            Sign Off
+                          </Button>
+                        )}
+                        {colleagueSignedOff && (
+                          <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={`p-4 rounded-lg border ${managerSignedOff ? 'bg-emerald-50 border-emerald-200' : 'bg-background'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center ${managerSignedOff ? 'bg-emerald-100' : 'bg-muted'}`}>
+                            <Users className={`h-5 w-5 ${managerSignedOff ? 'text-emerald-600' : 'text-muted-foreground'}`} />
+                          </div>
+                          <div>
+                            <p className="font-medium">Manager Sign-Off</p>
+                            {managerSignedOff ? (
+                              <p className="text-sm text-emerald-700">Signed on {new Date().toLocaleDateString('en-GB')}</p>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">Awaiting manager signature</p>
+                            )}
+                          </div>
+                        </div>
+                        {!managerSignedOff && isManagerView && (
+                          <Button onClick={() => setShowSignOffDialog(true)} data-testid="button-manager-signoff">
+                            Sign Off
+                          </Button>
+                        )}
+                        {managerSignedOff && (
+                          <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {inductionComplete && (
+                    <div className="mt-4 p-4 bg-emerald-100 border border-emerald-200 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <CheckCircle2 className="h-6 w-6 text-emerald-700" />
+                        <div>
+                          <p className="font-semibold text-emerald-800">Induction Complete!</p>
+                          <p className="text-sm text-emerald-700">
+                            Both signatures received. This induction has been successfully completed.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {!allItemsCompleted && isColleagueView && (
+              <Card className="mt-6 bg-muted/50">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium">In Progress</p>
+                      <p className="text-sm text-muted-foreground">
+                        Work with your line manager to complete the remaining items. 
+                        Once all items are ticked off, you'll both sign off to complete your induction.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="role">
@@ -309,7 +444,7 @@ export default function Induction() {
                       </CardDescription>
                     </div>
                   </div>
-                  {acknowledged ? (
+                  {roleAcknowledged ? (
                     <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 gap-1">
                       <CheckCircle2 className="h-4 w-4" />
                       Acknowledged
@@ -371,7 +506,7 @@ export default function Induction() {
               ))}
             </div>
 
-            {!acknowledged && (
+            {!roleAcknowledged && (
               <Card className="mt-6 border-primary/30 bg-primary/5">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -382,7 +517,7 @@ export default function Induction() {
                         the responsibilities outlined above.
                       </p>
                     </div>
-                    <Button onClick={handleAcknowledge} className="gap-2" data-testid="button-acknowledge">
+                    <Button onClick={handleRoleAcknowledge} className="gap-2" data-testid="button-acknowledge">
                       <CheckCircle2 className="h-4 w-4" />
                       I Acknowledge
                     </Button>
@@ -391,7 +526,7 @@ export default function Induction() {
               </Card>
             )}
 
-            {acknowledged && (
+            {roleAcknowledged && (
               <Card className="mt-6 border-emerald-500/30 bg-emerald-50">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
@@ -409,6 +544,34 @@ export default function Induction() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={showSignOffDialog} onOpenChange={setShowSignOffDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Manager Sign-Off</DialogTitle>
+            <DialogDescription>
+              By signing off, you confirm that this colleague has satisfactorily completed all induction requirements 
+              and is ready to work independently in their role.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm font-medium mb-2">Checklist Summary</p>
+              <p className="text-sm text-muted-foreground">
+                {progress.completed} of {progress.total} items completed and signed off
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSignOffDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleManagerSignOff} data-testid="button-confirm-manager-signoff">
+              Confirm Sign-Off
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }

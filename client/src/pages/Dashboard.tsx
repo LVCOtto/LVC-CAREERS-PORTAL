@@ -4,6 +4,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Link } from 'wouter';
 import {
   getInductionForUser,
@@ -13,6 +14,7 @@ import {
   getTeamMembers,
   users,
   User,
+  certificates,
 } from '@/lib/mockData';
 import {
   ClipboardCheck,
@@ -24,6 +26,16 @@ import {
   ArrowRight,
   Users,
   TrendingUp,
+  Trophy,
+  Target,
+  Sparkles,
+  BookOpen,
+  Award,
+  Compass,
+  ChevronRight,
+  Lightbulb,
+  Calendar,
+  FileCheck,
 } from 'lucide-react';
 
 function ColleagueDashboard({ user }: { user: User }) {
@@ -31,147 +43,277 @@ function ColleagueDashboard({ user }: { user: User }) {
   const trainingRecords = getTrainingRecordsForUser(user.id);
   const inductionProgress = getInductionProgress(induction.items);
   const compliance = getComplianceStats(trainingRecords);
+  const userCertificates = certificates.filter(c => c.userId === user.id);
 
   const upcomingExpiries = trainingRecords
     .filter(r => r.status === 'due_soon' || r.status === 'overdue')
     .slice(0, 3);
 
+  const startDate = new Date(user.startDate);
+  const now = new Date();
+  const monthsAtLVC = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30));
+
   return (
     <div className="space-y-8 animate-fade-in">
-      <div>
-        <h1 className="font-display text-3xl font-bold text-foreground">
-          Welcome back, {user.name.split(' ')[0]}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Here's an overview of your training and development progress
-        </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1a2a4a] via-[#243656] to-[#1a2a4a] p-8 text-white">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+        <div className="relative z-10">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-white/70 mb-1">Welcome back</p>
+              <h1 className="font-display text-4xl font-bold mb-2">
+                {user.name.split(' ')[0]}
+              </h1>
+              <p className="text-white/80 text-lg">
+                {user.jobRole} • {monthsAtLVC} months at LVC
+              </p>
+            </div>
+            <div className="text-right">
+              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2">
+                <Sparkles className="h-5 w-5 text-amber-400" />
+                <span className="font-medium">Career Hub</span>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-6 mt-8">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                  <FileCheck className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{userCertificates.length}</p>
+                  <p className="text-sm text-white/70">Certificates Earned</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{compliance.complianceRate}%</p>
+                  <p className="text-sm text-white/70">Training Complete</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{inductionProgress.progressPercent}%</p>
+                  <p className="text-sm text-white/70">Induction Progress</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
+      <div className="grid lg:grid-cols-3 gap-6">
+        <Card className="lg:col-span-2 border-border/50 shadow-sm">
+          <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <ClipboardCheck className="w-5 h-5 text-primary" />
+                  <Compass className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">Induction Progress</CardTitle>
-                  <CardDescription>Your onboarding checklist</CardDescription>
+                  <CardTitle>Your Career Journey</CardTitle>
+                  <CardDescription>Track your progress and plan your next steps</CardDescription>
                 </div>
               </div>
-              <StatusBadge status={induction.status} />
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-2">
-                  <span className="text-muted-foreground">
-                    {inductionProgress.completed} of {inductionProgress.total} items completed
-                  </span>
-                  <span className="font-medium">{inductionProgress.progressPercent}%</span>
-                </div>
-                <Progress value={inductionProgress.progressPercent} className="h-2" />
-              </div>
-              <div className="flex items-center justify-between pt-2">
-                <p className="text-sm text-muted-foreground">
-                  {inductionProgress.signedOff} items signed off by manager
-                </p>
-                <Link href="/induction">
-                  <Button variant="ghost" size="sm" data-testid="link-view-induction">
-                    View details
-                    <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Training Compliance</CardTitle>
-                  <CardDescription>Your certification status</CardDescription>
-                </div>
-              </div>
-              <span className="text-2xl font-display font-bold text-primary">
-                {compliance.complianceRate}%
-              </span>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-4 gap-3 mb-4">
-              <div className="text-center p-3 rounded-lg bg-emerald-500/10">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 mx-auto mb-1" />
-                <p className="text-lg font-semibold">{compliance.compliant}</p>
-                <p className="text-xs text-muted-foreground">Compliant</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-amber-500/10">
-                <Clock className="w-5 h-5 text-amber-600 mx-auto mb-1" />
-                <p className="text-lg font-semibold">{compliance.dueSoon}</p>
-                <p className="text-xs text-muted-foreground">Due Soon</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-red-500/10">
-                <AlertTriangle className="w-5 h-5 text-red-600 mx-auto mb-1" />
-                <p className="text-lg font-semibold">{compliance.overdue}</p>
-                <p className="text-xs text-muted-foreground">Overdue</p>
-              </div>
-              <div className="text-center p-3 rounded-lg bg-gray-500/10">
-                <XCircle className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                <p className="text-lg font-semibold">{compliance.missing}</p>
-                <p className="text-xs text-muted-foreground">Missing</p>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Link href="/training">
-                <Button variant="ghost" size="sm" data-testid="link-view-training">
-                  View training matrix
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {upcomingExpiries.length > 0 && (
-        <Card className="border-amber-500/30 bg-amber-500/5">
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600" />
-              <CardTitle className="text-lg">Attention Required</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {upcomingExpiries.map(record => (
-                <div
-                  key={record.id}
-                  className="flex items-center justify-between p-3 bg-background rounded-lg border"
-                  data-testid={`alert-training-${record.id}`}
-                >
-                  <div>
-                    <p className="font-medium">{record.requirementName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {record.expiresDate
-                        ? `Expires: ${new Date(record.expiresDate).toLocaleDateString()}`
-                        : 'Not completed'}
-                    </p>
+          <CardContent className="space-y-4">
+            <Link href="/induction">
+              <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-induction-card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${inductionProgress.progressPercent === 100 ? 'bg-emerald-100' : 'bg-primary/10'}`}>
+                      <ClipboardCheck className={`h-6 w-6 ${inductionProgress.progressPercent === 100 ? 'text-emerald-600' : 'text-primary'}`} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Induction & Onboarding</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {inductionProgress.progressPercent === 100 
+                          ? 'Completed - Great job!' 
+                          : `${inductionProgress.completed} of ${inductionProgress.total} items completed`}
+                      </p>
+                    </div>
                   </div>
-                  <StatusBadge status={record.status} />
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <Progress value={inductionProgress.progressPercent} className="w-32 h-2" />
+                      <p className="text-sm text-muted-foreground mt-1">{inductionProgress.progressPercent}%</p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            </Link>
+
+            <Link href="/training">
+              <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-training-card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                      <Target className="h-6 w-6 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Competency & Skills</h3>
+                      <p className="text-sm text-muted-foreground">View your training matrix and skill levels</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Badge variant="secondary" className="gap-1">
+                      <GraduationCap className="h-3 w-3" />
+                      View Matrix
+                    </Badge>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/milestones">
+              <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-milestones-card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-amber-100 flex items-center justify-center">
+                      <Award className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Milestones & Certificates</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {userCertificates.length} certificate{userCertificates.length !== 1 ? 's' : ''} earned
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Badge variant="secondary" className="gap-1">
+                      <Trophy className="h-3 w-3" />
+                      View All
+                    </Badge>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </div>
+              </div>
+            </Link>
+
+            <Link href="/resources">
+              <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-resources-card">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-blue-100 flex items-center justify-center">
+                      <BookOpen className="h-6 w-6 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold">Learning Resources</h3>
+                      <p className="text-sm text-muted-foreground">Policies, guides, and reference materials</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                </div>
+              </div>
+            </Link>
           </CardContent>
         </Card>
-      )}
+
+        <div className="space-y-6">
+          <Card className="border-border/50 bg-gradient-to-br from-primary/5 to-transparent">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Lightbulb className="w-5 h-5 text-primary" />
+                </div>
+                <CardTitle className="text-lg">Development Tips</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="p-3 bg-background rounded-lg border">
+                  <p className="text-sm font-medium">Complete your training matrix</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Self-assess your skills using the Smartsheet form to help identify development areas.
+                  </p>
+                </div>
+                <div className="p-3 bg-background rounded-lg border">
+                  <p className="text-sm font-medium">Schedule a 1:1 with your manager</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Discuss your career goals and training opportunities.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {upcomingExpiries.length > 0 && (
+            <Card className="border-amber-500/30 bg-amber-500/5">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600" />
+                  <CardTitle className="text-lg">Attention Required</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {upcomingExpiries.map(record => (
+                    <div
+                      key={record.id}
+                      className="flex items-center justify-between p-3 bg-background rounded-lg border"
+                      data-testid={`alert-training-${record.id}`}
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{record.requirementName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {record.expiresDate
+                            ? `Expires: ${new Date(record.expiresDate).toLocaleDateString('en-GB')}`
+                            : 'Not completed'}
+                        </p>
+                      </div>
+                      <StatusBadge status={record.status} />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="border-border/50">
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-emerald-600" />
+                </div>
+                <CardTitle className="text-lg">Quick Stats</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Compliant Training</span>
+                  <span className="font-semibold text-emerald-600">{compliance.compliant}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Due Soon</span>
+                  <span className="font-semibold text-amber-600">{compliance.dueSoon}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Overdue</span>
+                  <span className="font-semibold text-red-600">{compliance.overdue}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

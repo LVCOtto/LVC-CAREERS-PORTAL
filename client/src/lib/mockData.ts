@@ -71,6 +71,18 @@ export interface CareerMilestone {
   description: string;
 }
 
+export interface Certificate {
+  id: string;
+  userId: string;
+  name: string;
+  issuer: string;
+  issueDate: string;
+  expiryDate?: string;
+  credentialId?: string;
+  category: 'safety' | 'technical' | 'professional' | 'compliance';
+  status: 'valid' | 'expiring_soon' | 'expired';
+}
+
 export const users: User[] = [
   {
     id: 'admin-1',
@@ -471,6 +483,95 @@ export const careerMilestones: CareerMilestone[] = [
     title: 'Completed Induction',
     date: '2024-11-15',
     description: 'Successfully completed initial onboarding program',
+  },
+];
+
+export const certificates: Certificate[] = [
+  {
+    id: 'cert-1',
+    userId: 'colleague-1',
+    name: 'Manual Handling Certificate',
+    issuer: 'i-Hasco',
+    issueDate: '2024-11-20',
+    expiryDate: '2025-11-20',
+    credentialId: 'IH-MH-2024-8834',
+    category: 'safety',
+    status: 'valid',
+  },
+  {
+    id: 'cert-2',
+    userId: 'colleague-1',
+    name: 'COSHH Awareness',
+    issuer: 'i-Hasco',
+    issueDate: '2024-11-22',
+    expiryDate: '2025-11-22',
+    credentialId: 'IH-COSHH-2024-9921',
+    category: 'safety',
+    status: 'valid',
+  },
+  {
+    id: 'cert-3',
+    userId: 'colleague-1',
+    name: 'Electrical Safety',
+    issuer: 'i-Hasco',
+    issueDate: '2024-12-01',
+    expiryDate: '2025-12-01',
+    credentialId: 'IH-ES-2024-1102',
+    category: 'safety',
+    status: 'valid',
+  },
+  {
+    id: 'cert-4',
+    userId: 'colleague-1',
+    name: 'Scrubber Dryer Technician - Level 2',
+    issuer: 'LVC Training Academy',
+    issueDate: '2025-01-05',
+    credentialId: 'LVC-SD2-2025-0012',
+    category: 'technical',
+    status: 'valid',
+  },
+  {
+    id: 'cert-5',
+    userId: 'colleague-1',
+    name: 'Fire Safety Awareness',
+    issuer: 'i-Hasco',
+    issueDate: '2024-06-15',
+    expiryDate: '2025-01-15',
+    credentialId: 'IH-FS-2024-4421',
+    category: 'compliance',
+    status: 'expiring_soon',
+  },
+  {
+    id: 'cert-6',
+    userId: 'manager-1',
+    name: 'First Aid at Work',
+    issuer: 'St John Ambulance',
+    issueDate: '2023-03-10',
+    expiryDate: '2026-03-10',
+    credentialId: 'SJA-FAW-2023-8812',
+    category: 'safety',
+    status: 'valid',
+  },
+  {
+    id: 'cert-7',
+    userId: 'manager-1',
+    name: 'Team Leadership',
+    issuer: 'ILM',
+    issueDate: '2022-09-01',
+    credentialId: 'ILM-TL3-2022-1155',
+    category: 'professional',
+    status: 'valid',
+  },
+  {
+    id: 'cert-8',
+    userId: 'manager-1',
+    name: 'IOSH Managing Safely',
+    issuer: 'IOSH',
+    issueDate: '2023-06-20',
+    expiryDate: '2026-06-20',
+    credentialId: 'IOSH-MS-2023-7744',
+    category: 'safety',
+    status: 'valid',
   },
 ];
 

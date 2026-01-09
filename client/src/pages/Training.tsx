@@ -1,360 +1,493 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
-import { StatusBadge } from '@/components/StatusBadge';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Progress } from '@/components/ui/progress';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  getTrainingRecordsForUser,
-  getComplianceStats,
-  TrainingRecord,
-} from '@/lib/mockData';
-import {
-  GraduationCap,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  User,
+  Calendar,
+  TrendingUp,
+  Download,
+  HelpCircle,
   CheckCircle2,
-  Clock,
   AlertTriangle,
   XCircle,
-  Upload,
-  Calendar,
-  FileCheck,
+  Wrench,
+  Headphones,
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import {
+  engineeringCategories,
+  adminCategories,
+  engineerMatrices,
+  adminMatrices,
+  competencyLevels,
+  getCompetencyColor,
+  calculateCategoryAverage,
+  calculateOverallAverage,
+  type CompetencyCategory,
+  type EngineerMatrix,
+} from '@/lib/trainingMatrixData';
+
+function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
+  const level = competencyLevels[rating];
+  
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={`${level.color} ${compact ? 'w-8 h-8 text-sm' : 'w-10 h-10'} rounded-lg flex items-center justify-center font-semibold cursor-help transition-transform hover:scale-110`}
+          >
+            {rating}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          <p className="font-semibold">{level.label}</p>
+          <p className="text-xs text-muted-foreground">{level.description}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function CompetencyLegend() {
+  return (
+    <div className="flex flex-wrap gap-3 p-4 bg-muted/50 rounded-lg">
+      {competencyLevels.map((level) => (
+        <div key={level.value} className="flex items-center gap-2">
+          <div className={`${level.color} w-7 h-7 rounded flex items-center justify-center font-semibold text-sm`}>
+            {level.value}
+          </div>
+          <span className="text-sm text-muted-foreground">{level.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CategorySection({
+  category,
+  engineer,
+  expanded,
+  onToggle,
+}: {
+  category: CompetencyCategory;
+  engineer: EngineerMatrix;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const avgRating = calculateCategoryAverage(engineer.ratings, category);
+  const avgColor = getCompetencyColor(Math.round(avgRating));
+
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+        data-testid={`category-toggle-${category.id}`}
+      >
+        <div className="flex items-center gap-3">
+          {expanded ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          <span className="font-medium">{category.name}</span>
+          <Badge variant="secondary" className="ml-2">
+            {category.items.length} items
+          </Badge>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">Avg:</span>
+          <div className={`${avgColor} w-10 h-8 rounded flex items-center justify-center font-semibold text-sm`}>
+            {avgRating.toFixed(1)}
+          </div>
+        </div>
+      </button>
+      
+      {expanded && (
+        <div className="divide-y">
+          {category.items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between p-4 hover:bg-muted/20"
+              data-testid={`competency-row-${item.id}`}
+            >
+              <div className="flex-1">
+                <p className="font-medium text-sm">{item.name}</p>
+                {item.description && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                )}
+              </div>
+              <RatingCell rating={engineer.ratings[item.id] ?? 0} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EngineerDetailView({
+  engineer,
+  categories,
+}: {
+  engineer: EngineerMatrix;
+  categories: CompetencyCategory[];
+}) {
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set([categories[0]?.id]));
+  const overallAvg = calculateOverallAverage(engineer.ratings, categories);
+
+  const toggleCategory = (categoryId: string) => {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) {
+        next.delete(categoryId);
+      } else {
+        next.add(categoryId);
+      }
+      return next;
+    });
+  };
+
+  const getStatusIcon = (avg: number) => {
+    if (avg >= 3) return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
+    if (avg >= 2) return <AlertTriangle className="h-5 w-5 text-amber-500" />;
+    return <XCircle className="h-5 w-5 text-red-500" />;
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <User className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-display font-bold">{engineer.name}</h2>
+            <p className="text-muted-foreground">{engineer.role} • {engineer.department}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Overall Competency</p>
+            <div className="flex items-center gap-2 justify-end">
+              {getStatusIcon(overallAvg)}
+              <span className="text-2xl font-bold">{overallAvg.toFixed(1)}</span>
+              <span className="text-muted-foreground">/ 4</span>
+            </div>
+          </div>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">Last Assessment</p>
+            <p className="font-medium">{new Date(engineer.lastAssessment).toLocaleDateString('en-GB')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {categories.slice(0, 4).map((category) => {
+          const avg = calculateCategoryAverage(engineer.ratings, category);
+          const percentage = (avg / 4) * 100;
+          return (
+            <Card key={category.id}>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground truncate mb-2">{category.name}</p>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xl font-bold">{avg.toFixed(1)}</span>
+                  <span className="text-sm text-muted-foreground">/ 4</span>
+                </div>
+                <Progress value={percentage} className="h-2" />
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      <CompetencyLegend />
+
+      <div className="space-y-3">
+        {categories.map((category) => (
+          <CategorySection
+            key={category.id}
+            category={category}
+            engineer={engineer}
+            expanded={expandedCategories.has(category.id)}
+            onToggle={() => toggleCategory(category.id)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TeamOverviewGrid({
+  engineers,
+  categories,
+  onSelectEngineer,
+}: {
+  engineers: EngineerMatrix[];
+  categories: CompetencyCategory[];
+  onSelectEngineer: (engineer: EngineerMatrix) => void;
+}) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse" data-testid="team-matrix-table">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left p-3 font-semibold sticky left-0 bg-background min-w-[200px]">
+              Team Member
+            </th>
+            {categories.map((category) => (
+              <th key={category.id} className="p-3 text-center min-w-[100px]">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-xs font-medium text-muted-foreground cursor-help truncate block max-w-[90px]">
+                        {category.name.replace('Technical Expertise - ', '').replace('Occupational ', '').replace(' and Communication', '')}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{category.name}</p>
+                      <p className="text-xs text-muted-foreground">{category.items.length} competencies</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </th>
+            ))}
+            <th className="p-3 text-center min-w-[80px] font-semibold bg-primary/5">Overall</th>
+          </tr>
+        </thead>
+        <tbody>
+          {engineers.map((engineer) => {
+            const overallAvg = calculateOverallAverage(engineer.ratings, categories);
+            return (
+              <tr
+                key={engineer.id}
+                className="border-b hover:bg-muted/30 cursor-pointer transition-colors"
+                onClick={() => onSelectEngineer(engineer)}
+                data-testid={`engineer-row-${engineer.id}`}
+              >
+                <td className="p-3 sticky left-0 bg-background">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{engineer.name}</p>
+                      <p className="text-xs text-muted-foreground">{engineer.role}</p>
+                    </div>
+                  </div>
+                </td>
+                {categories.map((category) => {
+                  const avg = calculateCategoryAverage(engineer.ratings, category);
+                  return (
+                    <td key={category.id} className="p-3 text-center">
+                      <div className="flex justify-center">
+                        <RatingCell rating={Math.round(avg)} compact />
+                      </div>
+                    </td>
+                  );
+                })}
+                <td className="p-3 text-center bg-primary/5">
+                  <div className={`${getCompetencyColor(Math.round(overallAvg))} w-12 h-10 rounded-lg flex items-center justify-center font-bold mx-auto`}>
+                    {overallAvg.toFixed(1)}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export default function Training() {
   const { currentUser } = useAuth();
-  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('engineering');
+  const [selectedEngineer, setSelectedEngineer] = useState<EngineerMatrix | null>(null);
+  const [viewMode, setViewMode] = useState<'team' | 'individual'>('team');
 
   if (!currentUser) return null;
 
-  const [records, setRecords] = useState<TrainingRecord[]>(
-    getTrainingRecordsForUser(currentUser.id)
-  );
-  const stats = getComplianceStats(records);
+  const isAdmin = currentUser.role === 'admin';
+  const isManager = currentUser.role === 'manager' || isAdmin;
 
-  const categories = Array.from(new Set(records.map(r => r.category)));
+  const currentCategories = activeTab === 'engineering' ? engineeringCategories : adminCategories;
+  const currentEngineers = activeTab === 'engineering' ? engineerMatrices : adminMatrices;
 
-  const handleMarkComplete = (recordId: string) => {
-    const today = new Date().toISOString().split('T')[0];
-    const expiryDate = new Date();
-    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
-
-    setRecords(prev =>
-      prev.map(r =>
-        r.id === recordId
-          ? {
-              ...r,
-              completedDate: today,
-              expiresDate: expiryDate.toISOString().split('T')[0],
-              status: 'compliant' as const,
-            }
-          : r
-      )
-    );
-    toast({
-      title: 'Training marked complete',
-      description: 'The training record has been updated.',
-    });
+  const handleSelectEngineer = (engineer: EngineerMatrix) => {
+    setSelectedEngineer(engineer);
+    setViewMode('individual');
   };
 
-  const handleScheduleTraining = (recordId: string) => {
-    toast({
-      title: 'Training scheduled',
-      description: 'Training has been scheduled for review.',
-    });
-  };
-
-  const getStatusIcon = (status: TrainingRecord['status']) => {
-    switch (status) {
-      case 'compliant':
-        return <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
-      case 'due_soon':
-        return <Clock className="w-5 h-5 text-amber-600" />;
-      case 'overdue':
-        return <AlertTriangle className="w-5 h-5 text-red-600" />;
-      case 'missing':
-        return <XCircle className="w-5 h-5 text-gray-400" />;
-    }
-  };
-
-  const filterByStatus = (status: TrainingRecord['status'] | 'all') => {
-    if (status === 'all') return records;
-    return records.filter(r => r.status === status);
+  const handleBackToTeam = () => {
+    setSelectedEngineer(null);
+    setViewMode('team');
   };
 
   return (
     <Layout>
-      <div className="space-y-8 animate-fade-in">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">Training Matrix</h1>
-          <p className="text-muted-foreground mt-1">
-            View your training requirements and certification status
-          </p>
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-display font-bold">Training Matrix</h1>
+            <p className="text-muted-foreground mt-1">
+              Competency assessments and skill development tracking
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <HelpCircle className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-sm p-4">
+                  <p className="font-semibold mb-2">Rating Scale (0-4)</p>
+                  {competencyLevels.map((level) => (
+                    <p key={level.value} className="text-xs mb-1">
+                      <span className="font-medium">{level.value}:</span> {level.label}
+                    </p>
+                  ))}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            {isManager && (
+              <Button variant="outline" className="gap-2" data-testid="button-export-matrix">
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            )}
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-5 gap-4">
-          <Card className="border-border/50">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <GraduationCap className="w-5 h-5 text-primary" />
+        <Tabs value={activeTab} onValueChange={(val) => { setActiveTab(val); setViewMode('team'); setSelectedEngineer(null); }}>
+          <div className="flex items-center justify-between mb-4">
+            <TabsList>
+              <TabsTrigger value="engineering" className="gap-2" data-testid="tab-engineering">
+                <Wrench className="h-4 w-4" />
+                Engineering
+              </TabsTrigger>
+              <TabsTrigger value="admin" className="gap-2" data-testid="tab-admin">
+                <Headphones className="h-4 w-4" />
+                Service Admin
+              </TabsTrigger>
+            </TabsList>
+
+            {viewMode === 'individual' && selectedEngineer && (
+              <Button variant="ghost" onClick={handleBackToTeam} data-testid="button-back-to-team">
+                ← Back to Team View
+              </Button>
+            )}
+          </div>
+
+          <TabsContent value="engineering" className="mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    {viewMode === 'team' ? 'Engineering Team Competency Matrix' : 'Individual Assessment'}
+                  </CardTitle>
+                  {viewMode === 'team' && (
+                    <Badge variant="outline" className="gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Last updated: Dec 2025
+                    </Badge>
+                  )}
                 </div>
-                <div>
-                  <p className="text-2xl font-display font-bold">{stats.total}</p>
-                  <p className="text-sm text-muted-foreground">Total Items</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-emerald-500/30 bg-emerald-500/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-                <div>
-                  <p className="text-2xl font-display font-bold text-emerald-700">
-                    {stats.compliant}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Compliant</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-amber-500/30 bg-amber-500/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <Clock className="w-8 h-8 text-amber-600" />
-                <div>
-                  <p className="text-2xl font-display font-bold text-amber-700">
-                    {stats.dueSoon}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Due Soon</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-red-500/30 bg-red-500/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <AlertTriangle className="w-8 h-8 text-red-600" />
-                <div>
-                  <p className="text-2xl font-display font-bold text-red-700">
-                    {stats.overdue}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Overdue</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-gray-500/30 bg-gray-500/5">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <XCircle className="w-8 h-8 text-gray-500" />
-                <div>
-                  <p className="text-2xl font-display font-bold text-gray-600">
-                    {stats.missing}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Missing</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="border-border/50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Training Requirements</CardTitle>
-                <CardDescription>
-                  Your role-specific training and certification requirements
-                </CardDescription>
-              </div>
-              <div className="text-right">
-                <p className="text-3xl font-display font-bold text-primary">
-                  {stats.complianceRate}%
-                </p>
-                <p className="text-sm text-muted-foreground">Compliance Rate</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="all">
-              <TabsList className="mb-6">
-                <TabsTrigger value="all" data-testid="tab-all">
-                  All ({records.length})
-                </TabsTrigger>
-                <TabsTrigger value="compliant" data-testid="tab-compliant">
-                  Compliant ({stats.compliant})
-                </TabsTrigger>
-                <TabsTrigger value="due_soon" data-testid="tab-due-soon">
-                  Due Soon ({stats.dueSoon})
-                </TabsTrigger>
-                <TabsTrigger value="overdue" data-testid="tab-overdue">
-                  Overdue ({stats.overdue})
-                </TabsTrigger>
-                <TabsTrigger value="missing" data-testid="tab-missing">
-                  Missing ({stats.missing})
-                </TabsTrigger>
-              </TabsList>
-
-              {['all', 'compliant', 'due_soon', 'overdue', 'missing'].map(tab => (
-                <TabsContent key={tab} value={tab}>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12"></TableHead>
-                        <TableHead>Training Requirement</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Completed</TableHead>
-                        <TableHead>Expires</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filterByStatus(tab as any).map(record => (
-                        <TableRow key={record.id} data-testid={`training-row-${record.id}`}>
-                          <TableCell>{getStatusIcon(record.status)}</TableCell>
-                          <TableCell className="font-medium">
-                            {record.requirementName}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary">{record.category}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            {record.completedDate
-                              ? new Date(record.completedDate).toLocaleDateString()
-                              : '-'}
-                          </TableCell>
-                          <TableCell>
-                            {record.expiresDate ? (
-                              <span
-                                className={
-                                  record.status === 'overdue'
-                                    ? 'text-red-600 font-medium'
-                                    : record.status === 'due_soon'
-                                    ? 'text-amber-600 font-medium'
-                                    : ''
-                                }
-                              >
-                                {new Date(record.expiresDate).toLocaleDateString()}
-                              </span>
-                            ) : (
-                              '-'
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={record.status} />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              {record.status === 'compliant' && record.certificateFile && (
-                                <Button variant="ghost" size="sm" data-testid={`button-view-cert-${record.id}`}>
-                                  <FileCheck className="w-4 h-4" />
-                                </Button>
-                              )}
-                              {(record.status === 'missing' || record.status === 'overdue') && (
-                                <>
-                                  {(currentUser.role === 'manager' ||
-                                    currentUser.role === 'admin') && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleScheduleTraining(record.id)}
-                                      data-testid={`button-schedule-${record.id}`}
-                                    >
-                                      <Calendar className="w-4 h-4 mr-1" />
-                                      Schedule
-                                    </Button>
-                                  )}
-                                  {(currentUser.role === 'manager' ||
-                                    currentUser.role === 'admin') && (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleMarkComplete(record.id)}
-                                      data-testid={`button-complete-${record.id}`}
-                                    >
-                                      Mark Complete
-                                    </Button>
-                                  )}
-                                </>
-                              )}
-                              {record.status === 'due_soon' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleScheduleTraining(record.id)}
-                                  data-testid={`button-renew-${record.id}`}
-                                >
-                                  <Calendar className="w-4 h-4 mr-1" />
-                                  Schedule Renewal
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
-
-        <div className="grid lg:grid-cols-2 gap-6">
-          {categories.map(category => (
-            <Card key={category} className="border-border/50">
-              <CardHeader>
-                <CardTitle className="text-lg">{category}</CardTitle>
-                <CardDescription>
-                  {records.filter(r => r.category === category && r.status === 'compliant').length}{' '}
-                  of {records.filter(r => r.category === category).length} compliant
-                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  {records
-                    .filter(r => r.category === category)
-                    .map(record => (
-                      <div
-                        key={record.id}
-                        className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50"
-                      >
-                        <div className="flex items-center gap-3">
-                          {getStatusIcon(record.status)}
-                          <span className="text-sm">{record.requirementName}</span>
-                        </div>
-                        <StatusBadge status={record.status} />
-                      </div>
-                    ))}
-                </div>
+                {viewMode === 'team' ? (
+                  <>
+                    <CompetencyLegend />
+                    <div className="mt-6">
+                      <TeamOverviewGrid
+                        engineers={engineerMatrices}
+                        categories={engineeringCategories}
+                        onSelectEngineer={handleSelectEngineer}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-4 text-center">
+                      Click on a team member to view their detailed competency breakdown
+                    </p>
+                  </>
+                ) : selectedEngineer ? (
+                  <EngineerDetailView
+                    engineer={selectedEngineer}
+                    categories={engineeringCategories}
+                  />
+                ) : null}
               </CardContent>
             </Card>
-          ))}
-        </div>
+          </TabsContent>
+
+          <TabsContent value="admin" className="mt-0">
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    {viewMode === 'team' ? 'Service Admin Team Competency Matrix' : 'Individual Assessment'}
+                  </CardTitle>
+                  {viewMode === 'team' && (
+                    <Badge variant="outline" className="gap-1">
+                      <Calendar className="h-3 w-3" />
+                      Last updated: Nov 2025
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {viewMode === 'team' ? (
+                  <>
+                    <CompetencyLegend />
+                    <div className="mt-6">
+                      <TeamOverviewGrid
+                        engineers={adminMatrices}
+                        categories={adminCategories}
+                        onSelectEngineer={handleSelectEngineer}
+                      />
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-4 text-center">
+                      Click on a team member to view their detailed competency breakdown
+                    </p>
+                  </>
+                ) : selectedEngineer ? (
+                  <EngineerDetailView
+                    engineer={selectedEngineer}
+                    categories={adminCategories}
+                  />
+                ) : null}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <TrendingUp className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold">Training Matrix Self-Assessment</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Team members complete self-assessments via the Smartsheet form. Results are reviewed by managers 
+                  and used to identify training needs and development opportunities.
+                </p>
+                <Button variant="link" className="px-0 mt-2 h-auto text-primary" data-testid="link-smartsheet">
+                  Open Smartsheet Assessment Form →
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );

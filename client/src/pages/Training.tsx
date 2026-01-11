@@ -471,7 +471,7 @@ function StandardsMaintenanceSection({ roleId, isManager = false }: { roleId: st
             </div>
             <div>
               <CardTitle className="text-lg flex items-center gap-2">
-                Standards Maintenance Checklist
+                Standards Survey Checklist
               </CardTitle>
               <CardDescription>
                 Ongoing role standards to maintain after achieving competency
@@ -673,7 +673,7 @@ export default function Training() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                My Competency Matrix
+                My Training Matrix
               </CardTitle>
               <CardDescription>
                 Your self-assessment ratings. Complete the Smartsheet form to update.
@@ -723,7 +723,7 @@ export default function Training() {
                     <CardHeader className="pb-3">
                       <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-primary" />
-                        My Competency Matrix
+                        My Training Matrix
                       </CardTitle>
                       <CardDescription>
                         Your self-assessment ratings. Complete the Smartsheet form to update.

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import {
   Accordion,
   AccordionContent,
@@ -672,117 +673,87 @@ export default function Induction() {
               </CardContent>
             </Card>
 
-            <div className="space-y-3">
+            {/* One-sheet Role Standards Layout */}
+            <div className="space-y-6">
               {currentRoleStandards.sections.map(section => {
                 const status = getSectionStatus(section);
-                const isExpanded = expandedSections.has(section.id);
                 
                 return (
-                  <Card key={section.id} className={status === 'updates' ? 'border-amber-300' : ''}>
-                    <button
-                      onClick={() => toggleSection(section.id)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-t-lg"
-                      data-testid={`section-toggle-${section.id}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {isExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                        )}
-                        <span className="font-semibold">{section.name}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {section.standards.length} standards
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3">
+                  <div key={section.id} className="relative">
+                    {/* Section Header */}
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-base">{section.name}</h3>
                         {status === 'acknowledged' && (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1 text-xs">
                             <CheckCircle2 className="h-3 w-3" />
                             Acknowledged
                           </Badge>
                         )}
                         {status === 'updates' && (
-                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 text-xs">
                             <AlertCircle className="h-3 w-3" />
                             {section.updatesCount} Updates
                           </Badge>
                         )}
-                        {status === 'pending' && (
-                          <Badge variant="outline" className="gap-1">
-                            <Clock className="h-3 w-3" />
-                            Not Reviewed
-                          </Badge>
-                        )}
                       </div>
-                    </button>
+                      {(status === 'updates' || status === 'pending') && (
+                        <Button 
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSectionAcknowledge(section.id)}
+                          className="h-7 text-xs gap-1"
+                          data-testid={`button-acknowledge-section-${section.id}`}
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          Acknowledge
+                        </Button>
+                      )}
+                    </div>
                     
-                    {isExpanded && (
-                      <CardContent className="pt-0 pb-4">
-                        <div className="space-y-2 mb-4">
-                          {section.standards.map((standard, idx) => (
-                            <div 
-                              key={standard.id} 
-                              className={`p-3 rounded-lg border ${standard.isCritical ? 'bg-red-50/50 border-red-200' : 'bg-muted/20'}`}
-                              data-testid={`standard-${standard.id}`}
-                            >
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    {standard.isCritical && (
-                                      <Badge variant="destructive" className="text-xs py-0 h-5">
-                                        Critical
-                                      </Badge>
-                                    )}
-                                    {standard.isNew && (
-                                      <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs py-0 h-5">
-                                        New
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <p className="text-sm">{standard.text}</p>
-                                </div>
-                                <div className="flex items-center gap-2 shrink-0">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="h-8 text-xs gap-1"
-                                    data-testid={`button-sop-${standard.id}`}
-                                  >
-                                    <ExternalLink className="h-3 w-3" />
-                                    View SOP
-                                  </Button>
-                                  <Button 
-                                    variant={refresherRequests[standard.id] ? "default" : "outline"}
-                                    size="sm" 
-                                    className={`h-8 text-xs gap-1 ${refresherRequests[standard.id] ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
-                                    onClick={() => handleRefresherRequest(standard.id)}
-                                    data-testid={`button-refresher-${standard.id}`}
-                                  >
-                                    <HelpCircle className="h-3 w-3" />
-                                    {refresherRequests[standard.id] ? 'Refresher Requested' : 'Need Refresher?'}
-                                  </Button>
-                                </div>
-                              </div>
+                    {/* Standards List - Always visible */}
+                    <div className="grid gap-2">
+                      {section.standards.map((standard) => (
+                        <div 
+                          key={standard.id} 
+                          className={`flex items-start gap-3 p-3 rounded-lg border ${
+                            standard.isCritical 
+                              ? 'bg-red-50/50 border-red-200 dark:bg-red-950/20 dark:border-red-900' 
+                              : 'bg-muted/20 border-muted'
+                          }`}
+                          data-testid={`standard-${standard.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-sm leading-relaxed">{standard.text}</p>
+                              {standard.isCritical && (
+                                <Badge variant="destructive" className="text-xs py-0 h-5 shrink-0">
+                                  Critical
+                                </Badge>
+                              )}
+                              {standard.isNew && (
+                                <Badge className="bg-blue-600 text-white text-xs py-0 h-5 shrink-0">
+                                  New
+                                </Badge>
+                              )}
                             </div>
-                          ))}
-                        </div>
-                        
-                        {(status === 'updates' || status === 'pending') && (
-                          <div className="flex justify-end pt-2 border-t">
-                            <Button 
-                              onClick={() => handleSectionAcknowledge(section.id)}
-                              className="gap-2"
-                              data-testid={`button-acknowledge-section-${section.id}`}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              Acknowledge Section
-                            </Button>
                           </div>
-                        )}
-                      </CardContent>
-                    )}
-                  </Card>
+                          <Button 
+                            variant={refresherRequests[standard.id] ? "default" : "ghost"}
+                            size="sm" 
+                            className={`h-7 text-xs shrink-0 ${refresherRequests[standard.id] ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+                            onClick={() => handleRefresherRequest(standard.id)}
+                            data-testid={`button-refresher-${standard.id}`}
+                          >
+                            <HelpCircle className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Divider between sections */}
+                    <Separator className="mt-6" />
+                  </div>
                 );
               })}
             </div>

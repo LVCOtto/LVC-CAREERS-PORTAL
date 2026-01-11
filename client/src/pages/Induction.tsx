@@ -326,7 +326,9 @@ export default function Induction() {
                       Induction Checklist
                     </CardTitle>
                     <CardDescription>
-                      Complete all items then sign off to confirm your induction
+                      {isManager 
+                        ? 'Tick off each item as the colleague completes it'
+                        : 'Your manager will tick off items as you complete each stage'}
                     </CardDescription>
                   </div>
                   <Badge variant="outline">
@@ -379,8 +381,9 @@ export default function Induction() {
                                 <Checkbox
                                   id={item.id}
                                   checked={item.completed}
-                                  onCheckedChange={() => handleToggleItem(item.id)}
-                                  className="mt-0.5"
+                                  onCheckedChange={() => isManager && handleToggleItem(item.id)}
+                                  disabled={!isManager}
+                                  className={`mt-0.5 ${!isManager ? 'opacity-60' : ''}`}
                                   data-testid={`checkbox-${item.id}`}
                                 />
                                 <div className="flex-1">
@@ -399,7 +402,7 @@ export default function Induction() {
                                   )}
                                   {item.completed && item.completedDate && (
                                     <p className="text-xs text-green-600 mt-1">
-                                      Completed {item.completedDate}
+                                      Completed {item.completedDate} {item.signedOffBy && '• Signed off by manager'}
                                     </p>
                                   )}
                                 </div>
@@ -428,18 +431,19 @@ export default function Induction() {
                         <p className="font-medium">Colleague Sign-Off</p>
                         <p className="text-sm text-muted-foreground">
                           {colleagueSignedOff
-                            ? 'You have confirmed completion of your induction'
-                            : 'Confirm you have completed all induction items'}
+                            ? 'Colleague has confirmed completion of their induction'
+                            : allItemsCompleted 
+                              ? 'All items complete - colleague can now sign off'
+                              : 'Manager must tick off all items before colleague can sign off'}
                         </p>
                       </div>
                     </div>
-                    {!colleagueSignedOff && (
+                    {!colleagueSignedOff && allItemsCompleted && (
                       <Button
                         onClick={handleColleagueSignOff}
-                        disabled={!allItemsCompleted}
                         data-testid="button-colleague-signoff"
                       >
-                        Sign Off
+                        Colleague Sign Off
                       </Button>
                     )}
                   </div>

@@ -9,6 +9,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Induction from "@/pages/Induction";
 import Training from "@/pages/Training";
+import RolePlaybook from "@/pages/RolePlaybook";
 import Resources from "@/pages/Resources";
 import Milestones from "@/pages/Milestones";
 import Team from "@/pages/Team";
@@ -39,6 +40,9 @@ function Router() {
       </Route>
       <Route path="/training">
         {() => <ProtectedRoute component={Training} />}
+      </Route>
+      <Route path="/role-playbook">
+        {() => <ProtectedRoute component={RolePlaybook} />}
       </Route>
       <Route path="/resources">
         {() => <ProtectedRoute component={Resources} />}

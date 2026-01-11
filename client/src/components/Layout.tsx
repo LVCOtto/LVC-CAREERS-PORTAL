@@ -24,6 +24,7 @@ import {
   Award,
   Briefcase,
   Network,
+  FileText,
 } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
@@ -47,7 +48,7 @@ const navItems: NavItem[] = [
   },
   {
     href: '/induction',
-    label: 'Induction & Role',
+    label: 'Induction',
     icon: <ClipboardCheck className="w-5 h-5" />,
     roles: ['colleague', 'manager', 'admin'],
   },
@@ -55,6 +56,12 @@ const navItems: NavItem[] = [
     href: '/training',
     label: 'Training Matrix',
     icon: <GraduationCap className="w-5 h-5" />,
+    roles: ['colleague', 'manager', 'admin'],
+  },
+  {
+    href: '/role-playbook',
+    label: 'Role Playbook',
+    icon: <FileText className="w-5 h-5" />,
     roles: ['colleague', 'manager', 'admin'],
   },
   {

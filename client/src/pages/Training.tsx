@@ -50,20 +50,6 @@ import {
 } from '@/lib/trainingMatrixData';
 import { departments } from '@/lib/departmentData';
 import {
-  roleTaskDefinitions,
-  getRoleTaskOptions,
-  type RoleTaskDefinition,
-  type TaskSection,
-} from '@/lib/roleStandardsData';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { Shield, BookOpen, AlertCircle } from 'lucide-react';
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -437,163 +423,6 @@ function TrainingSessionsPanel() {
   );
 }
 
-function StandardsMaintenanceSection({ roleId, isManager = false }: { roleId: string; isManager?: boolean }) {
-  const [selectedRoleId, setSelectedRoleId] = useState(roleId);
-  const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
-  
-  const role = roleTaskDefinitions[selectedRoleId] || roleTaskDefinitions['field-service-engineer'];
-  
-  if (!role) return null;
-  
-  const totalTasks = role.sections.reduce((sum, s) => sum + s.tasks.length, 0);
-  const checkedCount = checkedItems.size;
-  const progressPercent = totalTasks > 0 ? Math.round((checkedCount / totalTasks) * 100) : 0;
-  
-  const toggleItem = (id: string) => {
-    setCheckedItems(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Shield className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                Standards Survey Checklist
-              </CardTitle>
-              <CardDescription>
-                Ongoing role standards to maintain after achieving competency
-              </CardDescription>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold">{checkedCount}/{totalTasks}</p>
-            <p className="text-xs text-muted-foreground">standards maintained</p>
-          </div>
-        </div>
-        
-        {isManager && (
-          <div className="mt-4">
-            <label className="text-sm text-muted-foreground mb-2 block">View Role Standards</label>
-            <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
-              <SelectTrigger className="w-full md:w-[350px]" data-testid="select-standards-role">
-                <SelectValue placeholder="Select a role..." />
-              </SelectTrigger>
-              <SelectContent>
-                {getRoleTaskOptions().map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    <div className="flex items-center gap-2">
-                      <span>{option.label}</span>
-                      <Badge variant="secondary" className="text-xs">{option.department}</Badge>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </CardHeader>
-      <CardContent>
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">{role.title}</span>
-            <span className="text-sm text-muted-foreground">{progressPercent}% maintained</span>
-          </div>
-          <Progress value={progressPercent} className="h-2" />
-        </div>
-        
-        <Accordion type="multiple" className="space-y-2">
-          {role.sections.map((section) => {
-            const sectionChecked = section.tasks.filter(t => checkedItems.has(t.id)).length;
-            const sectionTotal = section.tasks.length;
-            
-            return (
-              <AccordionItem
-                key={section.id}
-                value={section.id}
-                className="border rounded-lg overflow-hidden"
-              >
-                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/30">
-                  <div className="flex items-center justify-between w-full pr-2">
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{section.name}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={sectionChecked === sectionTotal ? "default" : "secondary"} className="text-xs">
-                        {sectionChecked}/{sectionTotal}
-                      </Badge>
-                    </div>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent className="px-4 pb-4">
-                  <div className="space-y-2 pt-2">
-                    {section.tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                          checkedItems.has(task.id)
-                            ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900'
-                            : 'bg-muted/20 border-transparent hover:bg-muted/40'
-                        }`}
-                      >
-                        <Checkbox
-                          id={task.id}
-                          checked={checkedItems.has(task.id)}
-                          onCheckedChange={() => toggleItem(task.id)}
-                          className="mt-0.5"
-                        />
-                        <label
-                          htmlFor={task.id}
-                          className="flex-1 text-sm cursor-pointer leading-relaxed"
-                        >
-                          <span className={checkedItems.has(task.id) ? 'text-muted-foreground line-through' : ''}>
-                            {task.text}
-                          </span>
-                          {task.isCritical && (
-                            <Badge variant="destructive" className="ml-2 text-xs">Critical</Badge>
-                          )}
-                          {task.isNew && (
-                            <Badge className="ml-2 text-xs bg-blue-600">New</Badge>
-                          )}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            );
-          })}
-        </Accordion>
-        
-        <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-900">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Standards Review</p>
-              <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                These standards should be consistently maintained. Check items you're confident you're meeting. 
-                Unchecked items may indicate areas needing refresher training.
-              </p>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
 
 export default function Training() {
   const { currentUser } = useAuth();
@@ -759,7 +588,6 @@ export default function Training() {
                 </div>
               </div>
               
-              <StandardsMaintenanceSection roleId="field-service-engineer" isManager={isManager} />
             </TabsContent>
 
             <TabsContent value="my-team" className="space-y-6">

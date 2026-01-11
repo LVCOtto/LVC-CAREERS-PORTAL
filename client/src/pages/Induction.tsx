@@ -660,18 +660,7 @@ export default function Induction() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
-                  <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-primary" />
-                    Role Standards Playbook
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    This is the single source of truth for how this role is done at LVC. Each standard below defines the expectations and procedures you should follow. Request a refresher for any area where you'd like additional training.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+              </Card>
 
             {/* One-sheet Role Standards Layout */}
             <div className="space-y-6">
@@ -711,42 +700,17 @@ export default function Induction() {
                       )}
                     </div>
                     
-                    {/* Standards List - Always visible */}
+                    {/* Standards List - Always visible, non-interactive */}
                     <div className="grid gap-2">
                       {section.standards.map((standard) => (
                         <div 
                           key={standard.id} 
-                          className={`flex items-start gap-3 p-3 rounded-lg border ${
-                            standard.isCritical 
-                              ? 'bg-red-50/50 border-red-200 dark:bg-red-950/20 dark:border-red-900' 
-                              : 'bg-muted/20 border-muted'
-                          }`}
+                          className="flex items-start gap-3 p-3 rounded-lg border bg-muted/20 border-muted"
                           data-testid={`standard-${standard.id}`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-sm leading-relaxed">{standard.text}</p>
-                              {standard.isCritical && (
-                                <Badge variant="destructive" className="text-xs py-0 h-5 shrink-0">
-                                  Critical
-                                </Badge>
-                              )}
-                              {standard.isNew && (
-                                <Badge className="bg-blue-600 text-white text-xs py-0 h-5 shrink-0">
-                                  New
-                                </Badge>
-                              )}
-                            </div>
+                            <p className="text-sm leading-relaxed">{standard.text}</p>
                           </div>
-                          <Button 
-                            variant={refresherRequests[standard.id] ? "default" : "ghost"}
-                            size="sm" 
-                            className={`h-7 text-xs shrink-0 ${refresherRequests[standard.id] ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
-                            onClick={() => handleRefresherRequest(standard.id)}
-                            data-testid={`button-refresher-${standard.id}`}
-                          >
-                            <HelpCircle className="h-3 w-3" />
-                          </Button>
                         </div>
                       ))}
                     </div>

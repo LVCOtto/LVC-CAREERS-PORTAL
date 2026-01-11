@@ -18,6 +18,7 @@ import {
   ChevronDown,
   ChevronRight,
   User,
+  Users,
   Calendar,
   TrendingUp,
   Download,
@@ -328,7 +329,7 @@ function TeamGrid({
   );
 }
 
-function SkillGapsPanel({ department }: { department: string }) {
+function SkillGapsPanel({ department, isOwnGaps = false }: { department: string; isOwnGaps?: boolean }) {
   const { toast } = useToast();
   const matrices = department === 'engineering' ? engineerMatrices : adminMatrices;
   const categories = department === 'engineering' ? engineeringCategories : adminCategories;
@@ -340,7 +341,7 @@ function SkillGapsPanel({ department }: { department: string }) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
             <Target className="h-4 w-4 text-red-500" />
-            Skills Gaps
+            {isOwnGaps ? 'My Skills Gaps' : 'Team Skills Gaps'}
           </CardTitle>
           <Badge variant="destructive" className="text-xs">{gaps.length}</Badge>
         </div>
@@ -351,16 +352,32 @@ function SkillGapsPanel({ department }: { department: string }) {
             <div key={idx} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-sm">
               <div className="flex-1 min-w-0 pr-2">
                 <p className="font-medium truncate text-xs">{gap.competencyName}</p>
-                <p className="text-xs text-muted-foreground truncate">{gap.engineerName}</p>
+                {!isOwnGaps && <p className="text-xs text-muted-foreground truncate">{gap.engineerName}</p>}
               </div>
               <div className="flex items-center gap-2">
                 <div className={`${getCompetencyColor(gap.currentRating)} w-6 h-6 rounded flex items-center justify-center text-xs font-semibold`}>
                   {gap.currentRating}
                 </div>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                  <CalendarPlus className="h-3 w-3" />
-                  Book
-                </Button>
+                {isOwnGaps ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled>
+                          <Clock className="h-3 w-3" />
+                          Request
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Your line manager will schedule training for you</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
+                    <CalendarPlus className="h-3 w-3" />
+                    Book
+                  </Button>
+                )}
               </div>
             </div>
           ))}
@@ -411,6 +428,7 @@ export default function Training() {
   const { toast } = useToast();
   const [selectedDepartment, setSelectedDepartment] = useState('engineering');
   const [selectedEngineer, setSelectedEngineer] = useState<EngineerMatrix | null>(null);
+  const [activeTab, setActiveTab] = useState('my-development');
 
   if (!currentUser) return null;
 
@@ -423,11 +441,13 @@ export default function Training() {
   const myMatrix: EngineerMatrix = {
     id: 'self',
     name: currentUser.name,
-    role: currentUser.jobRole || 'Engineer',
+    role: currentUser.jobRole || 'Engineering Manager',
     department: currentUser.department,
-    ratings: engineerMatrices[1]?.ratings || {},
+    ratings: engineerMatrices[0]?.ratings || {},
     lastAssessment: '2025-01-01',
   };
+
+  const myLineManager = 'James Wilson (Operations Director)';
 
   const departmentOptions = [
     { value: 'engineering', label: 'Engineering', color: 'bg-blue-600' },
@@ -467,7 +487,7 @@ export default function Training() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            {isManager && (
+            {isManager && activeTab === 'my-team' && (
               <Button variant="outline" className="gap-2" data-testid="button-export-matrix">
                 <Download className="h-4 w-4" />
                 Export
@@ -496,77 +516,150 @@ export default function Training() {
             </CardContent>
           </Card>
         ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <Select value={selectedDepartment} onValueChange={(v) => { setSelectedDepartment(v); setSelectedEngineer(null); }}>
-                  <SelectTrigger className="w-[220px]" data-testid="select-department">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departmentOptions.map(dept => (
-                      <SelectItem key={dept.value} value={dept.value}>
-                        <div className="flex items-center gap-2">
-                          <div className={`h-2 w-2 rounded-full ${dept.color}`} />
-                          {dept.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Badge variant="outline" className="gap-1">
-                <Calendar className="h-3 w-3" />
-                Last updated: Jan 2026
-              </Badge>
-            </div>
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedEngineer(null); }} className="space-y-6">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="my-development" className="gap-2" data-testid="tab-my-development">
+                <User className="h-4 w-4" />
+                My Development
+              </TabsTrigger>
+              <TabsTrigger value="my-team" className="gap-2" data-testid="tab-my-team">
+                <Users className="h-4 w-4" />
+                My Team
+              </TabsTrigger>
+            </TabsList>
 
-            {selectedEngineer ? (
-              <Card>
-                <CardContent className="pt-6">
-                  <IndividualView
-                    engineer={selectedEngineer}
-                    categories={currentCategories}
-                    onBack={() => setSelectedEngineer(null)}
-                  />
+            <TabsContent value="my-development" className="space-y-6">
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <User className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Your Development Journey</p>
+                      <p className="text-sm text-muted-foreground">
+                        This is your personal training matrix. To book training or request sign-offs, please speak to your line manager: <span className="font-medium text-foreground">{myLineManager}</span>
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              <>
-                <div className="grid lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2">
-                    <Card>
-                      <CardHeader className="pb-3">
-                        <CardTitle className="flex items-center gap-2">
-                          <TrendingUp className="h-5 w-5 text-primary" />
-                          Team Overview
-                        </CardTitle>
-                        <CardDescription>
-                          Click on a team member to view their detailed assessment
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <CompetencyLegend />
-                        <div className="mt-4">
-                          <TeamGrid
-                            engineers={currentEngineers}
-                            categories={currentCategories}
-                            onSelectEngineer={setSelectedEngineer}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
 
-                  <div className="space-y-6">
-                    <SkillGapsPanel department={selectedDepartment} />
-                    <TrainingSessionsPanel />
-                  </div>
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                        My Competency Matrix
+                      </CardTitle>
+                      <CardDescription>
+                        Your self-assessment ratings. Complete the Smartsheet form to update.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <IndividualView
+                        engineer={myMatrix}
+                        categories={currentCategories}
+                        showBackButton={false}
+                      />
+                    </CardContent>
+                  </Card>
                 </div>
-              </>
-            )}
-          </>
+
+                <div className="space-y-6">
+                  <SkillGapsPanel department={selectedDepartment} isOwnGaps={true} />
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        My Scheduled Training
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Calendar className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No training sessions scheduled</p>
+                        <p className="text-xs mt-1">Contact your line manager to book training</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="my-team" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <Select value={selectedDepartment} onValueChange={(v) => { setSelectedDepartment(v); setSelectedEngineer(null); }}>
+                    <SelectTrigger className="w-[220px]" data-testid="select-department">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departmentOptions.map(dept => (
+                        <SelectItem key={dept.value} value={dept.value}>
+                          <div className="flex items-center gap-2">
+                            <div className={`h-2 w-2 rounded-full ${dept.color}`} />
+                            {dept.label}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Badge variant="outline" className="gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Last updated: Jan 2026
+                </Badge>
+              </div>
+
+              {selectedEngineer ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <IndividualView
+                      engineer={selectedEngineer}
+                      categories={currentCategories}
+                      onBack={() => setSelectedEngineer(null)}
+                    />
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  <div className="grid lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2">
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="flex items-center gap-2">
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                            Team Overview
+                          </CardTitle>
+                          <CardDescription>
+                            Click on a team member to view their detailed assessment
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <CompetencyLegend />
+                          <div className="mt-4">
+                            <TeamGrid
+                              engineers={currentEngineers}
+                              categories={currentCategories}
+                              onSelectEngineer={setSelectedEngineer}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div className="space-y-6">
+                      <SkillGapsPanel department={selectedDepartment} isOwnGaps={false} />
+                      <TrainingSessionsPanel />
+                    </div>
+                  </div>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
     </Layout>

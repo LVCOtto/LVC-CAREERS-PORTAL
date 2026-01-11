@@ -51,12 +51,18 @@ export default function Induction() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('checklist');
+  const [viewMode, setViewMode] = useState<'my-induction' | 'team-inductions'>('my-induction');
   const [roleAcknowledged, setRoleAcknowledged] = useState(false);
   const [showSignOffDialog, setShowSignOffDialog] = useState(false);
   const [colleagueSignedOff, setColleagueSignedOff] = useState(false);
   const [managerSignedOff, setManagerSignedOff] = useState(false);
+  const [myInductionColleagueSignedOff, setMyInductionColleagueSignedOff] = useState(false);
+  const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null);
 
   if (!currentUser) return null;
+
+  const isManager = currentUser.role === 'manager' || currentUser.role === 'admin';
+  const myLineManager = 'James Wilson (Operations Director)';
 
   const induction = getInductionForUser(currentUser.id);
   const [items, setItems] = useState<ChecklistItem[]>(induction.items);
@@ -67,6 +73,14 @@ export default function Induction() {
 
   const allItemsCompleted = items.every(item => item.completed);
   const inductionComplete = colleagueSignedOff && managerSignedOff;
+  const myInductionComplete = myInductionColleagueSignedOff;
+
+  const teamMembers = [
+    { id: 'tm-1', name: 'David Thompson', role: 'Senior Service Engineer', progress: 85, status: 'in_progress' as const },
+    { id: 'tm-2', name: 'Michael Brown', role: 'Service Engineer', progress: 100, status: 'completed' as const },
+    { id: 'tm-3', name: 'Sarah Mitchell', role: 'Junior Service Engineer', progress: 45, status: 'in_progress' as const },
+    { id: 'tm-4', name: 'James Parker', role: 'Trainee Engineer', progress: 20, status: 'in_progress' as const },
+  ];
 
   const handleToggleItem = (itemId: string) => {
     if (currentUser.role === 'manager' || currentUser.role === 'admin') {
@@ -129,6 +143,14 @@ export default function Induction() {
   const isColleagueView = currentUser.role === 'colleague';
   const isManagerView = currentUser.role === 'manager' || currentUser.role === 'admin';
 
+  const handleMyInductionSignOff = () => {
+    setMyInductionColleagueSignedOff(true);
+    toast({
+      title: 'Sign-Off Submitted',
+      description: 'Your sign-off has been submitted. Awaiting your line manager\'s approval.',
+    });
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -139,9 +161,109 @@ export default function Induction() {
           <p className="text-muted-foreground mt-1">
             {isColleagueView 
               ? 'Track your onboarding progress and understand your role responsibilities'
-              : 'Manage colleague induction and sign off completed items'}
+              : viewMode === 'my-induction'
+                ? 'Your personal induction progress and role responsibilities'
+                : 'Manage colleague induction and sign off completed items'}
           </p>
         </div>
+
+        {isManager && (
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my-induction' | 'team-inductions')} className="mb-2">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="my-induction" className="gap-2" data-testid="tab-my-induction">
+                <User className="h-4 w-4" />
+                My Induction
+              </TabsTrigger>
+              <TabsTrigger value="team-inductions" className="gap-2" data-testid="tab-team-inductions">
+                <Users className="h-4 w-4" />
+                Team Inductions
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+
+        {isManager && viewMode === 'my-induction' && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">Your Personal Induction</p>
+                  <p className="text-sm text-muted-foreground">
+                    This is your own induction journey. For sign-off, please speak to your line manager: <span className="font-medium text-foreground">{myLineManager}</span>
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isManager && viewMode === 'team-inductions' && !selectedTeamMember && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                Team Inductions
+              </CardTitle>
+              <CardDescription>
+                Select a team member to view and manage their induction progress
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {teamMembers.map(member => (
+                  <div
+                    key={member.id}
+                    onClick={() => setSelectedTeamMember(member.id)}
+                    className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer group"
+                    data-testid={`team-member-${member.id}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium group-hover:text-primary transition-colors">{member.name}</p>
+                        <p className="text-sm text-muted-foreground">{member.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <Progress value={member.progress} className="w-24 h-2 mb-1" />
+                        <p className="text-xs text-muted-foreground">{member.progress}% complete</p>
+                      </div>
+                      <Badge 
+                        variant={member.status === 'completed' ? 'default' : 'secondary'}
+                        className={member.status === 'completed' ? 'bg-emerald-600' : ''}
+                      >
+                        {member.status === 'completed' ? 'Complete' : 'In Progress'}
+                      </Badge>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {((isManager && viewMode === 'team-inductions' && selectedTeamMember) || 
+          (isManager && viewMode === 'my-induction') || 
+          isColleagueView) && (
+          <>
+            {isManager && viewMode === 'team-inductions' && selectedTeamMember && (
+              <Button 
+                variant="ghost" 
+                onClick={() => setSelectedTeamMember(null)} 
+                className="gap-2 -ml-2 mb-2"
+                data-testid="button-back-to-team"
+              >
+                <ChevronRight className="h-4 w-4 rotate-180" />
+                Back to Team
+              </Button>
+            )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
@@ -543,6 +665,8 @@ export default function Induction() {
             )}
           </TabsContent>
         </Tabs>
+          </>
+        )}
       </div>
 
       <Dialog open={showSignOffDialog} onOpenChange={setShowSignOffDialog}>

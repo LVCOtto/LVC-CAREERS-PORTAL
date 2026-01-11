@@ -26,16 +26,312 @@ export interface RoleDefinition {
   version?: string;
 }
 
-function generateId(text: string, index: number): string {
-  return `std-${index}-${text.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+export const roleDefinitions: Record<string, RoleDefinition> = {
+  'field-service-engineer': {
+    id: 'field-service-engineer',
+    title: 'Field Service Engineer',
+    department: 'Engineering',
+    version: '2.3',
+    lastReviewed: '2025-12-01',
+    sections: [
+      {
+        id: 'core-responsibilities',
+        name: 'Core Responsibilities',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-15',
+        standards: [
+          { id: 'fse-1', text: 'Carry out planned preventative maintenance and reactive repairs on industrial cleaning equipment', isCritical: true },
+          { id: 'fse-2', text: 'Diagnose faults efficiently using technical knowledge and diagnostic tools' },
+          { id: 'fse-3', text: 'Complete all job reports accurately and submit same-day via tablet', isCritical: true },
+          { id: 'fse-4', text: 'Maintain van stock levels and report shortages promptly' },
+          { id: 'fse-5', text: 'Communicate clearly with customers about work completed and any recommendations' },
+        ],
+      },
+      {
+        id: 'customer-service',
+        name: 'Customer Service Standards',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-15',
+        standards: [
+          { id: 'fse-cs-1', text: 'Arrive at site within scheduled time window and call ahead if delayed', isCritical: true },
+          { id: 'fse-cs-2', text: 'Present professional appearance - clean uniform, ID badge visible' },
+          { id: 'fse-cs-3', text: 'Explain work clearly to customer in non-technical terms' },
+          { id: 'fse-cs-4', text: 'Leave work area clean and tidy after completing job' },
+        ],
+      },
+      {
+        id: 'health-safety',
+        name: 'Health & Safety',
+        acknowledged: false,
+        hasUpdates: true,
+        updatesCount: 2,
+        standards: [
+          { id: 'fse-hs-1', text: 'Complete dynamic risk assessment before starting any work', isCritical: true },
+          { id: 'fse-hs-2', text: 'Use appropriate PPE for all tasks', isCritical: true },
+          { id: 'fse-hs-3', text: 'Report all near-misses and incidents within 24 hours', isNew: true },
+          { id: 'fse-hs-4', text: 'Follow LOTO procedures when working on electrical equipment', isNew: true },
+        ],
+      },
+      {
+        id: 'systems-admin',
+        name: 'Systems & Administration',
+        acknowledged: true,
+        acknowledgedDate: '2025-12-01',
+        standards: [
+          { id: 'fse-sa-1', text: 'Submit timesheets daily via tablet' },
+          { id: 'fse-sa-2', text: 'Update job status in Protean immediately after completion' },
+          { id: 'fse-sa-3', text: 'Book absences through BrightHR system' },
+        ],
+      },
+    ],
+  },
+  'service-coordinator': {
+    id: 'service-coordinator',
+    title: 'Service Co-Ordinator',
+    department: 'Service Administration',
+    version: '1.8',
+    lastReviewed: '2025-11-20',
+    sections: [
+      {
+        id: 'core-responsibilities',
+        name: 'Core Responsibilities',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-10',
+        standards: [
+          { id: 'sc-1', text: 'Log and allocate breakdowns same-day', isCritical: true },
+          { id: 'sc-2', text: 'Process further work requests same-day', isCritical: true },
+          { id: 'sc-3', text: 'Generate service visits 2 months before due date' },
+          { id: 'sc-4', text: 'Maintain engineer workload balance' },
+          { id: 'sc-5', text: 'Invoice service jobs within same month of completion' },
+        ],
+      },
+      {
+        id: 'customer-service',
+        name: 'Customer Service Standards',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-10',
+        standards: [
+          { id: 'sc-cs-1', text: 'Acknowledge all customer enquiries same-day', isCritical: true },
+          { id: 'sc-cs-2', text: 'Complete quotes within 24 hours' },
+          { id: 'sc-cs-3', text: 'Notify clients of upcoming service dates monthly' },
+          { id: 'sc-cs-4', text: 'Provide ETAs for awaiting parts' },
+        ],
+      },
+      {
+        id: 'systems-admin',
+        name: 'Systems & Administration',
+        acknowledged: false,
+        hasUpdates: true,
+        updatesCount: 1,
+        standards: [
+          { id: 'sc-sa-1', text: 'Follow email subject line company guidance' },
+          { id: 'sc-sa-2', text: 'Keep email inbox count manageable' },
+          { id: 'sc-sa-3', text: 'Check planner board daily for absences', isNew: true },
+          { id: 'sc-sa-4', text: 'Update Protean department section regularly' },
+        ],
+      },
+    ],
+  },
+  'warehouse-manager': {
+    id: 'warehouse-manager',
+    title: 'Warehouse Manager',
+    department: 'Warehouse',
+    version: '2.1',
+    lastReviewed: '2025-11-25',
+    sections: [
+      {
+        id: 'core-responsibilities',
+        name: 'Core Responsibilities',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-20',
+        standards: [
+          { id: 'wm-1', text: 'Manage daily warehouse operations and staff allocation' },
+          { id: 'wm-2', text: 'Ensure stock accuracy through regular stock takes' },
+          { id: 'wm-3', text: 'Coordinate engineer van stock replenishment weekly' },
+          { id: 'wm-4', text: 'Oversee picking, packing and dispatch processes' },
+        ],
+      },
+      {
+        id: 'team-management',
+        name: 'Team Management',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-20',
+        standards: [
+          { id: 'wm-tm-1', text: 'Deliver training to high standard when required' },
+          { id: 'wm-tm-2', text: 'Submit monthly department reports on time', isCritical: true },
+          { id: 'wm-tm-3', text: 'Ensure team follows communication policy' },
+          { id: 'wm-tm-4', text: 'Conduct periodic stock room inspections' },
+        ],
+      },
+      {
+        id: 'systems-admin',
+        name: 'Systems & Administration',
+        acknowledged: false,
+        hasUpdates: true,
+        updatesCount: 1,
+        standards: [
+          { id: 'wm-sa-1', text: 'Maintain department section of Protean', isNew: true },
+          { id: 'wm-sa-2', text: 'Process parts to equipment correctly' },
+          { id: 'wm-sa-3', text: 'Create and supersede part numbers as needed' },
+        ],
+      },
+    ],
+  },
+  'sales-consultant': {
+    id: 'sales-consultant',
+    title: 'Sales Consultant',
+    department: 'Sales',
+    version: '1.5',
+    lastReviewed: '2025-12-05',
+    sections: [
+      {
+        id: 'core-responsibilities',
+        name: 'Core Responsibilities',
+        acknowledged: true,
+        acknowledgedDate: '2025-12-01',
+        standards: [
+          { id: 'slc-1', text: 'Add all opportunities to HubSpot pipeline', isCritical: true },
+          { id: 'slc-2', text: 'Follow up pipeline opportunities regularly' },
+          { id: 'slc-3', text: 'Process orders accurately and promptly' },
+          { id: 'slc-4', text: 'Promote consumables and service plans with every sale' },
+        ],
+      },
+      {
+        id: 'customer-service',
+        name: 'Customer Service Standards',
+        acknowledged: true,
+        acknowledgedDate: '2025-12-01',
+        standards: [
+          { id: 'slc-cs-1', text: 'Acknowledge customer enquiries same-day', isCritical: true },
+          { id: 'slc-cs-2', text: 'Pre-qualify all demonstrations - ensure decision maker present' },
+          { id: 'slc-cs-3', text: 'Email clients before scheduled meetings to confirm' },
+          { id: 'slc-cs-4', text: 'Send user manuals and training videos electronically' },
+        ],
+      },
+      {
+        id: 'equipment-demos',
+        name: 'Equipment & Demonstrations',
+        acknowledged: false,
+        hasUpdates: true,
+        updatesCount: 2,
+        standards: [
+          { id: 'slc-eq-1', text: 'Maintain demonstration equipment in excellent condition', isCritical: true },
+          { id: 'slc-eq-2', text: 'Book all demo/trial machines out on Protean', isNew: true },
+          { id: 'slc-eq-3', text: 'Ensure all loan/trial machines are signed for by client', isNew: true },
+          { id: 'slc-eq-4', text: 'Check all accessories returned after demos' },
+        ],
+      },
+    ],
+  },
+  'accounts-manager': {
+    id: 'accounts-manager',
+    title: 'Accounts Manager',
+    department: 'Finance',
+    version: '2.0',
+    lastReviewed: '2025-11-15',
+    sections: [
+      {
+        id: 'core-responsibilities',
+        name: 'Core Responsibilities',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-10',
+        standards: [
+          { id: 'am-1', text: 'Manage aged debt and chase outstanding payments' },
+          { id: 'am-2', text: 'Process payroll accurately and on time', isCritical: true },
+          { id: 'am-3', text: 'Complete month-end closing procedures' },
+          { id: 'am-4', text: 'Prepare VAT returns and meet deadlines', isCritical: true },
+        ],
+      },
+      {
+        id: 'team-management',
+        name: 'Team Management',
+        acknowledged: true,
+        acknowledgedDate: '2025-11-10',
+        standards: [
+          { id: 'am-tm-1', text: 'Ensure department submits monthly reports on time' },
+          { id: 'am-tm-2', text: 'Hold periodic review meetings with team' },
+          { id: 'am-tm-3', text: 'Conduct annual appraisals for team members' },
+        ],
+      },
+      {
+        id: 'systems-admin',
+        name: 'Systems & Administration',
+        acknowledged: false,
+        hasUpdates: true,
+        updatesCount: 1,
+        standards: [
+          { id: 'am-sa-1', text: 'Reconcile bank accounts regularly' },
+          { id: 'am-sa-2', text: 'Monitor Protean end-of-month reports', isNew: true },
+          { id: 'am-sa-3', text: 'Maintain accurate records in Sage' },
+        ],
+      },
+    ],
+  },
+};
+
+export const rolesList = Object.values(roleDefinitions);
+
+export function getRoleById(id: string): RoleDefinition | undefined {
+  return roleDefinitions[id];
 }
 
-function categorizeStandards(tasks: string[]): RoleSection[] {
-  const coreDuties: RoleStandard[] = [];
-  const systemsProcesses: RoleStandard[] = [];
-  const customerStandards: RoleStandard[] = [];
-  const qualityCompliance: RoleStandard[] = [];
-  const managementLeadership: RoleStandard[] = [];
+export function getRolesByDepartment(department: string): RoleDefinition[] {
+  return rolesList.filter(role => role.department.toLowerCase() === department.toLowerCase());
+}
+
+export function getTotalUpdatesCount(role: RoleDefinition): number {
+  return role.sections.reduce((sum, section) => sum + (section.updatesCount || 0), 0);
+}
+
+export function getAcknowledgedSectionsCount(role: RoleDefinition): number {
+  return role.sections.filter(s => s.acknowledged).length;
+}
+
+export function getAllRefresherRequests(): { roleId: string; roleTitle: string; sectionId: string; sectionName: string; requestedBy: string; requestedDate: string }[] {
+  return [
+    { roleId: 'field-service-engineer', roleTitle: 'Field Service Engineer', sectionId: 'health-safety', sectionName: 'Health & Safety', requestedBy: 'David Thompson', requestedDate: '2026-01-08' },
+    { roleId: 'warehouse-manager', roleTitle: 'Warehouse Manager', sectionId: 'systems-admin', sectionName: 'Systems & Administration', requestedBy: 'Tom Richards', requestedDate: '2026-01-05' },
+  ];
+}
+
+export function getRoleOptions(): { value: string; label: string; department: string }[] {
+  return rolesList.map(role => ({
+    value: role.id,
+    label: role.title,
+    department: role.department,
+  }));
+}
+
+export interface TaskStandard {
+  id: string;
+  text: string;
+  isCritical?: boolean;
+  isNew?: boolean;
+}
+
+export interface TaskSection {
+  id: string;
+  name: string;
+  tasks: TaskStandard[];
+}
+
+export interface RoleTaskDefinition {
+  id: string;
+  title: string;
+  department: string;
+  sections: TaskSection[];
+}
+
+function generateId(text: string, index: number): string {
+  return `task-${index}-${text.slice(0, 20).toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+}
+
+function categorizeStandards(tasks: string[]): TaskSection[] {
+  const coreDuties: TaskStandard[] = [];
+  const systemsProcesses: TaskStandard[] = [];
+  const customerStandards: TaskStandard[] = [];
+  const qualityCompliance: TaskStandard[] = [];
+  const managementLeadership: TaskStandard[] = [];
   
   const systemKeywords = ['protean', 'hubspot', 'brighthr', 'hronline', 'system', 'software', 'online', 'email', 'log in', 'spreadsheet', 'document', 'tablet', 'sage', 'voip', 'microsoft', 'server', 'desktop', 'mobile'];
   const customerKeywords = ['customer', 'client', 'enquir', 'quote', 'communication', 'phone call', 'acknowledged', 'pipeline', 'proposal', 'demonstration', 'demo'];
@@ -48,7 +344,7 @@ function categorizeStandards(tasks: string[]): RoleSection[] {
     }
     
     const taskLower = task.toLowerCase();
-    const standard: RoleStandard = {
+    const standard: TaskStandard = {
       id: generateId(task, idx),
       text: task,
       isCritical: taskLower.includes('critical') || taskLower.includes('quarterly rocks') || taskLower.includes('monthly report') || taskLower.includes('on time') || taskLower.includes('same-day') || taskLower.includes('within 24'),
@@ -68,65 +364,30 @@ function categorizeStandards(tasks: string[]): RoleSection[] {
     }
   });
   
-  const sections: RoleSection[] = [];
+  const sections: TaskSection[] = [];
   
   if (coreDuties.length > 0) {
-    sections.push({
-      id: 'core-duties',
-      name: 'Core Duties',
-      standards: coreDuties,
-      acknowledged: true,
-      acknowledgedDate: '2025-11-15',
-    });
+    sections.push({ id: 'core-duties', name: 'Core Duties', tasks: coreDuties });
   }
-  
   if (customerStandards.length > 0) {
-    sections.push({
-      id: 'customer-standards',
-      name: 'Customer Standards',
-      standards: customerStandards,
-      acknowledged: true,
-      acknowledgedDate: '2025-11-15',
-    });
+    sections.push({ id: 'customer-standards', name: 'Customer Standards', tasks: customerStandards });
   }
-  
   if (systemsProcesses.length > 0) {
-    sections.push({
-      id: 'systems-processes',
-      name: 'Systems & Processes',
-      standards: systemsProcesses,
-      acknowledged: false,
-      hasUpdates: true,
-      updatesCount: Math.min(systemsProcesses.length, 3),
-    });
+    sections.push({ id: 'systems-processes', name: 'Systems & Processes', tasks: systemsProcesses });
   }
-  
   if (qualityCompliance.length > 0) {
-    sections.push({
-      id: 'quality-compliance',
-      name: 'Quality & Compliance',
-      standards: qualityCompliance,
-      acknowledged: true,
-      acknowledgedDate: '2025-12-01',
-    });
+    sections.push({ id: 'quality-compliance', name: 'Quality & Compliance', tasks: qualityCompliance });
   }
-  
   if (managementLeadership.length > 0) {
-    sections.push({
-      id: 'management-leadership',
-      name: 'Management & Leadership',
-      standards: managementLeadership,
-      acknowledged: false,
-      hasUpdates: true,
-      updatesCount: 1,
-    });
+    sections.push({ id: 'management-leadership', name: 'Management & Leadership', tasks: managementLeadership });
   }
   
   return sections;
 }
 
-const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
+const rawRoleTaskData: Record<string, { tasks: string[]; department: string; title: string }> = {
   'purchase-ledger-administrator': {
+    title: 'Purchase Ledger Administrator',
     department: 'Finance',
     tasks: [
       'Closing the purchasing month in 7 working days',
@@ -143,6 +404,7 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
     ],
   },
   'hs-quality-coordinator': {
+    title: 'H&S & Quality Coordinator',
     department: 'Quality',
     tasks: [
       'Review Risk assessment (Annually)',
@@ -180,6 +442,7 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
     ],
   },
   'warehouse-assistant': {
+    title: 'Warehouse Assistant',
     department: 'Warehouse',
     tasks: [
       'Customer enquiries acknowledged',
@@ -206,40 +469,54 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
       'Booking and wrapping a Pallet for delivery',
     ],
   },
-  'warehouse-sales-assistant': {
-    department: 'Warehouse',
+  'field-service-engineer': {
+    title: 'Field Service Engineer',
+    department: 'Engineering',
     tasks: [
-      'Customer enquiries acknowledged',
-      'Internal enquiries acknowledged',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Quarterly Rocks are set and 80%+ delivered upon',
-      'Submitting monthly reports in on time',
-      'Department policies are all written out and reviewed regularly',
-      'Additional support being requested wherever required',
-      'Communication policy is followed across department',
-      'Department section of Protean is clear current & informative',
-      'Account Queries resolved regularly',
-      'Department operating in a professional manner',
-      'Dispatch Via DPD (On Time)',
-      'Dispatch Via Fedex (On-Time)',
+      'Are you fitting Consumables on jobs?',
+      'Same-day booking in job and communication with client',
+      'Ascertain Parts required for job and make sure available for visit',
+      'Client Debrief (on-site. If client busy then over the phone)',
+      'Quote explanation and follow-up (over £350)',
+      'Checking outstanding jobs with Office and chasing parts up internally',
+      'Booking in return visit to complete Callback job',
+      'Completion of Reports Correctly: Labour, Equipment Notes, and Further Work',
+      'Unable to attend - communication and rebooking visit',
+      'Timesheets - Daily',
+      'Van Stock Management',
+      'Scheduling Work to stay busy',
+      'Firm next-day plans and rough idea for coming 3 days',
+      'Do you have a list of back-up jobs that can be attended on short notice',
+      'Speaking with office if work begins to run short',
+      'Pre-visit diagnosis',
+      'Identifying parts required for jobs',
+      'Enquiring if consumables are needed; bags, chemical, etc.',
+      'Communicate the parts required to the office for job',
+      'Schedule date and time with client',
+      'Move the visit on your planner board once booked with client',
+      'On-site client debrief',
+      'Post-repair phone call to check machine is fine',
+      'Book absence on HRONLINE',
+      'Clients communicated to and jobs rebooked if unable to attend',
+      'Service Desk updated if unable to communicate with clients',
+      'Are you receiving sufficient parts in a timely manner?',
+      'Do you place LVC service stickers on all machines that you service?',
+      'Do you have appropriate PPE to complete your jobs safely?',
+      'Do you have and wear LVC workwear on your jobs?',
+      'Do you have the tools necessary to complete your daily jobs?',
       'Solution-focused and able to offer creative options',
-      'Booking in and allocation of items to Sales Orders',
-      'Picking of Sales Orders (incomplete and complete)',
-      'Warehouse Inspections - Upkeep of various zones',
-      'Adding deliveries/collections to Logistics Sheet',
-      'Chasing missing or lost deliveries with DPD',
-      'Booking and wrapping a Pallet for delivery',
     ],
   },
-  'warehouse-manager': {
-    department: 'Warehouse',
+  'service-coordinator': {
+    title: 'Service Co-Ordinator',
+    department: 'Service Admin',
     tasks: [
       'Customer enquiries acknowledged',
       'Quote or query completed',
       'Internal enquiries acknowledged',
       'Email subject bar follows company guidance',
       'Workshop booking in process being followed',
+      'Logistics spreadsheet being updated with as much notice as possible',
       'Quarterly Rocks are set and 80%+ delivered upon',
       'Entire department Submitting monthly reports in on time',
       'Department policies are all written out and reviewed regularly',
@@ -249,32 +526,62 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
       'Account Queries resolved regularly',
       'Department operating in a professional manner',
       'Training delivered to a high standard whenever required',
-      'Engineer Van Stock Replenishment (weekly)',
-      'Engineer Van Stock Take (yearly)',
-      'Stock Room Stock Take (By Zone)',
-      'Periodic Stock Room Inspections',
-      'Picking and dispatch of Job Stock Issues',
-      'Return of goods to suppliers and generate Returns note',
-      'Carry out Parts to Equipment Process',
-      'Creating and superseding part numbers',
-    ],
-  },
-  'accounts-administrator': {
-    department: 'Finance',
-    tasks: [
-      'Aged Debt',
-      'Filing invoices online - Eg Serco, Dwellant, ProcureWizard',
-      'Vehicle Checklists',
-      'Vehicle Servicing',
-      'Vehicle MOTs',
-      'Vehicle Tax',
-      'Engineer Timesheets',
-      'Private mileage',
-      'Parking fines',
+      'Logging and Allocating Breakdowns same-day',
+      'Processing Further Work same-day',
+      'Creating Service Contracts same-day from approval',
+      'Generating and pulling through Service Visits 2 months before due date',
+      'Email Inbox - General upkeep - email count kept relatively low',
+      'Checking Plannerboard everyday for absences',
+      'Checking previous week/day for unattended jobs',
+      'Raising Breakdowns with contractors same-day',
+      'Invoicing Service Jobs on same month job completed',
+      'Invoicing Workshop Jobs on same month job completed',
+      'Solve Engineer Timesheet and Tablet Issues same-day',
+      'Notify clients each month of their upcoming service dates',
+      'Customer enquiries acknowledged same-day',
+      'Quote or query completed within 24h',
+      'Engineer workloads and demand currently stable',
+      'Callout To Be Booked list - Backlog at satisfactory levels',
+      'Booking Machine into Workshop procedure - use book, add tags, link job number',
       'Solution-focused and able to offer creative options',
     ],
   },
+  'sales-consultant': {
+    title: 'Sales Consultant',
+    department: 'Sales',
+    tasks: [
+      'Pipeline Added',
+      'Customer enquiries acknowledged',
+      'Quote or query completed',
+      'Internal enquiries acknowledged',
+      'Orders Processed',
+      'Condition of your demonstration equipment',
+      'Pipeline added to Hubspot',
+      'Pipeline being followed up',
+      'Meetings added to Hubspot',
+      'All demonstration/trial machines booked out on Protean',
+      'Every loan/trial machine being signed for by client',
+      'Training delivered to a high standard whenever required',
+      'User manual, chemical data sheet, training vid sent electronically',
+      'Consumables promoted with each machine sale',
+      'Service plan offered with each machine sale',
+      'System to ensure all accessories come back, no damage, etc',
+      'Monthly product awareness sessions being attended',
+      'All demonstrations pre-qualified - decision maker will be there',
+      'All clients emailed before a scheduled meeting, confirming meeting time',
+      'Proposals sent to proposals@lvcuk.com',
+      'Email subject bar follows company guidance',
+      'Workshop booking in process being followed',
+      'Sales Hire policy being followed by you/your department',
+      'Photos being taken of items being delivered and dispatch note',
+      'Logistics spreadsheet being checked to see if you can assist with deliveries',
+      'Memo box on Protean being filled in with questions answered',
+      'Solution-focused and able to offer creative options',
+      'S numbers are on entire Sales fleet',
+    ],
+  },
   'workshop-manager': {
+    title: 'Workshop Manager / Senior Service Engineer',
     department: 'Engineering',
     tasks: [
       'Customer enquiries acknowledged',
@@ -313,297 +620,8 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
       'Monitoring and management of Logistics activities in LVC',
     ],
   },
-  'sales-consultant': {
-    department: 'Sales',
-    tasks: [
-      'Pipeline Added',
-      'Customer enquiries acknowledged',
-      'Quote or query completed',
-      'Internal enquiries acknowledged',
-      'Orders Processed',
-      'Condition of your demonstration equipment',
-      'Pipeline added to Hubspot',
-      'Pipeline being followed up',
-      'Meetings added to Hubspot',
-      'All demonstration/trial machines booked out on Protean',
-      'Every loan/trial machine being signed for by client',
-      'Training delivered to a high standard whenever required',
-      'User manual, chemical data sheet, training vid sent electronically',
-      'Consumables promoted with each machine sale',
-      'Service plan offered with each machine sale',
-      'System to ensure all accessories come back, no damage, etc',
-      'Monthly product awareness sessions being attended',
-      'All demonstrations pre-qualified - decision maker will be there',
-      'All clients emailed before a scheduled meeting, confirming meeting time',
-      'Proposals sent to proposals@lvcuk.com',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Sales Hire policy being followed by you/your department',
-      'Photos being taken of items being delivered and dispatch note',
-      'Logistics spreadsheet being checked to see if you can assist with deliveries',
-      'Memo box on Protean being filled in with questions answered',
-      'Solution-focused and able to offer creative options',
-      'S numbers are on entire Sales fleet',
-    ],
-  },
-  'service-coordinator': {
-    department: 'Service Admin',
-    tasks: [
-      'Customer enquiries acknowledged',
-      'Quote or query completed',
-      'Internal enquiries acknowledged',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Logistics spreadsheet being updated with as much notice as possible',
-      'Quarterly Rocks are set and 80%+ delivered upon',
-      'Entire department Submitting monthly reports in on time',
-      'Department policies are all written out and reviewed regularly',
-      'Additional support being requested wherever required',
-      'Communication policy is followed across department',
-      'Department section of Protean is clear current & informative',
-      'Account Queries resolved regularly',
-      'Department operating in a professional manner',
-      'Training delivered to a high standard whenever required',
-      'Logging and Allocating Breakdowns same-day',
-      'Processing Further Work same-day',
-      'Creating Service Contracts same-day from approval',
-      'Generating and pulling through Service Visits 2 months before due date',
-      'Email Inbox - General upkeep - email count kept relatively low',
-      'Checking Plannerboard everyday for absences',
-      'Checking previous week/day for unattended jobs',
-      'Raising Breakdowns with contractors same-day',
-      'Invoicing Service Jobs on same month job completed',
-      'Invoicing Workshop Jobs on same month job completed',
-      'Solve Engineer Timesheet and Tablet Issues same-day',
-      'Notify clients each month of their upcoming service dates',
-      'Customer enquiries acknowledged same-day',
-      'Quote or query completed within 24h',
-      'Engineer workloads and demand currently stable',
-      'Callout To Be Booked list - Backlog at satisfactory levels',
-      'Booking Machine into Workshop procedure - use book, add tags, link job number',
-      'Solution-focused and able to offer creative options',
-    ],
-  },
-  'delivery-driver': {
-    department: 'Operations',
-    tasks: [
-      'Customer enquiries acknowledged',
-      'Internal enquiries acknowledged',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Logistics system being updated with as much notice as possible',
-      'Quarterly Rocks are set and 80%+ delivered upon',
-      'Submitting monthly reports in on time',
-      'Additional support being requested wherever required',
-      'Communication policy is followed',
-      'Operating in a professional manner, including communication and image',
-      'Training received to a high standard whenever required',
-      'Health and Safety Policy followed',
-      'Phone clients the day before planned route - to ensure all booked in',
-      'Use Logistics System to view the planned route',
-      'Gather Paperwork from each department for route',
-      'Pre-dispatch check of paperwork to ensure vital information included',
-      'Load Van autonomously - checking load order with route planned',
-      'Phone each site when departing to complete their respective deliveries/collections',
-      'Locate and correspond with the relevant site contact upon arrival to site',
-      'Ask client to empty waste tank of machine before loading onto Van',
-      'Carrying out correct machine loading and unloading procedure on-site',
-      'Completion of route on-time for afternoon loading of following day route',
-      'For pre-loaded van - depart following morning by 7:00AM',
-      'For unloaded van - depart LVC by 9:00AM',
-      'Complete on-site client training/demonstration to a high standard',
-      'Able to answer all demonstration questions without issue',
-      'Solution-focused and able to offer creative options',
-    ],
-  },
-  'field-service-engineer': {
-    department: 'Engineering',
-    tasks: [
-      'Are you fitting Consumables on jobs?',
-      'Same-day booking in job and communication with client',
-      'Ascertain Parts required for job and make sure available for visit',
-      'Client Debrief (on-site. If client busy then over the phone)',
-      'Quote explanation and follow-up (over £350)',
-      'Checking outstanding jobs with Office and chasing parts up internally',
-      'Booking in return visit to complete Callback job',
-      'Completion of Reports Correctly: Labour, Equipment Notes, and Further Work',
-      'Unable to attend - communication and rebooking visit',
-      'Timesheets - Daily',
-      'Van Stock Management',
-      'Scheduling Work to stay busy',
-      'Firm next-day plans and rough idea for coming 3 days',
-      'Do you have a list of back-up jobs that can be attended on short notice',
-      'Speaking with office if work begins to run short',
-      'Pre-visit diagnosis',
-      'Identifying parts required for jobs',
-      'Enquiring if consumables are needed; bags, chemical, etc.',
-      'Communicate the parts required to the office for job',
-      'Schedule date and time with client',
-      'Move the visit on your planner board once booked with client',
-      'On-site client debrief',
-      'Post-repair phone call to check machine is fine',
-      'Book absence on HRONLINE',
-      'Clients communicated to and jobs rebooked if unable to attend',
-      'Service Desk updated if unable to communicate with clients',
-      'Are you receiving sufficient parts in a timely manner?',
-      'Do you place LVC service stickers on all machines that you service?',
-      'Do you have appropriate PPE to complete your jobs safely?',
-      'Do you have and wear LVC workwear on your jobs?',
-      'Do you have the tools necessary to complete your daily jobs?',
-      'Solution-focused and able to offer creative options',
-    ],
-  },
-  'service-administrator': {
-    department: 'Service Admin',
-    tasks: [
-      'Customer enquiries acknowledged',
-      'Quote or query completed',
-      'Internal enquiries acknowledged',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Logistics spreadsheet being updated with as much notice as possible',
-      'Submitting monthly reports in on time',
-      'Additional support being requested wherever required',
-      'Communication policy is followed',
-      'Department section of Protean is clear current & informative',
-      'Department operating in a professional manner',
-      'Processing Further Work same-day',
-      'Generating and pulling through Service Visits 2 months before due date',
-      'Invoicing Service Jobs on same month job completed',
-      'Regular checks/chasing of the job invoicing lists',
-      'Logging and Allocating Breakdowns Same-Day',
-      'Email Inbox - General upkeep - email count kept relatively low',
-      'Notify clients each month of their upcoming service dates',
-      'Callout To Be Booked list - Backlog at satisfactory levels',
-      'Cancelling Old Quotes (none older than 2 months on system without reason)',
-      'Awaiting Parts ETAs - Provide updates to clients',
-      'Booking Machine into Workshop procedure - use book, add tags, link job number',
-      'Solution-focused and able to offer creative options',
-    ],
-  },
-  'workshop-service-engineer': {
-    department: 'Engineering',
-    tasks: [
-      'Speed of Job Completion',
-      'Internal enquiries acknowledged',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Logistics spreadsheet being updated with as much notice as possible',
-      'Submitting monthly reports in on time',
-      'Communication policy is followed',
-      'Training received to a high standard on set monthly date',
-      'Booking Machine into Workshop procedure - use book, add tags, link job number',
-      'Monitoring of Workshop Consumables and reporting insufficient stock',
-      'Quoting Jobs (with phone call)',
-      'Chasing Outstanding Jobs parts',
-      'General Upkeep of Workshop',
-      'Pre-quote explanation phone call',
-      'Checking outstanding jobs with Office and chasing parts up internally',
-      'Completion of Reports Correctly: Labour, Equipment Notes, and Further Work',
-      'Identifying parts required for jobs',
-      'Expensive quote follow-up with client',
-      'Book absence on HRONLINE',
-      'Solution-focused and able to offer creative options',
-    ],
-  },
-  'operations-manager': {
-    department: 'Operations',
-    tasks: [
-      'Key processes, procedures and standards are consistently met across department',
-      'Entire department understands and conforms with company values in everything they do',
-      'Customer Journey reviewed (clients and internal) finding ways to improve client satisfaction',
-      'Entire team is trained and continuously developing their knowledge and skills',
-      'Entire department has all the tools required to fulfil their role adequately',
-      'Everyone in your department following H&S Guidelines',
-      'Entire department Submitting monthly reports in on time',
-      'Department policies are all written out, reviewed and updated regularly',
-      'Additional support being requested wherever required',
-      'Communication policy is followed across department',
-      'Department section of Protean is clear current & informative',
-      'Induction for all new members (incl training schedule) is set up and followed',
-      'Account Queries resolved regularly',
-      'Client & staff feedback being logged',
-      'Periodic review meetings with your team',
-      'Monthly newsletter submitted on time each month',
-      'Solution-focused and able to offer creative options',
-    ],
-  },
-  'sales-order-coordinator': {
-    department: 'Sales',
-    tasks: [
-      'Dispatch Note Picking List (Total older than 30 days)',
-      'Customer enquiries acknowledged',
-      'Quote or query completed',
-      'Internal enquiries acknowledged',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Logistics spreadsheet being updated with as much notice as possible',
-      'Submitting monthly reports in on time',
-      'Additional support being requested wherever required',
-      'Communication policy is followed',
-      'Department section of Protean is clear current & informative',
-      'Department operating in a professional manner',
-      'Solution-focused and able to offer creative options',
-      'Creating and processing Sales Orders',
-      'Chasing Parts with suppliers',
-      'Email Inbox upkeep',
-      'Checking the picking dispatch note list and completing where possible',
-      'Placing direct delivery POs with suppliers',
-      'Updating and monitoring the Pending logistics list',
-      'Chasing and closing down of quotes',
-    ],
-  },
-  'sales-director': {
-    department: 'Executive',
-    tasks: [
-      'Key processes, procedures and standards are consistently met across department',
-      'Entire department understands and conforms with company values in everything they do',
-      'Customer Journey reviewed (clients and internal) finding ways to improve client satisfaction',
-      'Entire team is trained and continuously developing their knowledge and skills',
-      'Entire department has all the tools required to fulfil their role adequately',
-      'Everyone in your department following H&S Guidelines',
-      'Entire department Submitting monthly reports in on time',
-      'Department policies are all written out, reviewed and updated regularly',
-      'Additional support being requested wherever required',
-      'Communication policy is followed across department',
-      'Department section of Protean is clear current & informative',
-      'Induction for all new members (incl training schedule) is set up and followed',
-      'Account Queries resolved regularly',
-      'Client & staff feedback being logged',
-      'Periodic review meetings with your team',
-      'Annual appraisal held with individuals within your team',
-      'Monthly newsletter submitted on time each month',
-      'Department operating in a professional manner',
-      'Customer enquiries acknowledged',
-      'Quote or query completed',
-      'Internal enquiries acknowledged',
-      'Orders Processed',
-      'Condition of your demonstration equipment',
-      'Pipeline added to Hubspot',
-      'Pipeline being followed up',
-      'Meetings added to Hubspot',
-      'All demonstration/trial machines booked out on Protean',
-      'Every loan/trial machine being signed for by client',
-      'Training delivered to a high standard whenever required',
-      'User manual, chemical data sheet, training vid sent electronically',
-      'Consumables promoted with each machine sale',
-      'Service plan offered with each machine sale',
-      'System to ensure all accessories come back, no damage, etc',
-      'Monthly product awareness sessions being attended',
-      'All demonstrations pre-qualified - decision maker will be there',
-      'All clients emailed before a scheduled meeting',
-      'Proposals sent to proposals@lvcuk.com',
-      'Email subject bar follows company guidance',
-      'Workshop booking in process being followed',
-      'Sales Hire policy being followed by you/your department',
-      'Photos being taken of items being delivered and dispatch note',
-      'Logistics spreadsheet being checked to see if you can assist with deliveries',
-      'Memo box on Protean being filled in with questions answered',
-      'Solution-focused and able to offer creative options',
-      'S numbers are on entire Sales fleet',
-    ],
-  },
   'accounts-manager': {
+    title: 'Accounts Manager',
     department: 'Finance',
     tasks: [
       'Key processes, procedures and standards are consistently met across department',
@@ -673,57 +691,92 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
       'Scan documents',
     ],
   },
-  'general-manager': {
-    department: 'Executive',
+  'warehouse-manager': {
+    title: 'Warehouse Manager',
+    department: 'Warehouse',
+    tasks: [
+      'Customer enquiries acknowledged',
+      'Quote or query completed',
+      'Internal enquiries acknowledged',
+      'Email subject bar follows company guidance',
+      'Workshop booking in process being followed',
+      'Quarterly Rocks are set and 80%+ delivered upon',
+      'Entire department Submitting monthly reports in on time',
+      'Department policies are all written out and reviewed regularly',
+      'Additional support being requested wherever required',
+      'Communication policy is followed across department',
+      'Department section of Protean is clear current & informative',
+      'Account Queries resolved regularly',
+      'Department operating in a professional manner',
+      'Training delivered to a high standard whenever required',
+      'Engineer Van Stock Replenishment (weekly)',
+      'Engineer Van Stock Take (yearly)',
+      'Stock Room Stock Take (By Zone)',
+      'Periodic Stock Room Inspections',
+      'Picking and dispatch of Job Stock Issues',
+      'Return of goods to suppliers and generate Returns note',
+      'Carry out Parts to Equipment Process',
+      'Creating and superseding part numbers',
+    ],
+  },
+  'operations-manager': {
+    title: 'Operations Manager',
+    department: 'Operations',
     tasks: [
       'Key processes, procedures and standards are consistently met across department',
-      'Entire department understands and conforms with company values',
-      'Customer Journey reviewed (clients and internal)',
-      'Entire team is trained and continuously developing',
-      'Entire department has all the tools required to fulfil their role',
+      'Entire department understands and conforms with company values in everything they do',
+      'Customer Journey reviewed (clients and internal) finding ways to improve client satisfaction',
+      'Entire team is trained and continuously developing their knowledge and skills',
+      'Entire department has all the tools required to fulfil their role adequately',
       'Everyone in your department following H&S Guidelines',
       'Entire department Submitting monthly reports in on time',
       'Department policies are all written out, reviewed and updated regularly',
       'Additional support being requested wherever required',
       'Communication policy is followed across department',
       'Department section of Protean is clear current & informative',
-      'Induction for all new members is set up and followed',
+      'Induction for all new members (incl training schedule) is set up and followed',
       'Account Queries resolved regularly',
       'Client & staff feedback being logged',
       'Periodic review meetings with your team',
-      'Annual appraisal held with individuals within your team',
       'Monthly newsletter submitted on time each month',
-      'Department operating in a professional manner',
+      'Solution-focused and able to offer creative options',
+    ],
+  },
+  'delivery-driver': {
+    title: 'Delivery Driver',
+    department: 'Operations',
+    tasks: [
       'Customer enquiries acknowledged',
-      'Quote or query completed',
       'Internal enquiries acknowledged',
-      'Orders Processed',
-      'Condition of your demonstration equipment',
-      'Pipeline added to Hubspot',
-      'Pipeline being followed up',
-      'Meetings added to Hubspot',
-      'All demonstration/trial machines booked out on Protean',
-      'Every loan/trial machine being signed for by client',
-      'Training delivered to a high standard whenever required',
-      'User manual, chemical data sheet, training vid sent electronically',
-      'Consumables promoted with each machine sale',
-      'Service plan offered with each machine sale',
-      'System to ensure all accessories come back, no damage, etc',
-      'Monthly product awareness sessions being attended',
-      'All demonstrations pre-qualified - decision maker will be there',
-      'All clients emailed before a scheduled meeting',
-      'Proposals sent to proposals@lvcuk.com',
       'Email subject bar follows company guidance',
       'Workshop booking in process being followed',
-      'Sales Hire policy being followed',
-      'Photos being taken of items being delivered and dispatch note',
-      'Logistics spreadsheet being checked',
-      'Memo box on Protean being filled in',
+      'Logistics system being updated with as much notice as possible',
+      'Quarterly Rocks are set and 80%+ delivered upon',
+      'Submitting monthly reports in on time',
+      'Additional support being requested wherever required',
+      'Communication policy is followed',
+      'Operating in a professional manner, including communication and image',
+      'Training received to a high standard whenever required',
+      'Health and Safety Policy followed',
+      'Phone clients the day before planned route - to ensure all booked in',
+      'Use Logistics System to view the planned route',
+      'Gather Paperwork from each department for route',
+      'Pre-dispatch check of paperwork to ensure vital information included',
+      'Load Van autonomously - checking load order with route planned',
+      'Phone each site when departing to complete their respective deliveries/collections',
+      'Locate and correspond with the relevant site contact upon arrival to site',
+      'Ask client to empty waste tank of machine before loading onto Van',
+      'Carrying out correct machine loading and unloading procedure on-site',
+      'Completion of route on-time for afternoon loading of following day route',
+      'For pre-loaded van - depart following morning by 7:00AM',
+      'For unloaded van - depart LVC by 9:00AM',
+      'Complete on-site client training/demonstration to a high standard',
+      'Able to answer all demonstration questions without issue',
       'Solution-focused and able to offer creative options',
-      'S numbers are on entire Sales fleet',
     ],
   },
   'hire-department-manager': {
+    title: 'Hire Department Manager',
     department: 'Operations',
     tasks: [
       'Key processes, procedures and standards are consistently met across department',
@@ -779,6 +832,7 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
     ],
   },
   'it-procurement-manager': {
+    title: 'IT & Procurement Manager',
     department: 'IT',
     tasks: [
       'Parts Outstanding by Supplier (total number)',
@@ -812,109 +866,27 @@ const rawRoleData: Record<string, { tasks: string[]; department: string }> = {
       'Solution-focused and able to offer creative options',
     ],
   },
-  'senior-service-engineer': {
-    department: 'Engineering',
-    tasks: [
-      'Are you fitting Consumables on jobs?',
-      'Same-day booking in job and communication with client',
-      'Ascertain Parts required for job and make sure available for visit',
-      'Client Debrief (on-site. If client busy then over the phone, or by email)',
-      'Quote explanation and follow-up (over £350)',
-      'Checking outstanding jobs with Office and chasing parts up internally',
-      'Booking in return visit to complete Callback job',
-      'Completion of Reports Correctly: Labour, Equipment Notes, and Further Work',
-      'Unable to attend - communication and rebooking visit',
-      'Timesheets - Daily',
-      'Van Stock Management',
-      'Scheduling Work to stay busy',
-      'Firm next-day plans and rough idea for coming 3 days',
-      'Do you have a list of back-up jobs that can be attended on short notice',
-      'Speaking with office if work begins to run short',
-      'Pre-visit diagnosis',
-      'Identifying parts required for jobs',
-      'Enquiring if consumables are needed; bags, chemical, etc.',
-      'Communicate the parts required to the office for job',
-      'Schedule date and time with client',
-      'Move the visit on your planner board once booked with client',
-      'Post-repair phone call to check machine is fine',
-      'Book absence on BrightHR',
-      'Service Desk updated if unable to communicate with clients',
-      'Checking client history before visiting site',
-      'Mentoring junior engineers on technical skills',
-      'Providing technical guidance to Workshop team',
-      'First point of escalation for complex faults',
-      'Contributing to training materials and sessions',
-      'Solution-focused and able to offer creative options',
-    ],
-  },
 };
 
-export const roleDefinitions: Record<string, RoleDefinition> = {};
+export const roleTaskDefinitions: Record<string, RoleTaskDefinition> = {};
 
-Object.entries(rawRoleData).forEach(([id, data]) => {
-  const titleMap: Record<string, string> = {
-    'purchase-ledger-administrator': 'Purchase Ledger Administrator',
-    'hs-quality-coordinator': 'H&S & Quality Coordinator',
-    'warehouse-assistant': 'Warehouse Assistant',
-    'warehouse-sales-assistant': 'Warehouse and Sales Assistant',
-    'warehouse-manager': 'Warehouse Manager',
-    'accounts-administrator': 'Accounts Administrator',
-    'workshop-manager': 'Workshop Manager / Senior Service Engineer',
-    'sales-consultant': 'Sales Consultant',
-    'service-coordinator': 'Service Co-Ordinator',
-    'delivery-driver': 'Delivery Driver',
-    'field-service-engineer': 'Field Service Engineer',
-    'service-administrator': 'Service Administrator',
-    'workshop-service-engineer': 'Workshop Service Engineer',
-    'operations-manager': 'Operations Manager',
-    'sales-order-coordinator': 'Sales Order Coordinator',
-    'sales-director': 'Sales Director',
-    'accounts-manager': 'Accounts Manager',
-    'general-manager': 'General Manager',
-    'hire-department-manager': 'Hire Department Manager',
-    'it-procurement-manager': 'IT & Procurement Manager',
-    'senior-service-engineer': 'Senior Service Engineer',
-  };
-
-  roleDefinitions[id] = {
+Object.entries(rawRoleTaskData).forEach(([id, data]) => {
+  roleTaskDefinitions[id] = {
     id,
-    title: titleMap[id] || id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
+    title: data.title,
     department: data.department,
-    version: `${Math.floor(Math.random() * 3) + 1}.${Math.floor(Math.random() * 9)}`,
-    lastReviewed: `2025-${String(Math.floor(Math.random() * 3) + 10).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
     sections: categorizeStandards(data.tasks),
   };
 });
 
-export const rolesList = Object.values(roleDefinitions);
+export const roleTasksList = Object.values(roleTaskDefinitions);
 
-export function getRoleById(id: string): RoleDefinition | undefined {
-  return roleDefinitions[id];
+export function getRoleTaskById(id: string): RoleTaskDefinition | undefined {
+  return roleTaskDefinitions[id];
 }
 
-export function getRolesByDepartment(department: string): RoleDefinition[] {
-  return rolesList.filter(role => role.department.toLowerCase() === department.toLowerCase());
-}
-
-export function getTotalUpdatesCount(role: RoleDefinition): number {
-  return role.sections.reduce((sum, section) => sum + (section.updatesCount || 0), 0);
-}
-
-export function getAcknowledgedSectionsCount(role: RoleDefinition): number {
-  return role.sections.filter(s => s.acknowledged).length;
-}
-
-export function getAllRefresherRequests(): { roleId: string; roleTitle: string; sectionId: string; sectionName: string; requestedBy: string; requestedDate: string }[] {
-  return [
-    { roleId: 'field-service-engineer', roleTitle: 'Field Service Engineer', sectionId: 'systems-processes', sectionName: 'Systems & Processes', requestedBy: 'David Thompson', requestedDate: '2026-01-08' },
-    { roleId: 'warehouse-assistant', roleTitle: 'Warehouse Assistant', sectionId: 'core-duties', sectionName: 'Core Duties', requestedBy: 'Tom Richards', requestedDate: '2026-01-05' },
-    { roleId: 'service-administrator', roleTitle: 'Service Administrator', sectionId: 'customer-standards', sectionName: 'Customer Standards', requestedBy: 'Emma Clarke', requestedDate: '2026-01-09' },
-    { roleId: 'sales-consultant', roleTitle: 'Sales Consultant', sectionId: 'systems-processes', sectionName: 'Systems & Processes', requestedBy: 'James Wilson', requestedDate: '2026-01-10' },
-  ];
-}
-
-export function getRoleOptions(): { value: string; label: string; department: string }[] {
-  return rolesList.map(role => ({
+export function getRoleTaskOptions(): { value: string; label: string; department: string }[] {
+  return roleTasksList.map(role => ({
     value: role.id,
     label: role.title,
     department: role.department,

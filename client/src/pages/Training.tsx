@@ -50,10 +50,10 @@ import {
 } from '@/lib/trainingMatrixData';
 import { departments } from '@/lib/departmentData';
 import {
-  roleDefinitions,
-  getRoleOptions,
-  type RoleDefinition,
-  type RoleSection,
+  roleTaskDefinitions,
+  getRoleTaskOptions,
+  type RoleTaskDefinition,
+  type TaskSection,
 } from '@/lib/roleStandardsData';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -441,13 +441,13 @@ function StandardsMaintenanceSection({ roleId, isManager = false }: { roleId: st
   const [selectedRoleId, setSelectedRoleId] = useState(roleId);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   
-  const role = roleDefinitions[selectedRoleId] || roleDefinitions['field-service-engineer'];
+  const role = roleTaskDefinitions[selectedRoleId] || roleTaskDefinitions['field-service-engineer'];
   
   if (!role) return null;
   
-  const totalStandards = role.sections.reduce((sum, s) => sum + s.standards.length, 0);
+  const totalTasks = role.sections.reduce((sum, s) => sum + s.tasks.length, 0);
   const checkedCount = checkedItems.size;
-  const progressPercent = totalStandards > 0 ? Math.round((checkedCount / totalStandards) * 100) : 0;
+  const progressPercent = totalTasks > 0 ? Math.round((checkedCount / totalTasks) * 100) : 0;
   
   const toggleItem = (id: string) => {
     setCheckedItems(prev => {
@@ -479,7 +479,7 @@ function StandardsMaintenanceSection({ roleId, isManager = false }: { roleId: st
             </div>
           </div>
           <div className="text-right">
-            <p className="text-2xl font-bold">{checkedCount}/{totalStandards}</p>
+            <p className="text-2xl font-bold">{checkedCount}/{totalTasks}</p>
             <p className="text-xs text-muted-foreground">standards maintained</p>
           </div>
         </div>
@@ -492,7 +492,7 @@ function StandardsMaintenanceSection({ roleId, isManager = false }: { roleId: st
                 <SelectValue placeholder="Select a role..." />
               </SelectTrigger>
               <SelectContent>
-                {getRoleOptions().map(option => (
+                {getRoleTaskOptions().map(option => (
                   <SelectItem key={option.value} value={option.value}>
                     <div className="flex items-center gap-2">
                       <span>{option.label}</span>
@@ -516,8 +516,8 @@ function StandardsMaintenanceSection({ roleId, isManager = false }: { roleId: st
         
         <Accordion type="multiple" className="space-y-2">
           {role.sections.map((section) => {
-            const sectionChecked = section.standards.filter(s => checkedItems.has(s.id)).length;
-            const sectionTotal = section.standards.length;
+            const sectionChecked = section.tasks.filter(t => checkedItems.has(t.id)).length;
+            const sectionTotal = section.tasks.length;
             
             return (
               <AccordionItem
@@ -540,32 +540,32 @@ function StandardsMaintenanceSection({ roleId, isManager = false }: { roleId: st
                 </AccordionTrigger>
                 <AccordionContent className="px-4 pb-4">
                   <div className="space-y-2 pt-2">
-                    {section.standards.map((standard) => (
+                    {section.tasks.map((task) => (
                       <div
-                        key={standard.id}
+                        key={task.id}
                         className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                          checkedItems.has(standard.id)
+                          checkedItems.has(task.id)
                             ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900'
                             : 'bg-muted/20 border-transparent hover:bg-muted/40'
                         }`}
                       >
                         <Checkbox
-                          id={standard.id}
-                          checked={checkedItems.has(standard.id)}
-                          onCheckedChange={() => toggleItem(standard.id)}
+                          id={task.id}
+                          checked={checkedItems.has(task.id)}
+                          onCheckedChange={() => toggleItem(task.id)}
                           className="mt-0.5"
                         />
                         <label
-                          htmlFor={standard.id}
+                          htmlFor={task.id}
                           className="flex-1 text-sm cursor-pointer leading-relaxed"
                         >
-                          <span className={checkedItems.has(standard.id) ? 'text-muted-foreground line-through' : ''}>
-                            {standard.text}
+                          <span className={checkedItems.has(task.id) ? 'text-muted-foreground line-through' : ''}>
+                            {task.text}
                           </span>
-                          {standard.isCritical && (
+                          {task.isCritical && (
                             <Badge variant="destructive" className="ml-2 text-xs">Critical</Badge>
                           )}
-                          {standard.isNew && (
+                          {task.isNew && (
                             <Badge className="ml-2 text-xs bg-blue-600">New</Badge>
                           )}
                         </label>

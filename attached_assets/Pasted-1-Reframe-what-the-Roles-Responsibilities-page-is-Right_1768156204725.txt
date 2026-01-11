@@ -1,0 +1,139 @@
+1) Reframe what the “Roles & Responsibilities” page is
+
+Right now it reads like a static job description with a single “I acknowledge” button. That’s fine for induction, but it doesn’t actively enforce uniform standards.
+
+Instead, position it as:
+
+Role Standards Playbook
+
+“This is the single source of truth for how this role is done at LVC.”
+
+Each line item is a standard (task / procedure / expectation), not a survey question.
+
+Then you layer in lightweight interaction that is useful to the user, not punitive.
+
+2) Replace the unpopular “survey resubmission” with two mechanisms
+A) One-time baseline (induction / role change)
+
+On first assignment to a role (or when promoted), require:
+
+Section-level acknowledgement (Core Duties / Systems & Processes)
+
+A short self-check that is framed as support, not compliance
+
+Example per section:
+
+“I understand and can follow this standard”
+
+“I need refresher/training”
+
+“Not applicable to my day-to-day” (manager-visible)
+
+You do not need line-by-line multiple choice for everything. That’s what made it hated.
+
+B) Change-driven re-acknowledgement (only when things change)
+
+The most important design choice for adoption:
+
+Only re-ask people to acknowledge items that changed, not the entire role, and not on a fixed schedule.
+
+This is where your Admin “templates are modular” concept becomes strategically important:
+
+Version the role standards template.
+
+When Admin updates a standard, the portal shows: “3 updates since your last acknowledgement.”
+
+User only confirms the delta.
+
+This alone eliminates most resentment.
+
+3) Make every line item “actionable” and linked to support
+
+If you want standards to be uniform, you need the portal to do something when someone is unsure.
+
+For each task/procedure line, add (optional) micro-actions:
+
+View SOP / How-to (link to the specific doc/video)
+
+Ask for help (opens a request to line manager / training owner)
+
+Add evidence (only for a small subset of critical items)
+
+The portal then becomes a tool that helps them do the job, not a mechanism that audits them.
+
+4) Use “confidence” carefully (or it will be seen as policing)
+
+The old tool failed largely because it asked people to repeatedly rate themselves.
+
+If you keep confidence scoring, make it:
+
+Private-by-default (visible to the colleague and their manager only)
+
+Support-oriented (“Where should we prioritise refresher training?”)
+
+Low-frequency (baseline plus change-driven prompts)
+
+A strong compromise:
+
+Replace “How confident are you?” with “Need refresher?” Yes/No
+That single bit of data is enough to drive training without feeling judgmental.
+
+5) Introduce “Role Standards Checks” as manager-led, not survey-led
+
+If you want uniformity, it cannot be purely self-report.
+
+Add a manager workflow that feels legitimate and finite:
+
+Manager selects 3–5 “critical standards” for the role (e.g., the ones that cause customer issues if wrong).
+
+On a monthly/quarterly cadence, manager does a quick sign-off check in a 1:1:
+
+“Observed / Discussed / Not yet”
+
+One comment box
+
+This creates accountability without asking staff to keep re-answering the same questionnaire.
+
+6) Convert the data you already have into a clean structure inside the UI
+
+Your screenshot already has the right layout pattern:
+
+Role Overview
+
+Core Duties (with subsections like Job Scheduling, Customer Communication)
+
+Systems & Processes (Protean management, parts ordering, etc.)
+
+The improvement is adding interaction at the right level:
+
+Recommended interaction design
+
+Section header: status pill (Not Acknowledged / Acknowledged / Updates Pending)
+
+Each subsection: optional “Need refresher” toggle + “Resources” link
+
+Only a small set of “critical items” require evidence or explicit manager sign-off
+
+7) How this directly enforces uniform standards
+
+You will get uniformity through four outputs the portal can generate automatically:
+
+Role clarity: everyone has the same canonical role standards page
+
+Change control: updated standards get acknowledged as deltas
+
+Training targeting: “Need refresher” creates training actions rather than passive data
+
+Manager reinforcement: periodic sign-off on a small critical subset
+
+That is a credible system, and it is far less irritating than repeated surveys.
+
+8) What I would add to your current page (minimum changes, maximum impact)
+
+If you want to keep it simple for Monday, add just these:
+
+“Updates since last acknowledgement” banner at the top of Roles & Responsibilities
+
+Section-level acknowledgement instead of one global acknowledgement
+
+“Request refresher” button per subsection (creates a training action for manager)

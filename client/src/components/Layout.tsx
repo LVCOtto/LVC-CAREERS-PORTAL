@@ -23,6 +23,7 @@ import {
   ChevronDown,
   Award,
   Briefcase,
+  Network,
 } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
@@ -91,6 +92,12 @@ const navItems: NavItem[] = [
     label: 'Job Roles',
     icon: <Briefcase className="w-5 h-5" />,
     roles: ['admin'],
+  },
+  {
+    href: '/organisation',
+    label: 'Organisation',
+    icon: <Network className="w-5 h-5" />,
+    roles: ['manager', 'admin'],
   },
 ];
 

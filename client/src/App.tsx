@@ -15,6 +15,7 @@ import Team from "@/pages/Team";
 import AdminUsers from "@/pages/admin/Users";
 import AdminTemplates from "@/pages/admin/Templates";
 import AdminRoles from "@/pages/admin/Roles";
+import Organisation from "@/pages/admin/Organisation";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated } = useAuth();
@@ -56,6 +57,9 @@ function Router() {
       </Route>
       <Route path="/admin/roles">
         {() => <ProtectedRoute component={AdminRoles} />}
+      </Route>
+      <Route path="/organisation">
+        {() => <ProtectedRoute component={Organisation} />}
       </Route>
       <Route component={NotFound} />
     </Switch>

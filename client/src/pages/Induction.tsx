@@ -22,6 +22,18 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
   getInductionForUser,
   getInductionProgress,
   ChecklistItem,
@@ -37,8 +49,20 @@ import {
   Shield,
   Award,
   PartyPopper,
+  UserPlus,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+const availableAssignees = [
+  { id: 'assignee-1', name: 'James Wilson', role: 'Operations Director' },
+  { id: 'assignee-2', name: 'Sarah Chen', role: 'HR Manager' },
+  { id: 'assignee-3', name: 'Mike Roberts', role: 'IT Manager' },
+  { id: 'assignee-4', name: 'Lisa Anderson', role: 'H&S Coordinator' },
+  { id: 'assignee-5', name: 'Tom Hughes', role: 'Workshop Manager' },
+  { id: 'assignee-6', name: 'Emma Davis', role: 'Service Coordinator' },
+  { id: 'assignee-7', name: 'Chris Taylor', role: 'Senior Engineer' },
+  { id: 'assignee-8', name: 'Rachel Green', role: 'Accounts Manager' },
+];
 
 export default function Induction() {
   const { currentUser } = useAuth();
@@ -47,6 +71,7 @@ export default function Induction() {
   const [colleagueSignedOff, setColleagueSignedOff] = useState(false);
   const [managerSignedOff, setManagerSignedOff] = useState(false);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null);
+  const [itemAssignees, setItemAssignees] = useState<Record<string, string>>({});
 
   if (!currentUser) return null;
 
@@ -68,6 +93,24 @@ export default function Induction() {
     { id: 'tm-3', name: 'Sarah Mitchell', role: 'Junior Service Engineer', progress: 45, status: 'in_progress' as const, colleagueSigned: false, managerSigned: false },
     { id: 'tm-4', name: 'James Parker', role: 'Trainee Engineer', progress: 20, status: 'in_progress' as const, colleagueSigned: false, managerSigned: false },
   ];
+
+  const handleAssigneeChange = (itemId: string, assigneeId: string) => {
+    setItemAssignees(prev => ({
+      ...prev,
+      [itemId]: assigneeId
+    }));
+    const assignee = availableAssignees.find(a => a.id === assigneeId);
+    toast({
+      title: 'Assignee Updated',
+      description: `${assignee?.name} assigned to this induction item.`,
+    });
+  };
+
+  const getAssigneeName = (itemId: string) => {
+    const assigneeId = itemAssignees[itemId];
+    if (!assigneeId) return null;
+    return availableAssignees.find(a => a.id === assigneeId);
+  };
 
   const handleToggleItem = (itemId: string) => {
     setItems(prev =>
@@ -370,44 +413,82 @@ export default function Induction() {
                         </AccordionTrigger>
                         <AccordionContent className="pb-4">
                           <div className="space-y-2 pt-2">
-                            {sectionItems.map((item) => (
-                              <div
-                                key={item.id}
-                                className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
-                                  item.completed ? 'bg-green-50' : 'bg-background border'
-                                }`}
-                                data-testid={`checklist-item-${item.id}`}
-                              >
-                                <Checkbox
-                                  id={item.id}
-                                  checked={item.completed}
-                                  onCheckedChange={() => isManager && handleToggleItem(item.id)}
-                                  disabled={!isManager}
-                                  className={`mt-0.5 ${!isManager ? 'opacity-60' : ''}`}
-                                  data-testid={`checkbox-${item.id}`}
-                                />
-                                <div className="flex-1">
-                                  <label
-                                    htmlFor={item.id}
-                                    className={`text-sm font-medium cursor-pointer ${
-                                      item.completed ? 'text-muted-foreground line-through' : ''
-                                    }`}
-                                  >
-                                    {item.title}
-                                  </label>
-                                  {item.description && (
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      {item.description}
-                                    </p>
-                                  )}
-                                  {item.completed && item.completedDate && (
-                                    <p className="text-xs text-green-600 mt-1">
-                                      Completed {item.completedDate} {item.signedOffBy && '• Signed off by manager'}
-                                    </p>
-                                  )}
+                            {sectionItems.map((item) => {
+                              const assignee = getAssigneeName(item.id);
+                              return (
+                                <div
+                                  key={item.id}
+                                  className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
+                                    item.completed ? 'bg-green-50' : 'bg-background border'
+                                  }`}
+                                  data-testid={`checklist-item-${item.id}`}
+                                >
+                                  <Checkbox
+                                    id={item.id}
+                                    checked={item.completed}
+                                    onCheckedChange={() => isManager && handleToggleItem(item.id)}
+                                    disabled={!isManager}
+                                    className={`mt-0.5 ${!isManager ? 'opacity-60' : ''}`}
+                                    data-testid={`checkbox-${item.id}`}
+                                  />
+                                  <div className="flex-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <label
+                                        htmlFor={item.id}
+                                        className={`text-sm font-medium cursor-pointer ${
+                                          item.completed ? 'text-muted-foreground line-through' : ''
+                                        }`}
+                                      >
+                                        {item.title}
+                                      </label>
+                                      {isManager ? (
+                                        <Select
+                                          value={itemAssignees[item.id] || ''}
+                                          onValueChange={(value) => handleAssigneeChange(item.id, value)}
+                                        >
+                                          <SelectTrigger 
+                                            className="h-7 w-[160px] text-xs shrink-0"
+                                            data-testid={`assignee-select-${item.id}`}
+                                          >
+                                            <SelectValue placeholder="Assign to..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {availableAssignees.map((person) => (
+                                              <SelectItem key={person.id} value={person.id}>
+                                                <div className="flex items-center gap-2">
+                                                  <User className="h-3 w-3" />
+                                                  <span>{person.name}</span>
+                                                </div>
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      ) : assignee ? (
+                                        <Badge variant="secondary" className="text-xs shrink-0 gap-1">
+                                          <User className="h-3 w-3" />
+                                          {assignee.name}
+                                        </Badge>
+                                      ) : null}
+                                    </div>
+                                    {item.description && (
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        {item.description}
+                                      </p>
+                                    )}
+                                    {assignee && (
+                                      <p className="text-xs text-blue-600 mt-1">
+                                        Assigned to: {assignee.name} ({assignee.role})
+                                      </p>
+                                    )}
+                                    {item.completed && item.completedDate && (
+                                      <p className="text-xs text-green-600 mt-1">
+                                        Completed {item.completedDate} {item.signedOffBy && '• Signed off by manager'}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </AccordionContent>
                       </AccordionItem>

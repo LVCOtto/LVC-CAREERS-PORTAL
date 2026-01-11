@@ -35,10 +35,18 @@ import {
   getTotalUpdatesCount,
   getAcknowledgedSectionsCount,
   getAllRefresherRequests,
+  getRoleOptions,
   type RoleDefinition,
   type RoleSection,
   type RoleStandard,
 } from '@/lib/roleStandardsData';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   ClipboardCheck,
   CheckCircle2,
@@ -630,6 +638,26 @@ export default function Induction() {
 
             <Card className="mb-6">
               <CardHeader>
+                {isManager && (
+                  <div className="mb-4">
+                    <label className="text-sm text-muted-foreground mb-2 block">Select Role to View</label>
+                    <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
+                      <SelectTrigger className="w-full md:w-[350px]" data-testid="select-role">
+                        <SelectValue placeholder="Select a role..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getRoleOptions().map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            <div className="flex items-center gap-2">
+                              <span>{option.label}</span>
+                              <Badge variant="secondary" className="text-xs">{option.department}</Badge>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">

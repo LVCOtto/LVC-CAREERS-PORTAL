@@ -98,7 +98,7 @@ export default function Induction() {
   const progress = getInductionProgress(items);
   const roleDefinition = getRoleForDepartment(currentUser.department);
   
-  const currentRoleStandards = roleDefinitions[selectedRoleId] || roleDefinitions['service-engineer'];
+  const currentRoleStandards = roleDefinitions[selectedRoleId] || roleDefinitions['field-service-engineer'];
   const totalUpdates = getTotalUpdatesCount(currentRoleStandards);
   const acknowledgedCount = getAcknowledgedSectionsCount(currentRoleStandards);
 

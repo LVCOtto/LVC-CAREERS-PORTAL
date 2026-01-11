@@ -135,6 +135,8 @@ export function getRolesByDepartment(departmentId: string): JobRole[] {
   return jobRoles.filter(r => r.departmentId === departmentId);
 }
 
+export const getRolesForDepartment = getRolesByDepartment;
+
 export function getDirectReports(managerId: string): OrgMember[] {
   return orgMembers.filter(m => m.managerId === managerId);
 }

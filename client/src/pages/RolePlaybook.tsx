@@ -6,15 +6,10 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { useAuth } from '@/lib/authContext';
-import { roleDefinitions, getRoleById, getRoleOptions, getRoleTaskById } from '@/lib/roleStandardsData';
-import { FileText, Building2, Calendar, Hash, ClipboardList, CheckCircle2, AlertCircle } from 'lucide-react';
+import { roleDefinitions, getRoleById, getRoleOptions } from '@/lib/roleStandardsData';
+import { getSurveyByRoleId } from '@/lib/standardsSurveyData';
+import { FileText, Building2, Calendar, Hash, ClipboardList, CheckCircle2, MessageCircle } from 'lucide-react';
 
 export default function RolePlaybook() {
   const { currentUser } = useAuth();
@@ -29,7 +24,7 @@ export default function RolePlaybook() {
   const [selectedRoleId, setSelectedRoleId] = useState(defaultRoleId);
   const [surveyChecks, setSurveyChecks] = useState<Record<string, boolean>>({});
   const currentRoleStandards = getRoleById(selectedRoleId);
-  const currentRoleTasks = getRoleTaskById(selectedRoleId);
+  const currentSurvey = getSurveyByRoleId(selectedRoleId);
   const roleOptions = getRoleOptions();
 
   const handleSurveyCheck = (taskId: string) => {
@@ -39,25 +34,11 @@ export default function RolePlaybook() {
     }));
   };
 
-  const getSectionSurveyProgress = (sectionId: string) => {
-    if (!currentRoleTasks) return { completed: 0, total: 0 };
-    const section = currentRoleTasks.sections.find(s => s.id === sectionId);
-    if (!section) return { completed: 0, total: 0 };
-    const completed = section.tasks.filter(t => surveyChecks[t.id]).length;
-    return { completed, total: section.tasks.length };
-  };
-
-  const getTotalSurveyProgress = () => {
-    if (!currentRoleTasks) return { completed: 0, total: 0 };
-    let completed = 0;
-    let total = 0;
-    currentRoleTasks.sections.forEach(section => {
-      section.tasks.forEach(task => {
-        total++;
-        if (surveyChecks[task.id]) completed++;
-      });
-    });
-    return { completed, total };
+  const getSurveyProgress = () => {
+    if (!currentSurvey) return { completed: 0, total: 0 };
+    const taskItems = currentSurvey.tasks.filter(t => !t.isFeedback);
+    const completed = taskItems.filter(t => surveyChecks[t.id]).length;
+    return { completed, total: taskItems.length };
   };
 
   if (!currentRoleStandards) {
@@ -70,14 +51,14 @@ export default function RolePlaybook() {
     );
   }
 
-  const surveyProgress = getTotalSurveyProgress();
+  const surveyProgress = getSurveyProgress();
 
   return (
     <Layout>
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Role Standards Playbook</h1>
+            <h1 className="text-2xl font-bold text-foreground">Roles & Responsibilities</h1>
             <p className="text-muted-foreground mt-1">
               Role specifications and standards survey checklist
             </p>
@@ -88,7 +69,7 @@ export default function RolePlaybook() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">View Role</CardTitle>
-              <CardDescription>Select a role to view its standards and survey</CardDescription>
+              <CardDescription>Select a role to view its responsibilities and survey</CardDescription>
             </CardHeader>
             <CardContent>
               <Select value={selectedRoleId} onValueChange={setSelectedRoleId}>
@@ -110,11 +91,11 @@ export default function RolePlaybook() {
           </Card>
         )}
 
-        <Tabs defaultValue="standards" className="space-y-4">
+        <Tabs defaultValue="responsibilities" className="space-y-4">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="standards" className="flex items-center gap-2">
+            <TabsTrigger value="responsibilities" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Role Standards
+              Roles & Responsibilities
             </TabsTrigger>
             <TabsTrigger value="survey" className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />
@@ -127,7 +108,7 @@ export default function RolePlaybook() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="standards">
+          <TabsContent value="responsibilities">
             <Card className="overflow-hidden">
               <CardHeader className="bg-primary/5 border-b">
                 <div className="flex items-start justify-between">
@@ -202,7 +183,7 @@ export default function RolePlaybook() {
                     <div>
                       <CardTitle className="text-xl">Standards Survey Checklist</CardTitle>
                       <CardDescription>
-                        Detailed task checklist for ongoing role compliance - self-assessment tool
+                        Periodic self-assessment sent by your manager to reinforce role standards
                       </CardDescription>
                     </div>
                   </div>
@@ -217,82 +198,71 @@ export default function RolePlaybook() {
                 </div>
               </CardHeader>
               <CardContent className="p-4">
-                {currentRoleTasks ? (
-                  <Accordion type="multiple" defaultValue={currentRoleTasks.sections.map(s => s.id)} className="space-y-2">
-                    {currentRoleTasks.sections.map((section) => {
-                      const sectionProgress = getSectionSurveyProgress(section.id);
-                      const isComplete = sectionProgress.completed === sectionProgress.total;
+                {currentSurvey ? (
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+                        Task Checklist
+                      </h3>
+                      <div className="space-y-2">
+                        {currentSurvey.tasks.filter(t => !t.isFeedback).map((task) => (
+                          <div
+                            key={task.id}
+                            className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
+                              surveyChecks[task.id] ? 'bg-green-50' : 'bg-background border'
+                            }`}
+                            data-testid={`survey-task-${task.id}`}
+                          >
+                            <Checkbox
+                              id={task.id}
+                              checked={surveyChecks[task.id] || false}
+                              onCheckedChange={() => handleSurveyCheck(task.id)}
+                              className="mt-0.5"
+                              data-testid={`survey-checkbox-${task.id}`}
+                            />
+                            <label
+                              htmlFor={task.id}
+                              className={`text-sm cursor-pointer flex-1 ${
+                                surveyChecks[task.id] ? 'text-muted-foreground line-through' : ''
+                              }`}
+                            >
+                              {task.text}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-                      return (
-                        <AccordionItem
-                          key={section.id}
-                          value={section.id}
-                          className="border rounded-lg px-4 data-[state=open]:bg-muted/30"
-                        >
-                          <AccordionTrigger className="hover:no-underline py-4">
-                            <div className="flex items-center gap-3 flex-1">
-                              <div className={`p-2 rounded-lg ${isComplete ? 'bg-green-100' : 'bg-amber-100'}`}>
-                                {isComplete ? (
-                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                ) : (
-                                  <AlertCircle className="h-4 w-4 text-amber-600" />
-                                )}
-                              </div>
-                              <div className="text-left">
-                                <p className="font-medium">{section.name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {sectionProgress.completed} of {sectionProgress.total} tasks
-                                </p>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-4">
-                            <div className="space-y-2 pt-2">
-                              {section.tasks.map((task) => (
-                                <div
-                                  key={task.id}
-                                  className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
-                                    surveyChecks[task.id] ? 'bg-green-50' : 'bg-background border'
-                                  }`}
-                                  data-testid={`survey-task-${task.id}`}
-                                >
-                                  <Checkbox
-                                    id={task.id}
-                                    checked={surveyChecks[task.id] || false}
-                                    onCheckedChange={() => handleSurveyCheck(task.id)}
-                                    className="mt-0.5"
-                                    data-testid={`survey-checkbox-${task.id}`}
-                                  />
-                                  <div className="flex-1">
-                                    <label
-                                      htmlFor={task.id}
-                                      className={`text-sm cursor-pointer ${
-                                        surveyChecks[task.id] ? 'text-muted-foreground line-through' : ''
-                                      }`}
-                                    >
-                                      {task.text}
-                                    </label>
-                                    <div className="flex gap-2 mt-1">
-                                      {task.isCritical && (
-                                        <Badge variant="destructive" className="text-xs h-5">
-                                          Critical
-                                        </Badge>
-                                      )}
-                                      {task.isNew && (
-                                        <Badge variant="secondary" className="text-xs h-5 bg-blue-100 text-blue-700">
-                                          New
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
+                    <Separator />
+
+                    <div className="space-y-2">
+                      <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                        <MessageCircle className="h-4 w-4" />
+                        Feedback Questions
+                      </h3>
+                      <div className="space-y-3 bg-blue-50/50 rounded-lg p-4">
+                        {currentSurvey.tasks.filter(t => t.isFeedback).map((task) => (
+                          <div
+                            key={task.id}
+                            className="text-sm text-muted-foreground"
+                            data-testid={`survey-feedback-${task.id}`}
+                          >
+                            <span className="text-blue-600 mr-2">Q:</span>
+                            {task.text}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {surveyProgress.completed === surveyProgress.total && surveyProgress.total > 0 && (
+                      <div className="flex items-center gap-2 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                        <span className="text-sm font-medium text-green-700">
+                          All tasks checked - ready for submission to manager
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-muted-foreground">No survey checklist available for this role.</p>

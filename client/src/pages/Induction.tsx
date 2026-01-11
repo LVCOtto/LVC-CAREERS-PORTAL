@@ -30,6 +30,16 @@ import {
 } from '@/lib/mockData';
 import { getRoleForDepartment } from '@/lib/roleResponsibilities';
 import {
+  roleDefinitions,
+  rolesList,
+  getTotalUpdatesCount,
+  getAcknowledgedSectionsCount,
+  getAllRefresherRequests,
+  type RoleDefinition,
+  type RoleSection,
+  type RoleStandard,
+} from '@/lib/roleStandardsData';
+import {
   ClipboardCheck,
   CheckCircle2,
   Clock,
@@ -37,6 +47,7 @@ import {
   Upload,
   Briefcase,
   ChevronRight,
+  ChevronDown,
   User,
   Building2,
   ListChecks,
@@ -44,6 +55,12 @@ import {
   PenLine,
   UserCheck,
   Users,
+  Zap,
+  ExternalLink,
+  HelpCircle,
+  AlertCircle,
+  Shield,
+  RefreshCw,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -58,6 +75,10 @@ export default function Induction() {
   const [managerSignedOff, setManagerSignedOff] = useState(false);
   const [myInductionColleagueSignedOff, setMyInductionColleagueSignedOff] = useState(false);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [sectionAcknowledgements, setSectionAcknowledgements] = useState<Record<string, boolean>>({});
+  const [refresherRequests, setRefresherRequests] = useState<Record<string, boolean>>({});
+  const [selectedRoleId, setSelectedRoleId] = useState<string>('service-engineer');
 
   if (!currentUser) return null;
 
@@ -68,6 +89,10 @@ export default function Induction() {
   const [items, setItems] = useState<ChecklistItem[]>(induction.items);
   const progress = getInductionProgress(items);
   const roleDefinition = getRoleForDepartment(currentUser.department);
+  
+  const currentRoleStandards = roleDefinitions[selectedRoleId] || roleDefinitions['service-engineer'];
+  const totalUpdates = getTotalUpdatesCount(currentRoleStandards);
+  const acknowledgedCount = getAcknowledgedSectionsCount(currentRoleStandards);
 
   const sections = Array.from(new Set(items.map(item => item.section)));
 
@@ -131,6 +156,43 @@ export default function Induction() {
       title: 'Role Acknowledged',
       description: 'You have acknowledged your roles and responsibilities.',
     });
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
+
+  const handleSectionAcknowledge = (sectionId: string) => {
+    setSectionAcknowledgements(prev => ({ ...prev, [sectionId]: true }));
+    toast({
+      title: 'Section Acknowledged',
+      description: 'You have acknowledged the updates in this section.',
+    });
+  };
+
+  const handleRefresherRequest = (standardId: string) => {
+    setRefresherRequests(prev => ({ ...prev, [standardId]: !prev[standardId] }));
+    toast({
+      title: refresherRequests[standardId] ? 'Refresher Cancelled' : 'Refresher Requested',
+      description: refresherRequests[standardId] 
+        ? 'Your refresher request has been cancelled.'
+        : 'Your line manager will be notified about your refresher training request.',
+    });
+  };
+
+  const getSectionStatus = (section: RoleSection) => {
+    if (sectionAcknowledgements[section.id]) return 'acknowledged';
+    if (section.hasUpdates) return 'updates';
+    if (section.acknowledged) return 'acknowledged';
+    return 'pending';
   };
 
   const getSectionItems = (section: string) => items.filter(item => item.section === section);
@@ -545,121 +607,223 @@ export default function Induction() {
           </TabsContent>
 
           <TabsContent value="role">
-            <Card className="mb-6">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Briefcase className="h-7 w-7 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-2xl">{roleDefinition.title}</CardTitle>
-                      <CardDescription className="flex items-center gap-4 mt-1">
-                        <span className="flex items-center gap-1">
-                          <Building2 className="h-3 w-3" />
-                          {roleDefinition.department}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          Reports to: {roleDefinition.reportsTo}
-                        </span>
-                      </CardDescription>
-                    </div>
-                  </div>
-                  {roleAcknowledged ? (
-                    <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 gap-1">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Acknowledged
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="gap-1">
-                      <Clock className="h-4 w-4" />
-                      Pending Acknowledgment
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-muted/50 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold mb-2 flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Role Overview
-                  </h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {roleDefinition.overview}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-4">
-              {roleDefinition.sections.map(section => (
-                <Card key={section.id}>
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <ChevronRight className="h-5 w-5 text-primary" />
-                      {section.name}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {section.responsibilities.map(resp => (
-                        <div key={resp.id} className="p-4 bg-muted/30 rounded-lg border" data-testid={`responsibility-${resp.id}`}>
-                          <h4 className="font-semibold text-sm">{resp.title}</h4>
-                          <p className="text-sm text-muted-foreground mt-1">{resp.description}</p>
-                          {resp.procedures && resp.procedures.length > 0 && (
-                            <div className="mt-3">
-                              <p className="text-xs font-medium text-muted-foreground mb-2">Key Procedures:</p>
-                              <ul className="space-y-1">
-                                {resp.procedures.map((proc, idx) => (
-                                  <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2">
-                                    <span className="text-primary mt-0.5">•</span>
-                                    {proc}
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {!roleAcknowledged && (
-              <Card className="mt-6 border-primary/30 bg-primary/5">
-                <CardContent className="p-6">
+            {totalUpdates > 0 && (
+              <Card className="mb-6 border-amber-300 bg-amber-50">
+                <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold">Acknowledge Your Role</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        By clicking acknowledge, you confirm that you have read, understood, and accept 
-                        the responsibilities outlined above.
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-amber-100 flex items-center justify-center">
+                        <Zap className="h-5 w-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-amber-900">{totalUpdates} standards updated since your last acknowledgement</p>
+                        <p className="text-sm text-amber-700">Review the changes below and acknowledge each section</p>
+                      </div>
                     </div>
-                    <Button onClick={handleRoleAcknowledge} className="gap-2" data-testid="button-acknowledge">
-                      <CheckCircle2 className="h-4 w-4" />
-                      I Acknowledge
+                    <Button variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-100" data-testid="button-view-changes">
+                      View Changes
                     </Button>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {roleAcknowledged && (
-              <Card className="mt-6 border-emerald-500/30 bg-emerald-50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            <Card className="mb-6">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      <BookOpen className="h-7 w-7 text-primary" />
+                    </div>
                     <div>
-                      <p className="font-medium text-emerald-800">Role Acknowledged</p>
-                      <p className="text-sm text-emerald-700">
-                        Acknowledged by {currentUser.name} on {new Date().toLocaleDateString('en-GB')}
-                      </p>
+                      <CardTitle className="text-2xl">{currentRoleStandards.title}</CardTitle>
+                      <CardDescription className="flex items-center gap-4 mt-1">
+                        <span className="flex items-center gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {currentRoleStandards.department}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Version {currentRoleStandards.version}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <RefreshCw className="h-3 w-3" />
+                          Last reviewed: {currentRoleStandards.lastReviewed}
+                        </span>
+                      </CardDescription>
                     </div>
                   </div>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground mb-1">Sections Acknowledged</p>
+                    <p className="text-2xl font-bold">{acknowledgedCount} / {currentRoleStandards.sections.length}</p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="bg-primary/5 rounded-lg p-4 border border-primary/20">
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    Role Standards Playbook
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    This is the single source of truth for how this role is done at LVC. Each standard below defines the expectations and procedures you should follow. Request a refresher for any area where you'd like additional training.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-3">
+              {currentRoleStandards.sections.map(section => {
+                const status = getSectionStatus(section);
+                const isExpanded = expandedSections.has(section.id);
+                
+                return (
+                  <Card key={section.id} className={status === 'updates' ? 'border-amber-300' : ''}>
+                    <button
+                      onClick={() => toggleSection(section.id)}
+                      className="w-full p-4 flex items-center justify-between hover:bg-muted/30 transition-colors rounded-t-lg"
+                      data-testid={`section-toggle-${section.id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <span className="font-semibold">{section.name}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {section.standards.length} standards
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {status === 'acknowledged' && (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Acknowledged
+                          </Badge>
+                        )}
+                        {status === 'updates' && (
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {section.updatesCount} Updates
+                          </Badge>
+                        )}
+                        {status === 'pending' && (
+                          <Badge variant="outline" className="gap-1">
+                            <Clock className="h-3 w-3" />
+                            Not Reviewed
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                    
+                    {isExpanded && (
+                      <CardContent className="pt-0 pb-4">
+                        <div className="space-y-2 mb-4">
+                          {section.standards.map((standard, idx) => (
+                            <div 
+                              key={standard.id} 
+                              className={`p-3 rounded-lg border ${standard.isCritical ? 'bg-red-50/50 border-red-200' : 'bg-muted/20'}`}
+                              data-testid={`standard-${standard.id}`}
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {standard.isCritical && (
+                                      <Badge variant="destructive" className="text-xs py-0 h-5">
+                                        Critical
+                                      </Badge>
+                                    )}
+                                    {standard.isNew && (
+                                      <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs py-0 h-5">
+                                        New
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  <p className="text-sm">{standard.text}</p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-8 text-xs gap-1"
+                                    data-testid={`button-sop-${standard.id}`}
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    View SOP
+                                  </Button>
+                                  <Button 
+                                    variant={refresherRequests[standard.id] ? "default" : "outline"}
+                                    size="sm" 
+                                    className={`h-8 text-xs gap-1 ${refresherRequests[standard.id] ? 'bg-amber-500 hover:bg-amber-600' : ''}`}
+                                    onClick={() => handleRefresherRequest(standard.id)}
+                                    data-testid={`button-refresher-${standard.id}`}
+                                  >
+                                    <HelpCircle className="h-3 w-3" />
+                                    {refresherRequests[standard.id] ? 'Refresher Requested' : 'Need Refresher?'}
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {(status === 'updates' || status === 'pending') && (
+                          <div className="flex justify-end pt-2 border-t">
+                            <Button 
+                              onClick={() => handleSectionAcknowledge(section.id)}
+                              className="gap-2"
+                              data-testid={`button-acknowledge-section-${section.id}`}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              Acknowledge Section
+                            </Button>
+                          </div>
+                        )}
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+
+            {isManager && (
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" />
+                    Team Refresher Requests
+                  </CardTitle>
+                  <CardDescription>
+                    Team members who have requested refresher training
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {getAllRefresherRequests().length > 0 ? (
+                    <div className="space-y-2">
+                      {getAllRefresherRequests().map((request, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center">
+                              <HelpCircle className="h-4 w-4 text-amber-600" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-sm">{request.requestedBy}</p>
+                              <p className="text-xs text-muted-foreground">{request.sectionName} • {request.roleTitle}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{request.requestedDate}</span>
+                            <Button size="sm" variant="outline" className="h-7 text-xs">
+                              Schedule Training
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">No refresher requests from your team</p>
+                  )}
                 </CardContent>
               </Card>
             )}

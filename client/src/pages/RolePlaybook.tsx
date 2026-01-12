@@ -16,9 +16,9 @@ type TrafficLightStatus = 'none' | 'red' | 'amber' | 'green';
 
 const trafficLightConfig: Record<TrafficLightStatus, { label: string; color: string; bgColor: string; borderColor: string }> = {
   none: { label: 'Not Set', color: 'text-muted-foreground', bgColor: 'bg-muted/30', borderColor: 'border-muted' },
-  red: { label: 'Needs Attention', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
-  amber: { label: 'In Progress', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
-  green: { label: 'On Track', color: 'text-green-700', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
+  red: { label: 'No', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
+  amber: { label: 'Unsure', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
+  green: { label: 'Yes', color: 'text-green-700', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
 };
 
 function TrafficLightSelector({ 
@@ -37,7 +37,7 @@ function TrafficLightSelector({
             ? 'bg-red-500 border-red-600 ring-2 ring-red-200' 
             : 'bg-red-200 border-red-300 hover:bg-red-300'
         }`}
-        title="Needs Attention"
+        title="No"
         data-testid="traffic-light-red"
       />
       <button
@@ -47,7 +47,7 @@ function TrafficLightSelector({
             ? 'bg-amber-500 border-amber-600 ring-2 ring-amber-200' 
             : 'bg-amber-200 border-amber-300 hover:bg-amber-300'
         }`}
-        title="In Progress"
+        title="Unsure"
         data-testid="traffic-light-amber"
       />
       <button
@@ -57,7 +57,7 @@ function TrafficLightSelector({
             ? 'bg-green-500 border-green-600 ring-2 ring-green-200' 
             : 'bg-green-200 border-green-300 hover:bg-green-300'
         }`}
-        title="On Track"
+        title="Yes"
         data-testid="traffic-light-green"
       />
     </div>
@@ -270,15 +270,15 @@ export default function RolePlaybook() {
                       <span className="font-medium">Legend:</span>
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 rounded-full bg-red-500" />
-                        <span className="text-muted-foreground">Needs Attention</span>
+                        <span className="text-muted-foreground">No</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 rounded-full bg-amber-500" />
-                        <span className="text-muted-foreground">In Progress</span>
+                        <span className="text-muted-foreground">Unsure</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 rounded-full bg-green-500" />
-                        <span className="text-muted-foreground">On Track</span>
+                        <span className="text-muted-foreground">Yes</span>
                       </div>
                     </div>
 

@@ -349,19 +349,31 @@ export default function RolePlaybook() {
                       </div>
                     </div>
 
-                    {surveyProgress.completed === surveyProgress.total && surveyProgress.total > 0 && (
-                      <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="h-5 w-5 text-green-600" />
-                          <span className="text-sm font-medium text-green-700">
-                            All tasks rated - ready for submission
-                          </span>
-                        </div>
-                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                          Submit Survey
-                        </Button>
+                    <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+                      <div className="flex items-center gap-2">
+                        {surveyProgress.completed === surveyProgress.total && surveyProgress.total > 0 ? (
+                          <>
+                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                            <span className="text-sm font-medium text-green-700">
+                              All tasks rated - ready for submission
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <ClipboardList className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {surveyProgress.completed} of {surveyProgress.total} tasks rated
+                            </span>
+                          </>
+                        )}
                       </div>
-                    )}
+                      <Button 
+                        className="bg-primary hover:bg-primary/90"
+                        disabled={surveyProgress.completed === 0}
+                      >
+                        Submit Survey
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="text-center py-8">

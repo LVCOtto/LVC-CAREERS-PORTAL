@@ -15,25 +15,13 @@ import {
   ArrowRight,
   CheckCircle2,
   XCircle,
-  Map as MapIcon
+  Map as MapIcon,
+  ArrowDown
 } from 'lucide-react';
-import { 
-  ReactFlow, 
-  Node, 
-  Edge, 
-  Controls, 
-  Background, 
-  useNodesState, 
-  useEdgesState, 
-  MarkerType,
-  Position,
-  Handle
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
-// Custom Node Component for Career Steps
-const CareerNodeComponent = ({ data }: { data: CareerNode & { status: 'current' | 'completed' | 'locked' | 'next', isTarget: boolean } }) => {
+// Custom Component for Career Steps
+const CareerNodeCard = ({ data, isTarget }: { data: CareerNode & { status: 'current' | 'completed' | 'locked' | 'next' }, isTarget: boolean }) => {
   const isCurrent = data.status === 'current';
   const isCompleted = data.status === 'completed';
   const isNext = data.status === 'next';
@@ -63,9 +51,7 @@ const CareerNodeComponent = ({ data }: { data: CareerNode & { status: 'current' 
   }
 
   return (
-    <div className={`w-[280px] rounded-xl border-2 ${borderColor} ${bgColor} ${shadow} transition-all p-0 overflow-hidden`}>
-      <Handle type="target" position={Position.Left} className="!bg-slate-400 !w-3 !h-3" />
-      
+    <div className={`relative w-[280px] rounded-xl border-2 ${borderColor} ${bgColor} ${shadow} transition-all p-0 overflow-hidden z-10`}>
       <div className="p-4">
         <div className="flex items-start justify-between mb-2">
           <div className={`p-2 rounded-lg ${isCurrent ? 'bg-primary text-primary-foreground' : isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
@@ -95,88 +81,50 @@ const CareerNodeComponent = ({ data }: { data: CareerNode & { status: 'current' 
           </div>
         )}
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-slate-400 !w-3 !h-3" />
     </div>
   );
 };
 
-const nodeTypes = {
-  careerNode: CareerNodeComponent,
-};
-
 export default function CareerMap() {
   const { currentUser } = useAuth();
-  const { nodes: careerNodes, getCareerPath } = useCareerPath();
+  const { nodes: careerNodes } = useCareerPath();
   const { getUserCertificates } = useCertificates();
-  
-  // ReactFlow state
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
   if (!currentUser) return null;
 
   const userCertificates = getUserCertificates(currentUser.id);
 
-  // In a real app, we'd determine current node dynamically. For mock, let's assume 'field-service-engineer'
-  // Or match by role title
+  // Determine current node
   const currentNodeId = useMemo(() => {
     const match = careerNodes.find(n => n.title.toLowerCase() === currentUser.jobRole.toLowerCase());
     return match ? match.id : 'field-service-engineer'; // Default fallback
   }, [careerNodes, currentUser.jobRole]);
 
-  useEffect(() => {
-    // Build the graph layout
-    // We'll use a simple grid layout logic for this prototype
-    // X axis = Level (timeline), Y axis = Branches (department) - simplified here to just X
-    
-    // We want to show the full map, but highlight the path
-    const layoutNodes: Node[] = [];
-    const layoutEdges: Edge[] = [];
+  // Group nodes by level for rendering
+  const levels = useMemo(() => {
+    const grouped: Record<number, any[]> = {};
+    careerNodes.forEach(node => {
+      if (!grouped[node.level]) grouped[node.level] = [];
+      
+      let status: 'current' | 'completed' | 'locked' | 'next' = 'locked';
+      const cNodeLevel = node.level;
+      const currentNode = careerNodes.find(n => n.id === currentNodeId);
+      const currentLevel = currentNode?.level || 1;
 
-    const levelSpacing = 350;
-    const verticalSpacing = 200; // Not used heavily in linear path but ready for branches
+      if (node.id === currentNodeId) {
+        status = 'current';
+      } else if (cNodeLevel < currentLevel) {
+        status = 'completed';
+      } else if (currentNode?.nextSteps.includes(node.id)) {
+        status = 'next';
+      }
 
-    // Calculate node positions
-    careerNodes.forEach((cNode) => {
-        let status: 'current' | 'completed' | 'locked' | 'next' = 'locked';
-        
-        const cNodeLevel = cNode.level;
-        const currentNode = careerNodes.find(n => n.id === currentNodeId);
-        const currentLevel = currentNode?.level || 1;
-
-        if (cNode.id === currentNodeId) {
-            status = 'current';
-        } else if (cNodeLevel < currentLevel) {
-            status = 'completed';
-        } else if (currentNode?.nextSteps.includes(cNode.id)) {
-            status = 'next';
-        }
-
-        layoutNodes.push({
-            id: cNode.id,
-            type: 'careerNode',
-            position: { x: (cNodeLevel - 1) * levelSpacing, y: 100 }, // Simple horizontal line for now
-            data: { ...cNode, status }
-        });
-
-        // Create edges
-        cNode.nextSteps.forEach(nextId => {
-            layoutEdges.push({
-                id: `${cNode.id}-${nextId}`,
-                source: cNode.id,
-                target: nextId,
-                type: 'smoothstep',
-                markerEnd: { type: MarkerType.ArrowClosed, color: '#94a3b8' },
-                style: { stroke: '#cbd5e1', strokeWidth: 2 },
-                animated: status === 'current' && nextId // Animate edge from current to next
-            });
-        });
+      grouped[node.level].push({ ...node, status });
     });
+    return grouped;
+  }, [careerNodes, currentNodeId]);
 
-    setNodes(layoutNodes);
-    setEdges(layoutEdges);
-
-  }, [careerNodes, currentNodeId, setNodes, setEdges]);
+  const maxLevel = Math.max(...Object.keys(levels).map(Number));
 
   // Find the next role details for the summary card
   const currentNode = careerNodes.find(n => n.id === currentNodeId);
@@ -206,22 +154,32 @@ export default function CareerMap() {
             <CardHeader className="bg-slate-50/50 border-b pb-3">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="bg-white">Engineering Track</Badge>
-                <span className="text-xs text-muted-foreground">Scroll to zoom • Drag to pan</span>
+                <span className="text-xs text-muted-foreground">Scroll to explore</span>
               </div>
             </CardHeader>
-            <div className="flex-1 bg-slate-50/30 relative">
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={nodeTypes}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                fitView
-                attributionPosition="bottom-right"
-              >
-                <Background color="#e2e8f0" gap={20} size={1} />
-                <Controls showInteractive={false} />
-              </ReactFlow>
+            <div className="flex-1 bg-slate-50/30 overflow-auto p-8 relative">
+              {/* Custom CSS Roadmap Implementation */}
+              <div className="flex flex-col items-center min-w-[600px] gap-12">
+                {Array.from({ length: maxLevel }, (_, i) => i + 1).map((level) => (
+                  <div key={level} className="relative w-full flex flex-col items-center">
+                    {/* Connection Line to Next Level */}
+                    {level < maxLevel && (
+                      <div className="absolute top-full h-12 w-0.5 bg-slate-300 -z-0" />
+                    )}
+                    
+                    <div className="flex items-center gap-8 z-10">
+                      {levels[level]?.map((node: any) => (
+                        <CareerNodeCard key={node.id} data={node} isTarget={false} />
+                      ))}
+                    </div>
+                    
+                    {/* Level Label */}
+                    <div className="absolute -left-4 top-1/2 -translate-y-1/2 -translate-x-full pr-4 text-right hidden lg:block">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Level {level}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </Card>
 

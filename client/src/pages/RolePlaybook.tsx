@@ -10,56 +10,65 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/lib/authContext';
 import { roleDefinitions, getRoleById, getRoleOptions } from '@/lib/roleStandardsData';
 import { getSurveyByRoleId } from '@/lib/standardsSurveyData';
-import { FileText, Building2, Calendar, Hash, ClipboardList, CheckCircle2, MessageCircle, Circle } from 'lucide-react';
+import { FileText, Building2, Calendar, Hash, ClipboardList, CheckCircle2, MessageCircle, Circle, HelpCircle, XCircle, AlertCircle } from 'lucide-react';
 
-type TrafficLightStatus = 'none' | 'red' | 'amber' | 'green';
+type AssessmentStatus = 'none' | 'no' | 'unsure' | 'yes';
 
-const trafficLightConfig: Record<TrafficLightStatus, { label: string; color: string; bgColor: string; borderColor: string }> = {
-  none: { label: 'Not Set', color: 'text-muted-foreground', bgColor: 'bg-muted/30', borderColor: 'border-muted' },
-  red: { label: 'No', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200' },
-  amber: { label: 'Unsure', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200' },
-  green: { label: 'Yes', color: 'text-green-700', bgColor: 'bg-green-50', borderColor: 'border-green-200' },
+const statusConfig: Record<AssessmentStatus, { label: string; color: string; bgColor: string; borderColor: string; icon: React.ElementType }> = {
+  none: { label: 'Not Set', color: 'text-muted-foreground', bgColor: 'bg-muted/30', borderColor: 'border-muted', icon: Circle },
+  no: { label: 'No', color: 'text-red-700', bgColor: 'bg-red-50', borderColor: 'border-red-200', icon: XCircle },
+  unsure: { label: 'Unsure', color: 'text-amber-700', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', icon: HelpCircle },
+  yes: { label: 'Yes', color: 'text-emerald-700', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', icon: CheckCircle2 },
 };
 
-function TrafficLightSelector({ 
+function StatusSelector({ 
   value, 
   onChange 
 }: { 
-  value: TrafficLightStatus; 
-  onChange: (status: TrafficLightStatus) => void;
+  value: AssessmentStatus; 
+  onChange: (status: AssessmentStatus) => void;
 }) {
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 bg-muted/20 p-1 rounded-lg border border-border/50">
       <button
-        onClick={() => onChange('red')}
-        className={`w-6 h-6 rounded-full border-2 transition-all ${
-          value === 'red' 
-            ? 'bg-red-500 border-red-600 ring-2 ring-red-200' 
-            : 'bg-red-200 border-red-300 hover:bg-red-300'
+        onClick={() => onChange('no')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+          value === 'no' 
+            ? 'bg-white shadow-sm text-red-700 ring-1 ring-red-200' 
+            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         title="No"
-        data-testid="traffic-light-red"
-      />
+        data-testid="status-no"
+      >
+        <XCircle className={`w-3.5 h-3.5 ${value === 'no' ? 'text-red-600' : ''}`} />
+        No
+      </button>
       <button
-        onClick={() => onChange('amber')}
-        className={`w-6 h-6 rounded-full border-2 transition-all ${
-          value === 'amber' 
-            ? 'bg-amber-500 border-amber-600 ring-2 ring-amber-200' 
-            : 'bg-amber-200 border-amber-300 hover:bg-amber-300'
+        onClick={() => onChange('unsure')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+          value === 'unsure' 
+            ? 'bg-white shadow-sm text-amber-700 ring-1 ring-amber-200' 
+            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         title="Unsure"
-        data-testid="traffic-light-amber"
-      />
+        data-testid="status-unsure"
+      >
+        <HelpCircle className={`w-3.5 h-3.5 ${value === 'unsure' ? 'text-amber-600' : ''}`} />
+        Unsure
+      </button>
       <button
-        onClick={() => onChange('green')}
-        className={`w-6 h-6 rounded-full border-2 transition-all ${
-          value === 'green' 
-            ? 'bg-green-500 border-green-600 ring-2 ring-green-200' 
-            : 'bg-green-200 border-green-300 hover:bg-green-300'
+        onClick={() => onChange('yes')}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+          value === 'yes' 
+            ? 'bg-white shadow-sm text-emerald-700 ring-1 ring-emerald-200' 
+            : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
         }`}
         title="Yes"
-        data-testid="traffic-light-green"
-      />
+        data-testid="status-yes"
+      >
+        <CheckCircle2 className={`w-3.5 h-3.5 ${value === 'yes' ? 'text-emerald-600' : ''}`} />
+        Yes
+      </button>
     </div>
   );
 }
@@ -75,13 +84,13 @@ export default function RolePlaybook() {
     : 'field-service-engineer';
   
   const [selectedRoleId, setSelectedRoleId] = useState(defaultRoleId);
-  const [surveyStatuses, setSurveyStatuses] = useState<Record<string, TrafficLightStatus>>({});
+  const [surveyStatuses, setSurveyStatuses] = useState<Record<string, AssessmentStatus>>({});
   const [feedbackResponses, setFeedbackResponses] = useState<Record<string, string>>({});
   const currentRoleStandards = getRoleById(selectedRoleId);
   const currentSurvey = getSurveyByRoleId(selectedRoleId);
   const roleOptions = getRoleOptions();
 
-  const handleStatusChange = (taskId: string, status: TrafficLightStatus) => {
+  const handleStatusChange = (taskId: string, status: AssessmentStatus) => {
     setSurveyStatuses(prev => ({
       ...prev,
       [taskId]: status
@@ -89,16 +98,16 @@ export default function RolePlaybook() {
   };
 
   const getSurveyProgress = () => {
-    if (!currentSurvey) return { red: 0, amber: 0, green: 0, total: 0, completed: 0 };
+    if (!currentSurvey) return { no: 0, unsure: 0, yes: 0, total: 0, completed: 0 };
     const taskItems = currentSurvey.tasks.filter(t => !t.isFeedback);
-    let red = 0, amber = 0, green = 0;
+    let no = 0, unsure = 0, yes = 0;
     taskItems.forEach(t => {
       const status = surveyStatuses[t.id];
-      if (status === 'red') red++;
-      else if (status === 'amber') amber++;
-      else if (status === 'green') green++;
+      if (status === 'no') no++;
+      else if (status === 'unsure') unsure++;
+      else if (status === 'yes') yes++;
     });
-    return { red, amber, green, total: taskItems.length, completed: red + amber + green };
+    return { no, unsure, yes, total: taskItems.length, completed: no + unsure + yes };
   };
 
   if (!currentRoleStandards) {
@@ -234,11 +243,11 @@ export default function RolePlaybook() {
 
           <TabsContent value="survey">
             <Card className="overflow-hidden">
-              <CardHeader className="bg-amber-50 border-b">
+              <CardHeader className="bg-slate-50 border-b">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-lg bg-amber-100">
-                      <ClipboardList className="h-6 w-6 text-amber-700" />
+                    <div className="p-2.5 rounded-lg bg-slate-200">
+                      <ClipboardList className="h-6 w-6 text-slate-700" />
                     </div>
                     <div>
                       <CardTitle className="text-xl">Standards Survey Checklist</CardTitle>
@@ -247,18 +256,18 @@ export default function RolePlaybook() {
                       </CardDescription>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 text-xs">
-                      <div className="w-4 h-4 rounded-full bg-red-500" />
-                      <span className="text-muted-foreground">{surveyProgress.red}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <XCircle className="w-4 h-4 text-red-600" />
+                      <span className="text-muted-foreground">{surveyProgress.no}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-xs">
-                      <div className="w-4 h-4 rounded-full bg-amber-500" />
-                      <span className="text-muted-foreground">{surveyProgress.amber}</span>
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <HelpCircle className="w-4 h-4 text-amber-600" />
+                      <span className="text-muted-foreground">{surveyProgress.unsure}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-xs">
-                      <div className="w-4 h-4 rounded-full bg-green-500" />
-                      <span className="text-muted-foreground">{surveyProgress.green}</span>
+                    <div className="flex items-center gap-1.5 text-xs font-medium">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span className="text-muted-foreground">{surveyProgress.yes}</span>
                     </div>
                   </div>
                 </div>
@@ -266,18 +275,18 @@ export default function RolePlaybook() {
               <CardContent className="p-4">
                 {currentSurvey ? (
                   <div className="space-y-6">
-                    <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg text-sm">
+                    <div className="flex items-center gap-4 p-3 bg-muted/30 rounded-lg text-sm border border-border/50">
                       <span className="font-medium">Legend:</span>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 rounded-full bg-red-500" />
+                      <div className="flex items-center gap-1.5">
+                        <XCircle className="w-4 h-4 text-red-600" />
                         <span className="text-muted-foreground">No</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 rounded-full bg-amber-500" />
+                      <div className="flex items-center gap-1.5">
+                        <HelpCircle className="w-4 h-4 text-amber-600" />
                         <span className="text-muted-foreground">Unsure</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 rounded-full bg-green-500" />
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         <span className="text-muted-foreground">Yes</span>
                       </div>
                     </div>
@@ -289,28 +298,24 @@ export default function RolePlaybook() {
                       <div className="space-y-2">
                         {currentSurvey.tasks.filter(t => !t.isFeedback).map((task) => {
                           const status = surveyStatuses[task.id] || 'none';
-                          const config = trafficLightConfig[status];
+                          const config = statusConfig[status];
                           return (
                             <div
                               key={task.id}
-                              className={`flex items-center gap-3 p-3 rounded-lg transition-colors border ${config.bgColor} ${config.borderColor}`}
+                              className={`flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg transition-colors border ${config.bgColor} ${config.borderColor}`}
                               data-testid={`survey-task-${task.id}`}
                             >
-                              <TrafficLightSelector
-                                value={status}
-                                onChange={(newStatus) => handleStatusChange(task.id, newStatus)}
-                              />
-                              <span className={`text-sm flex-1 ${status === 'green' ? 'text-muted-foreground' : ''}`}>
-                                {task.text}
-                              </span>
-                              {status !== 'none' && (
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs ${config.color} ${config.borderColor}`}
-                                >
-                                  {config.label}
-                                </Badge>
-                              )}
+                              <div className="flex-1">
+                                <span className={`text-sm ${status === 'yes' ? 'text-muted-foreground' : 'text-foreground font-medium'}`}>
+                                  {task.text}
+                                </span>
+                              </div>
+                              <div className="shrink-0">
+                                <StatusSelector
+                                  value={status}
+                                  onChange={(newStatus) => handleStatusChange(task.id, newStatus)}
+                                />
+                              </div>
                             </div>
                           );
                         })}
@@ -324,7 +329,7 @@ export default function RolePlaybook() {
                         <MessageCircle className="h-4 w-4" />
                         Feedback Questions
                       </h3>
-                      <div className="space-y-4 bg-blue-50/50 rounded-lg p-4">
+                      <div className="space-y-4 bg-blue-50/50 rounded-lg p-4 border border-blue-100">
                         {currentSurvey.tasks.filter(t => t.isFeedback).map((task) => (
                           <div
                             key={task.id}
@@ -342,7 +347,7 @@ export default function RolePlaybook() {
                                 ...prev,
                                 [task.id]: e.target.value
                               }))}
-                              className="min-h-[60px] text-sm"
+                              className="min-h-[60px] text-sm bg-white"
                             />
                           </div>
                         ))}
@@ -353,8 +358,8 @@ export default function RolePlaybook() {
                       <div className="flex items-center gap-2">
                         {surveyProgress.completed === surveyProgress.total && surveyProgress.total > 0 ? (
                           <>
-                            <CheckCircle2 className="h-5 w-5 text-green-600" />
-                            <span className="text-sm font-medium text-green-700">
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                            <span className="text-sm font-medium text-emerald-700">
                               All tasks rated - ready for submission
                             </span>
                           </>

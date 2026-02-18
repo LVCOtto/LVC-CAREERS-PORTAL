@@ -124,7 +124,7 @@ export const users: User[] = [
     department: 'Engineering',
     managerId: 'manager-2',
     startDate: '2024-11-01',
-    nextRoleCalibrated: false, // Set to false to demonstrate the "Request Calibration" feature
+    nextRoleCalibrated: false,
   },
   {
     id: 'colleague-2',
@@ -839,3 +839,59 @@ export const jobRoles = [
     ],
   },
 ];
+
+// Helper Functions
+export const getUserById = (id: string): User | undefined => {
+  return users.find(u => u.id === id);
+};
+
+export const getInductionForUser = (userId: string): InductionInstance => {
+  // In a real app this would fetch the user's specific instance
+  // For mock, we return a generic one with filtered user data if needed
+  return {
+    id: `induction-${userId}`,
+    userId,
+    templateName: 'Standard Induction',
+    status: 'in_progress',
+    items: inductionItems, // Returns the mock items
+    createdDate: '2024-11-01',
+  };
+};
+
+export const getTrainingRecordsForUser = (userId: string): TrainingRecord[] => {
+  return trainingRecords.filter(tr => tr.userId === userId);
+};
+
+export const getTeamMembers = (managerId: string): User[] => {
+  return users.filter(u => u.managerId === managerId);
+};
+
+export const getInductionProgress = (items: ChecklistItem[]) => {
+  const total = items.length;
+  const completed = items.filter(i => i.completed).length;
+  const progressPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  
+  return {
+    total,
+    completed,
+    progressPercent
+  };
+};
+
+export const getComplianceStats = (records: TrainingRecord[]) => {
+  const total = records.length;
+  const compliant = records.filter(r => r.status === 'compliant').length;
+  const dueSoon = records.filter(r => r.status === 'due_soon').length;
+  const overdue = records.filter(r => r.status === 'overdue').length;
+  const missing = records.filter(r => r.status === 'missing').length;
+  
+  const complianceRate = total > 0 ? Math.round((compliant / total) * 100) : 0;
+  
+  return {
+    complianceRate,
+    compliant,
+    dueSoon,
+    overdue,
+    missing
+  };
+};

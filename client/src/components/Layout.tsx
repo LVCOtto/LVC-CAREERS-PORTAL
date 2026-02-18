@@ -101,6 +101,12 @@ const navItems: NavItem[] = [
     roles: ['admin'],
   },
   {
+    href: '/admin/resources',
+    label: 'Resource Manager',
+    icon: <FolderOpen className="w-5 h-5" />,
+    roles: ['admin'],
+  },
+  {
     href: '/organisation',
     label: 'Organisation',
     icon: <Network className="w-5 h-5" />,

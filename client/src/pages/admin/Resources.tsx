@@ -1,0 +1,366 @@
+import { Layout } from '@/components/Layout';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useResources } from '@/lib/resourcesContext';
+import { useState } from 'react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  ExternalLink,
+  FileText,
+  Globe,
+  BookOpen,
+  ShieldCheck,
+  Lock,
+  Gift,
+  Calendar,
+  Receipt,
+  GraduationCap,
+  Network,
+  Headphones,
+} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Resource } from '@/lib/mockData';
+
+const ICONS = [
+  'book-open',
+  'shield-check',
+  'lock',
+  'gift',
+  'calendar',
+  'receipt',
+  'graduation-cap',
+  'globe',
+  'network',
+  'headphones',
+];
+
+const iconMap: Record<string, React.ReactNode> = {
+  'book-open': <BookOpen className="w-6 h-6" />,
+  'shield-check': <ShieldCheck className="w-6 h-6" />,
+  'lock': <Lock className="w-6 h-6" />,
+  'gift': <Gift className="w-6 h-6" />,
+  'calendar': <Calendar className="w-6 h-6" />,
+  'receipt': <Receipt className="w-6 h-6" />,
+  'graduation-cap': <GraduationCap className="w-6 h-6" />,
+  'globe': <Globe className="w-6 h-6" />,
+  'network': <Network className="w-6 h-6" />,
+  'headphones': <Headphones className="w-6 h-6" />,
+};
+
+const CATEGORIES = [
+  'Policies',
+  'HR',
+  'Learning',
+  'Company',
+  'Support',
+  'Other'
+];
+
+export default function AdminResources() {
+  const { resources, addResource, updateResource, deleteResource } = useResources();
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
+
+  // Form state
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('');
+  const [url, setUrl] = useState('');
+  const [icon, setIcon] = useState('');
+  const [type, setType] = useState<'link' | 'file'>('link');
+
+  const filteredResources = resources.filter(
+    r =>
+      r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setCategory('');
+    setUrl('');
+    setIcon('');
+    setType('link');
+    setEditingResource(null);
+  };
+
+  const handleOpenDialog = (resource?: Resource) => {
+    if (resource) {
+      setEditingResource(resource);
+      setTitle(resource.title);
+      setDescription(resource.description);
+      setCategory(resource.category);
+      setUrl(resource.url);
+      setIcon(resource.icon);
+      // Guess type based on URL (mock logic)
+      setType(resource.url.startsWith('http') || resource.url === '#' ? 'link' : 'file');
+    } else {
+      resetForm();
+    }
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Basic validation
+    if (!title || !category || !url || !icon) {
+      toast({
+        title: "Missing fields",
+        description: "Please fill in all required fields.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (editingResource) {
+      updateResource(editingResource.id, {
+        title,
+        description,
+        category,
+        url,
+        icon
+      });
+      toast({
+        title: "Resource updated",
+        description: `${title} has been updated successfully.`
+      });
+    } else {
+      addResource({
+        title,
+        description,
+        category,
+        url,
+        icon
+      });
+      toast({
+        title: "Resource created",
+        description: `${title} has been added to resources.`
+      });
+    }
+
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const handleDelete = (id: string, title: string) => {
+    if (confirm(`Are you sure you want to delete "${title}"?`)) {
+      deleteResource(id);
+      toast({
+        title: "Resource deleted",
+        description: `${title} has been removed.`
+      });
+    }
+  };
+
+  return (
+    <Layout>
+      <div className="space-y-8 animate-fade-in">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-foreground">Resource Manager</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage company documents, links, and resources
+            </p>
+          </div>
+          <Button onClick={() => handleOpenDialog()} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Resource
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search resources..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4">
+          {filteredResources.map(resource => (
+            <Card key={resource.id} className="group hover:border-primary/50 transition-colors">
+              <CardContent className="p-6 flex items-center gap-6">
+                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  {iconMap[resource.icon] || <BookOpen className="w-6 h-6" />}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-semibold text-lg">{resource.title}</h3>
+                    <div className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
+                      {resource.category}
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground text-sm mt-1">{resource.description}</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1 truncate font-mono">{resource.url}</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(resource)}>
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(resource.id, resource.title)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
+          {filteredResources.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              No resources found.
+            </div>
+          )}
+        </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>{editingResource ? 'Edit Resource' : 'Add New Resource'}</DialogTitle>
+              <DialogDescription>
+                Configure the resource details below.
+              </DialogDescription>
+            </DialogHeader>
+
+            <form onSubmit={handleSubmit} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Resource Type</Label>
+                <div className="flex gap-4">
+                  <div 
+                    className={`flex-1 border rounded-lg p-3 cursor-pointer transition-colors flex items-center gap-2 ${type === 'link' ? 'border-primary bg-primary/5' : 'hover:bg-secondary/50'}`}
+                    onClick={() => setType('link')}
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span className="font-medium">External Link</span>
+                  </div>
+                  <div 
+                    className={`flex-1 border rounded-lg p-3 cursor-pointer transition-colors flex items-center gap-2 ${type === 'file' ? 'border-primary bg-primary/5' : 'hover:bg-secondary/50'}`}
+                    onClick={() => setType('file')}
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span className="font-medium">File Upload</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="title">Title</Label>
+                <Input 
+                  id="title" 
+                  value={title} 
+                  onChange={e => setTitle(e.target.value)} 
+                  placeholder="e.g. Employee Handbook"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select value={category} onValueChange={setCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORIES.map(c => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="url">{type === 'link' ? 'URL' : 'File Path (Server)'}</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="url" 
+                    value={url} 
+                    onChange={e => setUrl(e.target.value)} 
+                    placeholder={type === 'link' ? "https://..." : "/uploads/..."}
+                  />
+                  {type === 'file' && (
+                    <Button type="button" variant="outline" onClick={() => {
+                        // Mock upload
+                        const mockFile = `file-${Date.now()}.pdf`;
+                        setUrl(`/uploads/resources/${mockFile}`);
+                        toast({ title: "File uploaded", description: `${mockFile} ready.` });
+                    }}>
+                       Upload
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea 
+                  id="description" 
+                  value={description} 
+                  onChange={e => setDescription(e.target.value)} 
+                  placeholder="Brief description of the resource..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="icon">Icon</Label>
+                <Select value={icon} onValueChange={setIcon}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select icon" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ICONS.map(i => (
+                      <SelectItem key={i} value={i}>
+                        <div className="flex items-center gap-2">
+                          <span className="capitalize">{i.replace('-', ' ')}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {editingResource ? 'Save Changes' : 'Create Resource'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </Layout>
+  );
+}

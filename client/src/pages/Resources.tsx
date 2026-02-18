@@ -3,7 +3,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { resources } from '@/lib/mockData';
+import { useResources } from '@/lib/resourcesContext';
 import { useState } from 'react';
 import {
   BookOpen,
@@ -35,6 +35,7 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export default function Resources() {
   const { currentUser } = useAuth();
+  const { resources } = useResources();
   const [searchQuery, setSearchQuery] = useState('');
 
   if (!currentUser) return null;

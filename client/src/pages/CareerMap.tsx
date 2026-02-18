@@ -21,7 +21,9 @@ import {
   ArrowUp,
   Target,
   GraduationCap,
-  Award
+  Award,
+  Users,
+  CalendarDays
 } from 'lucide-react';
 import { useMemo } from 'react';
 
@@ -76,9 +78,6 @@ export default function CareerMap() {
 
   // Combine and sort by date (descending)
   const historyTimeline = [...historyNodes, ...milestones].sort((a, b) => {
-    // In a real app with real dates for roles, we'd sort properly.
-    // For now, let's just interleave them. Milestones have real dates.
-    // Let's assume role changes happened in the past for this mock.
     if (a.date && b.date) {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
     }
@@ -98,6 +97,9 @@ export default function CareerMap() {
   const progressPercent = nextStepRequirements.length > 0 
     ? Math.round((completedRequirements.length / nextStepRequirements.length) * 100)
     : 0;
+
+  // 5. Check if next step is calibrated
+  const isNextStepCalibrated = currentUser.nextRoleCalibrated;
 
   return (
     <Layout>
@@ -144,8 +146,8 @@ export default function CareerMap() {
             </CardContent>
           </Card>
 
-          {/* Next Step Card - The "Target" */}
-          {nextStepNode ? (
+          {/* Next Step Card - Conditionally Rendered based on Calibration */}
+          {isNextStepCalibrated && nextStepNode ? (
             <Card className="border-2 border-amber-400 shadow-lg shadow-amber-100/50 relative overflow-hidden bg-white">
                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
                
@@ -199,7 +201,51 @@ export default function CareerMap() {
                  </Button>
               </CardFooter>
             </Card>
+          ) : !isNextStepCalibrated ? (
+            /* Calibration Needed State */
+            <Card className="border-2 border-dashed border-slate-300 bg-slate-50 relative overflow-hidden flex flex-col justify-center">
+               <CardHeader className="text-center pb-2">
+                <div className="mx-auto w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4 border border-slate-200">
+                  <Users className="w-8 h-8 text-slate-400" />
+                </div>
+                <CardTitle className="text-xl text-slate-700">Next Step Pending</CardTitle>
+                <CardDescription className="max-w-xs mx-auto">
+                  Your next career objective hasn't been calibrated yet.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="text-center space-y-4 max-w-sm mx-auto">
+                <p className="text-sm text-slate-500">
+                  To ensure your career goals align with business opportunities, please schedule a career conversation with your line manager.
+                </p>
+                <div className="bg-white p-4 rounded-lg border border-slate-200 text-left space-y-3">
+                  <h4 className="text-sm font-semibold text-slate-900">What to discuss:</h4>
+                  <ul className="text-sm text-slate-600 space-y-2">
+                    <li className="flex gap-2 items-start">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5 shrink-0" />
+                      Your strengths and interests
+                    </li>
+                    <li className="flex gap-2 items-start">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5 shrink-0" />
+                      Potential career paths within LVC
+                    </li>
+                    <li className="flex gap-2 items-start">
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-400 mt-1.5 shrink-0" />
+                      Development needs and training
+                    </li>
+                  </ul>
+                </div>
+              </CardContent>
+
+              <CardFooter className="pt-2">
+                 <Button className="w-full gap-2" variant="outline">
+                    <CalendarDays className="w-4 h-4" />
+                    Request Career Meeting
+                 </Button>
+              </CardFooter>
+            </Card>
           ) : (
+            /* Top of Track State */
             <Card className="bg-slate-50 border-dashed flex flex-col items-center justify-center text-center p-8">
               <Trophy className="w-12 h-12 text-slate-300 mb-4" />
               <h3 className="text-xl font-semibold text-slate-600">Top of Track</h3>

@@ -10,6 +10,7 @@ export interface User {
   managerId?: string;
   avatar?: string;
   startDate: string;
+  nextRoleCalibrated?: boolean;
 }
 
 export interface ChecklistItem {
@@ -92,6 +93,7 @@ export const users: User[] = [
     jobRole: 'HR Director',
     department: 'Human Resources',
     startDate: '2019-03-15',
+    nextRoleCalibrated: true,
   },
   {
     id: 'manager-1',
@@ -101,6 +103,7 @@ export const users: User[] = [
     jobRole: 'Operations Manager',
     department: 'Operations',
     startDate: '2020-06-01',
+    nextRoleCalibrated: true,
   },
   {
     id: 'manager-2',
@@ -110,6 +113,7 @@ export const users: User[] = [
     jobRole: 'Engineering Lead',
     department: 'Engineering',
     startDate: '2020-09-14',
+    nextRoleCalibrated: true,
   },
   {
     id: 'colleague-1',
@@ -120,6 +124,7 @@ export const users: User[] = [
     department: 'Engineering',
     managerId: 'manager-2',
     startDate: '2024-11-01',
+    nextRoleCalibrated: false, // Set to false to demonstrate the "Request Calibration" feature
   },
   {
     id: 'colleague-2',
@@ -130,6 +135,7 @@ export const users: User[] = [
     department: 'Engineering',
     managerId: 'manager-2',
     startDate: '2024-08-15',
+    nextRoleCalibrated: true,
   },
   {
     id: 'colleague-3',
@@ -140,6 +146,7 @@ export const users: User[] = [
     department: 'Operations',
     managerId: 'manager-1',
     startDate: '2024-10-01',
+    nextRoleCalibrated: false,
   },
   {
     id: 'colleague-4',
@@ -150,6 +157,7 @@ export const users: User[] = [
     department: 'Operations',
     managerId: 'manager-1',
     startDate: '2023-05-20',
+    nextRoleCalibrated: true,
   },
   {
     id: 'colleague-5',
@@ -160,6 +168,7 @@ export const users: User[] = [
     department: 'Engineering',
     managerId: 'manager-2',
     startDate: '2024-01-08',
+    nextRoleCalibrated: true,
   },
   {
     id: 'colleague-6',
@@ -170,6 +179,7 @@ export const users: User[] = [
     department: 'Operations',
     managerId: 'manager-1',
     startDate: '2024-12-02',
+    nextRoleCalibrated: false,
   },
 ];
 
@@ -808,89 +818,24 @@ export const jobRoles = [
     department: 'Operations',
     summary: 'Coordinates daily operations and supports team efficiency',
     responsibilities: [
-      'Schedule and coordinate team activities',
-      'Monitor operational metrics and KPIs',
-      'Liaise with internal stakeholders',
-      'Prepare reports and documentation',
-      'Support process improvement initiatives',
+      'Coordinate team schedules and assignments',
+      'Manage inventory and supply ordering',
+      'Process customer orders and service requests',
+      'Prepare operational reports',
+      'Support health and safety compliance',
     ],
   },
   {
     id: 'jr-3',
     title: 'Engineering Lead',
     department: 'Engineering',
-    summary: 'Leads the engineering team and manages technical projects',
+    summary: 'Leads the engineering team and oversees technical standards',
     responsibilities: [
-      'Lead and mentor engineering team members',
-      'Plan and oversee technical projects',
-      'Ensure quality standards are maintained',
-      'Manage team training and development',
-      'Report to senior management on team performance',
-    ],
-  },
-  {
-    id: 'jr-4',
-    title: 'Operations Manager',
-    department: 'Operations',
-    summary: 'Manages operations team and optimizes processes',
-    responsibilities: [
-      'Manage and develop operations team',
-      'Optimize operational processes',
-      'Ensure compliance with policies and regulations',
-      'Manage budgets and resources',
-      'Drive continuous improvement',
+      'Manage engineering team performance',
+      'Set technical standards and procedures',
+      'Oversee major projects and installations',
+      'Mentor and train junior engineers',
+      'Ensure compliance with all regulations',
     ],
   },
 ];
-
-export function getTeamMembers(managerId: string): User[] {
-  return users.filter(u => u.managerId === managerId);
-}
-
-export function getUserById(userId: string): User | undefined {
-  return users.find(u => u.id === userId);
-}
-
-export function getTrainingRecordsForUser(userId: string): TrainingRecord[] {
-  return trainingRecords.filter(tr => tr.userId === userId);
-}
-
-export function getInductionForUser(userId: string): InductionInstance {
-  return {
-    id: `ind-instance-${userId}`,
-    userId,
-    templateName: 'Standard Induction Checklist',
-    status: 'in_progress',
-    items: inductionItems,
-    createdDate: '2024-11-01',
-  };
-}
-
-export function getComplianceStats(records: TrainingRecord[]) {
-  const compliant = records.filter(r => r.status === 'compliant').length;
-  const dueSoon = records.filter(r => r.status === 'due_soon').length;
-  const overdue = records.filter(r => r.status === 'overdue').length;
-  const missing = records.filter(r => r.status === 'missing').length;
-  
-  return {
-    compliant,
-    dueSoon,
-    overdue,
-    missing,
-    total: records.length,
-    complianceRate: Math.round((compliant / records.length) * 100),
-  };
-}
-
-export function getInductionProgress(items: ChecklistItem[]) {
-  const completed = items.filter(i => i.completed).length;
-  const signedOff = items.filter(i => i.signedOffBy).length;
-  
-  return {
-    completed,
-    signedOff,
-    total: items.length,
-    progressPercent: Math.round((completed / items.length) * 100),
-    signOffPercent: Math.round((signedOff / items.length) * 100),
-  };
-}

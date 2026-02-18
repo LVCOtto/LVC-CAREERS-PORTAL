@@ -2,9 +2,10 @@ import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { useCareerPath, CareerNode } from '@/lib/careerPathContext';
 import { useCertificates } from '@/lib/certificatesContext';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { 
   Briefcase, 
   ChevronRight, 
@@ -14,76 +15,12 @@ import {
   Trophy, 
   ArrowRight,
   CheckCircle2,
-  XCircle,
+  History,
   Map as MapIcon,
-  ArrowDown
+  ArrowUp,
+  Target
 } from 'lucide-react';
 import { useMemo } from 'react';
-
-// Custom Component for Career Steps
-const CareerNodeCard = ({ data, isTarget }: { data: CareerNode & { status: 'current' | 'completed' | 'locked' | 'next' }, isTarget: boolean }) => {
-  const isCurrent = data.status === 'current';
-  const isCompleted = data.status === 'completed';
-  const isNext = data.status === 'next';
-  const isLocked = data.status === 'locked';
-
-  let borderColor = 'border-slate-300';
-  let bgColor = 'bg-white';
-  let textColor = 'text-slate-700';
-  let shadow = 'shadow-sm';
-
-  if (isCurrent) {
-    borderColor = 'border-primary ring-2 ring-primary/20';
-    bgColor = 'bg-primary/5';
-    textColor = 'text-primary';
-    shadow = 'shadow-md';
-  } else if (isCompleted) {
-    borderColor = 'border-emerald-500';
-    bgColor = 'bg-emerald-50';
-    textColor = 'text-emerald-700';
-  } else if (isNext) {
-    borderColor = 'border-amber-400 border-dashed';
-    bgColor = 'bg-amber-50';
-    textColor = 'text-amber-700';
-  } else { // Locked
-    bgColor = 'bg-slate-50';
-    textColor = 'text-slate-400';
-  }
-
-  return (
-    <div className={`relative w-[280px] rounded-xl border-2 ${borderColor} ${bgColor} ${shadow} transition-all p-0 overflow-hidden z-10`}>
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className={`p-2 rounded-lg ${isCurrent ? 'bg-primary text-primary-foreground' : isCompleted ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
-            {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : isCurrent ? <Star className="w-5 h-5 fill-current" /> : isLocked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
-          </div>
-          {isCurrent && <Badge className="bg-primary">Current Role</Badge>}
-          {isNext && <Badge variant="outline" className="border-amber-400 text-amber-700 bg-amber-50">Next Step</Badge>}
-        </div>
-        
-        <h3 className={`font-bold text-lg leading-tight mb-1 ${textColor}`}>{data.title}</h3>
-        <p className="text-xs text-muted-foreground line-clamp-2">{data.description}</p>
-        
-        {data.requirements.length > 0 && !isCompleted && !isCurrent && (
-          <div className="mt-3 pt-3 border-t border-slate-100">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Requirements:</p>
-            <div className="space-y-1">
-              {data.requirements.slice(0, 2).map((req, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-xs text-slate-600">
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                  <span className="truncate">{req.description}</span>
-                </div>
-              ))}
-              {data.requirements.length > 2 && (
-                <span className="text-[10px] text-muted-foreground pl-3">+{data.requirements.length - 2} more</span>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
 
 export default function CareerMap() {
   const { currentUser } = useAuth();
@@ -94,171 +31,172 @@ export default function CareerMap() {
 
   const userCertificates = getUserCertificates(currentUser.id);
 
-  // Determine current node
+  // 1. Determine Current Node
   const currentNodeId = useMemo(() => {
     const match = careerNodes.find(n => n.title.toLowerCase() === currentUser.jobRole.toLowerCase());
-    return match ? match.id : 'field-service-engineer'; // Default fallback
+    return match ? match.id : 'field-service-engineer';
   }, [careerNodes, currentUser.jobRole]);
 
-  // Group nodes by level for rendering
-  const levels = useMemo(() => {
-    const grouped: Record<number, any[]> = {};
-    careerNodes.forEach(node => {
-      if (!grouped[node.level]) grouped[node.level] = [];
-      
-      let status: 'current' | 'completed' | 'locked' | 'next' = 'locked';
-      const cNodeLevel = node.level;
-      const currentNode = careerNodes.find(n => n.id === currentNodeId);
-      const currentLevel = currentNode?.level || 1;
-
-      if (node.id === currentNodeId) {
-        status = 'current';
-      } else if (cNodeLevel < currentLevel) {
-        status = 'completed';
-      } else if (currentNode?.nextSteps.includes(node.id)) {
-        status = 'next';
-      }
-
-      grouped[node.level].push({ ...node, status });
-    });
-    return grouped;
-  }, [careerNodes, currentNodeId]);
-
-  const maxLevel = Math.max(...Object.keys(levels).map(Number));
-
-  // Find the next role details for the summary card
   const currentNode = careerNodes.find(n => n.id === currentNodeId);
-  const nextRoleIds = currentNode?.nextSteps || [];
-  const nextRoles = careerNodes.filter(n => nextRoleIds.includes(n.id));
+
+  // 2. Determine History (Nodes with lower level)
+  // In a real app, we'd traverse the specific path taken. Here we assume level < currentLevel on the same path.
+  // For simplicity in this mockup, we'll just grab lower levels.
+  const historyNodes = careerNodes
+    .filter(n => n.level < (currentNode?.level || 1))
+    .sort((a, b) => b.level - a.level); // Most recent history first
+
+  // 3. Determine Next Step (Direct next step)
+  const nextStepIds = currentNode?.nextSteps || [];
+  const nextStepNode = careerNodes.find(n => nextStepIds.includes(n.id));
+
+  // 4. Calculate Progress for Next Step
+  const nextStepRequirements = nextStepNode?.requirements || [];
+  const completedRequirements = nextStepRequirements.filter(req => {
+    if (!req.certificateId) return false;
+    return userCertificates.some(uc => uc.definitionId === req.certificateId);
+  });
+  const progressPercent = nextStepRequirements.length > 0 
+    ? Math.round((completedRequirements.length / nextStepRequirements.length) * 100)
+    : 0;
 
   return (
     <Layout>
-      <div className="space-y-6 animate-fade-in h-[calc(100vh-100px)] flex flex-col">
-        <div className="flex-none">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <h1 className="font-display text-3xl font-bold text-foreground flex items-center gap-3">
-                <MapIcon className="w-8 h-8 text-primary" />
-                Interactive Career Roadmap
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Visualise your journey at LVC and see exactly what you need to reach the next level.
-              </p>
-            </div>
-          </div>
+      <div className="space-y-8 animate-fade-in max-w-5xl mx-auto pb-12">
+        
+        {/* Header Section */}
+        <div className="text-center space-y-2 mb-8">
+          <h1 className="font-display text-4xl font-bold text-foreground">Your Career Path</h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Focus on what's next. Track your progress to the next level and review your achievements.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0">
-          {/* Main Map Area */}
-          <Card className="lg:col-span-3 border-border/50 shadow-sm overflow-hidden flex flex-col">
-            <CardHeader className="bg-slate-50/50 border-b pb-3">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="bg-white">Engineering Track</Badge>
-                <span className="text-xs text-muted-foreground">Scroll to explore</span>
-              </div>
-            </CardHeader>
-            <div className="flex-1 bg-slate-50/30 overflow-auto p-8 relative">
-              {/* Custom CSS Roadmap Implementation */}
-              <div className="flex flex-col items-center min-w-[600px] gap-12">
-                {Array.from({ length: maxLevel }, (_, i) => i + 1).map((level) => (
-                  <div key={level} className="relative w-full flex flex-col items-center">
-                    {/* Connection Line to Next Level */}
-                    {level < maxLevel && (
-                      <div className="absolute top-full h-12 w-0.5 bg-slate-300 -z-0" />
-                    )}
-                    
-                    <div className="flex items-center gap-8 z-10">
-                      {levels[level]?.map((node: any) => (
-                        <CareerNodeCard key={node.id} data={node} isTarget={false} />
-                      ))}
-                    </div>
-                    
-                    {/* Level Label */}
-                    <div className="absolute -left-4 top-1/2 -translate-y-1/2 -translate-x-full pr-4 text-right hidden lg:block">
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Level {level}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {/* MAIN FOCUS: The Transition (Current -> Next) */}
+        <div className="grid md:grid-cols-2 gap-8 items-stretch relative">
+          
+          {/* Connector Arrow for Desktop */}
+          <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 bg-background p-2 rounded-full border shadow-sm text-muted-foreground">
+            <ArrowRight className="w-6 h-6" />
+          </div>
+
+          {/* Current Role Card */}
+          <Card className="border-primary/20 bg-primary/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Star className="w-32 h-32 text-primary" />
             </div>
+            
+            <CardHeader>
+              <Badge className="w-fit mb-2 bg-primary/20 text-primary hover:bg-primary/30 border-none">Current Role</Badge>
+              <CardTitle className="text-2xl">{currentNode?.title}</CardTitle>
+              <CardDescription className="text-base">{currentNode?.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-sm text-muted-foreground bg-background/50 p-3 rounded-lg border border-primary/10">
+                  <Briefcase className="w-4 h-4" />
+                  <span>{currentNode?.department} Department</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-muted-foreground bg-background/50 p-3 rounded-lg border border-primary/10">
+                  <Trophy className="w-4 h-4" />
+                  <span>Level {currentNode?.level} Achieved</span>
+                </div>
+              </div>
+            </CardContent>
           </Card>
 
-          {/* Sidebar - Next Step Details */}
-          <div className="space-y-6 overflow-y-auto pr-1">
-            <Card className="border-l-4 border-l-amber-400 shadow-md">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-amber-500" />
-                  Next Objective
-                </CardTitle>
-                <CardDescription>
-                  Your immediate career progression target
-                </CardDescription>
+          {/* Next Step Card - The "Target" */}
+          {nextStepNode ? (
+            <Card className="border-2 border-amber-400 shadow-lg shadow-amber-100/50 relative overflow-hidden bg-white">
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
+               
+               <CardHeader>
+                <div className="flex justify-between items-start">
+                  <Badge variant="outline" className="w-fit mb-2 border-amber-400 text-amber-600 bg-amber-50">Next Objective</Badge>
+                  <span className="text-sm font-bold text-amber-600">{progressPercent}% Ready</span>
+                </div>
+                <CardTitle className="text-2xl">{nextStepNode.title}</CardTitle>
+                <CardDescription className="text-base">{nextStepNode.description}</CardDescription>
               </CardHeader>
-              <CardContent>
-                {nextRoles.length > 0 ? (
-                  <div className="space-y-6">
-                    {nextRoles.map(role => (
-                      <div key={role.id}>
-                        <h3 className="font-bold text-lg text-foreground mb-1">{role.title}</h3>
-                        <p className="text-sm text-muted-foreground mb-4">{role.description}</p>
-                        
-                        <div className="space-y-3">
-                          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">To Unlock This Role:</p>
-                          {role.requirements.map((req, idx) => {
-                            // Check if user has this cert
-                            const hasCert = req.certificateId ? userCertificates.some(uc => uc.definitionId === req.certificateId) : false;
-                            
-                            return (
-                              <div key={idx} className={`flex items-start gap-3 p-2 rounded-lg border ${hasCert ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
-                                <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${hasCert ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                                  {hasCert ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
-                                </div>
-                                <div>
-                                  <p className={`text-sm font-medium ${hasCert ? 'text-emerald-900' : 'text-slate-700'}`}>{req.description}</p>
-                                  {hasCert && <p className="text-[10px] text-emerald-600">Completed</p>}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                        
-                        <Button className="w-full mt-6 gap-2" variant="default">
-                          View Full Requirements
-                          <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Star className="w-12 h-12 text-amber-400 mx-auto mb-3" />
-                    <h3 className="font-bold text-foreground">You've reached the top!</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      You are currently at the highest defined level for this track. Speak to your manager about specialized opportunities.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
 
-            <Card className="bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border-primary/20">
-              <CardContent className="p-5">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-primary/20 rounded-xl">
-                    <Briefcase className="w-6 h-6 text-primary" />
+              <CardContent className="space-y-6">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="font-medium text-slate-700">Promotion Readiness</span>
+                    <span className="text-muted-foreground">{completedRequirements.length}/{nextStepRequirements.length} Requirements</span>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Why this matters?</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      LVC is committed to promoting from within. This roadmap shows you exactly what skills and certifications are valued for your next promotion.
-                    </p>
-                  </div>
+                  <Progress value={progressPercent} className="h-2 bg-amber-100 [&>div]:bg-amber-500" />
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Target className="w-4 h-4" />
+                    Required to Unlock
+                  </h4>
+                  {nextStepRequirements.map((req, idx) => {
+                    const hasCert = req.certificateId ? userCertificates.some(uc => uc.definitionId === req.certificateId) : false;
+                    return (
+                      <div key={idx} className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${hasCert ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100 hover:border-amber-200'}`}>
+                         <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${hasCert ? 'bg-emerald-100 text-emerald-600' : 'bg-white border border-slate-300 text-slate-300'}`}>
+                            {hasCert ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
+                         </div>
+                         <div className="flex-1">
+                           <p className={`text-sm font-medium ${hasCert ? 'text-emerald-900' : 'text-slate-700'}`}>{req.description}</p>
+                           {!hasCert && req.certificateId && (
+                             <p className="text-xs text-amber-600 mt-1 flex items-center gap-1 cursor-pointer hover:underline">
+                               View Certificate Details <ChevronRight className="w-3 h-3" />
+                             </p>
+                           )}
+                         </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
+
+              <CardFooter>
+                 <Button className="w-full bg-slate-900 hover:bg-slate-800" disabled={progressPercent < 100}>
+                    {progressPercent < 100 ? 'Complete Requirements to Apply' : 'Apply for Promotion'}
+                 </Button>
+              </CardFooter>
             </Card>
-          </div>
+          ) : (
+            <Card className="bg-slate-50 border-dashed flex flex-col items-center justify-center text-center p-8">
+              <Trophy className="w-12 h-12 text-slate-300 mb-4" />
+              <h3 className="text-xl font-semibold text-slate-600">Top of Track</h3>
+              <p className="text-muted-foreground mt-2 max-w-xs">
+                You have reached the highest level in this technical track. Discuss leadership or specialist pivot opportunities with your manager.
+              </p>
+            </Card>
+          )}
         </div>
+
+        {/* History Section - Subdued */}
+        {historyNodes.length > 0 && (
+          <div className="mt-12 pt-8 border-t">
+            <h3 className="text-lg font-semibold flex items-center gap-2 mb-6 text-slate-600">
+              <History className="w-5 h-5" />
+              Career History
+            </h3>
+            
+            <div className="relative pl-8 space-y-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+              {historyNodes.map((node) => (
+                <div key={node.id} className="relative">
+                  <div className="absolute -left-[2.35rem] w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border-2 border-white ring-1 ring-slate-200 flex items-center justify-center">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div className="bg-white p-4 rounded-lg border shadow-sm">
+                    <div className="flex justify-between items-start mb-1">
+                      <h4 className="font-bold text-slate-800">{node.title}</h4>
+                      <Badge variant="secondary" className="text-xs font-normal">Level {node.level}</Badge>
+                    </div>
+                    <p className="text-sm text-slate-500">{node.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </Layout>
   );

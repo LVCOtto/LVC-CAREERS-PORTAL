@@ -6,11 +6,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/authContext";
 import { ResourcesProvider } from "@/lib/resourcesContext";
 import { CertificatesProvider } from "@/lib/certificatesContext";
+import { CareerPathProvider } from "@/lib/careerPathContext";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Induction from "@/pages/Induction";
 import Training from "@/pages/Training";
+import CareerMap from "@/pages/CareerMap";
 import RolePlaybook from "@/pages/RolePlaybook";
 import Resources from "@/pages/Resources";
 import Milestones from "@/pages/Milestones";
@@ -44,6 +46,9 @@ function Router() {
       </Route>
       <Route path="/training">
         {() => <ProtectedRoute component={Training} />}
+      </Route>
+      <Route path="/career-map">
+        {() => <ProtectedRoute component={CareerMap} />}
       </Route>
       <Route path="/role-playbook">
         {() => <ProtectedRoute component={RolePlaybook} />}
@@ -86,10 +91,12 @@ function App() {
       <AuthProvider>
         <ResourcesProvider>
           <CertificatesProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Router />
-            </TooltipProvider>
+            <CareerPathProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Router />
+              </TooltipProvider>
+            </CareerPathProvider>
           </CertificatesProvider>
         </ResourcesProvider>
       </AuthProvider>

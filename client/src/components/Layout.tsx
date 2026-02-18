@@ -26,6 +26,7 @@ import {
   Network,
   FileText,
   BadgeCheck,
+  Map,
 } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
@@ -65,6 +66,12 @@ const navGroups: NavGroup[] = [
         href: '/training',
         label: 'Training Matrix',
         icon: <GraduationCap className="w-5 h-5" />,
+        roles: ['colleague', 'manager', 'admin'],
+      },
+      {
+        href: '/career-map',
+        label: 'Career Roadmap',
+        icon: <Map className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
       },
       {

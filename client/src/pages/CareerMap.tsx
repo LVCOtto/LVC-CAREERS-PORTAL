@@ -2,6 +2,7 @@ import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { useCareerPath, CareerNode } from '@/lib/careerPathContext';
 import { useCertificates } from '@/lib/certificatesContext';
+import { careerMilestones } from '@/lib/mockData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,9 +19,20 @@ import {
   History,
   Map as MapIcon,
   ArrowUp,
-  Target
+  Target,
+  GraduationCap,
+  Award
 } from 'lucide-react';
 import { useMemo } from 'react';
+
+// Helper to get milestone icons
+const getMilestoneIcon = (title: string) => {
+  if (title.toLowerCase().includes('joined')) return <Briefcase className="w-4 h-4" />;
+  if (title.toLowerCase().includes('promotion')) return <Trophy className="w-4 h-4" />;
+  if (title.toLowerCase().includes('induction')) return <GraduationCap className="w-4 h-4" />;
+  if (title.toLowerCase().includes('award')) return <Award className="w-4 h-4" />;
+  return <Star className="w-4 h-4" />;
+};
 
 export default function CareerMap() {
   const { currentUser } = useAuth();
@@ -30,6 +42,7 @@ export default function CareerMap() {
   if (!currentUser) return null;
 
   const userCertificates = getUserCertificates(currentUser.id);
+  const userMilestones = careerMilestones.filter(m => m.userId === currentUser.id);
 
   // 1. Determine Current Node
   const currentNodeId = useMemo(() => {
@@ -39,12 +52,38 @@ export default function CareerMap() {
 
   const currentNode = careerNodes.find(n => n.id === currentNodeId);
 
-  // 2. Determine History (Nodes with lower level)
-  // In a real app, we'd traverse the specific path taken. Here we assume level < currentLevel on the same path.
-  // For simplicity in this mockup, we'll just grab lower levels.
+  // 2. Determine History (Nodes with lower level) + Milestones
   const historyNodes = careerNodes
     .filter(n => n.level < (currentNode?.level || 1))
-    .sort((a, b) => b.level - a.level); // Most recent history first
+    .map(node => ({
+      type: 'role_change',
+      id: node.id,
+      title: `Promoted to ${node.title}`,
+      description: node.description,
+      date: '2023-01-01', // Mock date since nodes don't have user-specific dates yet
+      icon: <Briefcase className="w-4 h-4" />,
+      level: node.level
+    }));
+
+  const milestones = userMilestones.map(m => ({
+    type: 'milestone',
+    id: m.id,
+    title: m.title,
+    description: m.description,
+    date: m.date,
+    icon: getMilestoneIcon(m.title)
+  }));
+
+  // Combine and sort by date (descending)
+  const historyTimeline = [...historyNodes, ...milestones].sort((a, b) => {
+    // In a real app with real dates for roles, we'd sort properly.
+    // For now, let's just interleave them. Milestones have real dates.
+    // Let's assume role changes happened in the past for this mock.
+    if (a.date && b.date) {
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+    }
+    return 0; 
+  });
 
   // 3. Determine Next Step (Direct next step)
   const nextStepIds = currentNode?.nextSteps || [];
@@ -171,26 +210,31 @@ export default function CareerMap() {
           )}
         </div>
 
-        {/* History Section - Subdued */}
-        {historyNodes.length > 0 && (
+        {/* History Section - Combined Milestones & Roles */}
+        {historyTimeline.length > 0 && (
           <div className="mt-12 pt-8 border-t">
             <h3 className="text-lg font-semibold flex items-center gap-2 mb-6 text-slate-600">
               <History className="w-5 h-5" />
-              Career History
+              History & Milestones
             </h3>
             
             <div className="relative pl-8 space-y-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-              {historyNodes.map((node) => (
-                <div key={node.id} className="relative">
-                  <div className="absolute -left-[2.35rem] w-6 h-6 rounded-full bg-emerald-100 text-emerald-600 border-2 border-white ring-1 ring-slate-200 flex items-center justify-center">
-                    <CheckCircle2 className="w-4 h-4" />
+              {historyTimeline.map((item, index) => (
+                <div key={index} className="relative group">
+                  <div className={`absolute -left-[2.35rem] w-6 h-6 rounded-full border-2 border-white ring-1 ring-slate-200 flex items-center justify-center transition-colors ${item.type === 'role_change' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                    {item.icon}
                   </div>
-                  <div className="bg-white p-4 rounded-lg border shadow-sm">
+                  <div className="bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-1">
-                      <h4 className="font-bold text-slate-800">{node.title}</h4>
-                      <Badge variant="secondary" className="text-xs font-normal">Level {node.level}</Badge>
+                      <h4 className="font-bold text-slate-800">{item.title}</h4>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {item.date ? new Date(item.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : 'Previous'}
+                      </span>
                     </div>
-                    <p className="text-sm text-slate-500">{node.description}</p>
+                    <p className="text-sm text-slate-500">{item.description}</p>
+                    {item.type === 'role_change' && (
+                        <Badge variant="secondary" className="mt-2 text-xs font-normal">Career Step</Badge>
+                    )}
                   </div>
                 </div>
               ))}

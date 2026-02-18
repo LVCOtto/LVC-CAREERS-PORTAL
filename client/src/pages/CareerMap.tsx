@@ -1,13 +1,12 @@
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
-import { useCareerPath, CareerNode } from '@/lib/careerPathContext';
+import { useCareerPath } from '@/lib/careerPathContext';
 import { useCertificates } from '@/lib/certificatesContext';
 import { careerMilestones } from '@/lib/mockData';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Briefcase, 
   ChevronRight, 
@@ -18,16 +17,24 @@ import {
   ArrowRight,
   CheckCircle2,
   History,
-  Map as MapIcon,
-  ArrowUp,
   Target,
   GraduationCap,
   Award,
-  Users,
-  CalendarDays,
   Zap,
+  BookOpen,
+  ArrowUpRight,
+  MoreHorizontal
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { cn } from '@/lib/utils';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 // Helper to get milestone icons
 const getMilestoneIcon = (title: string) => {
@@ -64,7 +71,7 @@ export default function CareerMap() {
       id: node.id,
       title: `Promoted to ${node.title}`,
       description: node.description,
-      date: '2023-01-01', // Mock date since nodes don't have user-specific dates yet
+      date: '2023-01-01', // Mock date
       icon: <Briefcase className="w-4 h-4" />,
       level: node.level
     }));
@@ -105,155 +112,226 @@ export default function CareerMap() {
 
   return (
     <Layout>
-      <div className="space-y-8 animate-fade-in max-w-5xl mx-auto pb-12">
+      <div className="space-y-8 animate-fade-in max-w-6xl mx-auto pb-12">
         
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
             <h1 className="font-display text-4xl font-bold text-foreground">Your Career Journey</h1>
             <p className="text-lg text-muted-foreground mt-1">
-              Shape your own path at LVC
+              Track your growth and explore your future at LVC
             </p>
           </div>
         </div>
 
-        {/* Main Content: Current Role + History */}
-        <div className="space-y-8">
+        {/* Visual Roadmap Container */}
+        <div className="relative">
+          {/* Connecting Line (Desktop) */}
+          <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/20 via-primary/20 to-transparent -translate-x-1/2 z-0" />
+
+          <div className="space-y-12 relative z-10">
             
-             {/* Current Role Card - Center Stage */}
-            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-primary/5 to-background relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Star className="w-48 h-48 text-primary" />
-              </div>
-              
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <Badge className="bg-primary text-primary-foreground border-none">Current Role</Badge>
-                            <Badge variant="outline" className="border-primary/30 text-primary">Level {currentNode?.level}</Badge>
+            {/* NEXT STEP (Future) */}
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+               <div className="order-2 md:order-1 flex justify-start md:justify-end">
+                  {isNextStepCalibrated && nextStepNode ? (
+                    <div className="text-left md:text-right space-y-2 max-w-sm">
+                        <div className="inline-flex items-center gap-2 text-amber-600 font-medium bg-amber-50 px-3 py-1 rounded-full text-sm">
+                            <Target className="w-4 h-4" />
+                            Next Target
                         </div>
-                        <CardTitle className="text-3xl">{currentNode?.title}</CardTitle>
-                        <CardDescription className="text-lg mt-2">{currentNode?.description}</CardDescription>
+                        <h3 className="text-2xl font-bold text-foreground">{nextStepNode.title}</h3>
+                        <p className="text-muted-foreground">
+                            {nextStepNode.description}
+                        </p>
+                        <div className="flex items-center gap-2 justify-start md:justify-end text-sm font-medium pt-2">
+                             <span>Readiness: {progressPercent}%</span>
+                             <Progress value={progressPercent} className="w-24 h-2 bg-slate-100" />
+                        </div>
                     </div>
-                    {/* Progression Trigger - Small Feature */}
-                    {nextStepNode && (
-                        <Dialog>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" className="gap-2 border-dashed border-primary/40 hover:bg-primary/5 hover:border-primary/60">
-                                    <MapIcon className="w-4 h-4 text-primary" />
-                                    Explore Next Step
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                                <DialogHeader>
-                                    <DialogTitle className="text-2xl flex items-center gap-2">
-                                        <Target className="w-6 h-6 text-amber-500" />
-                                        Next Potential Role: {nextStepNode.title}
-                                    </DialogTitle>
-                                    <DialogDescription>
-                                        Requirements and steps needed to progress to the next level.
-                                    </DialogDescription>
-                                </DialogHeader>
+                  ) : (
+                    <div className="text-left md:text-right space-y-2 max-w-sm opacity-60">
+                        <h3 className="text-xl font-bold">Future Role</h3>
+                        <p className="text-sm">Path not yet calibrated</p>
+                    </div>
+                  )}
+               </div>
+
+               <div className="order-1 md:order-2 flex justify-start">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                        <div className={cn(
+                            "w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-300 shadow-sm border-2 relative group",
+                            isNextStepCalibrated 
+                                ? "bg-white border-amber-400 hover:border-amber-500 hover:shadow-amber-100 hover:scale-105" 
+                                : "bg-slate-50 border-dashed border-slate-300"
+                        )}>
+                            {isNextStepCalibrated ? (
+                                <>
+                                    {progressPercent >= 100 ? (
+                                        <Unlock className="w-8 h-8 text-amber-500 animate-pulse" />
+                                    ) : (
+                                        <Lock className="w-8 h-8 text-amber-300" />
+                                    )}
+                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                                        <ArrowUpRight className="w-3 h-3" />
+                                    </div>
+                                </>
+                            ) : (
+                                <MoreHorizontal className="w-8 h-8 text-slate-300" />
+                            )}
+                        </div>
+                    </DialogTrigger>
+                    
+                    {isNextStepCalibrated && nextStepNode && (
+                        <DialogContent className="max-w-xl">
+                            <DialogHeader>
+                                <DialogTitle className="text-2xl flex items-center gap-2">
+                                    <Target className="w-6 h-6 text-amber-500" />
+                                    {nextStepNode.title}
+                                </DialogTitle>
+                                <DialogDescription>
+                                    Target Level: {nextStepNode.level} • {nextStepNode.department}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-6 py-4">
+                                <div className="space-y-2">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="font-medium">Promotion Readiness</span>
+                                        <span className="text-muted-foreground">{completedRequirements.length}/{nextStepRequirements.length} completed</span>
+                                    </div>
+                                    <Progress value={progressPercent} className="h-2.5 bg-amber-100 [&>div]:bg-amber-500" />
+                                </div>
                                 
-                                {isNextStepCalibrated ? (
-                                    <div className="space-y-6 py-4">
-                                        <div>
-                                            <div className="flex justify-between text-sm mb-2">
-                                                <span className="font-medium text-slate-700">Readiness</span>
-                                                <span className="text-muted-foreground">{completedRequirements.length}/{nextStepRequirements.length} Requirements</span>
+                                <div className="bg-slate-50 rounded-lg p-4 space-y-3">
+                                    <h4 className="text-sm font-semibold text-slate-900">Requirements to Unlock</h4>
+                                    {nextStepRequirements.map((req, i) => {
+                                        const isDone = req.certificateId ? userCertificates.some(c => c.definitionId === req.certificateId) : false;
+                                        return (
+                                            <div key={i} className="flex gap-3 items-start">
+                                                <div className={cn("mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0", isDone ? "bg-emerald-100 text-emerald-600" : "bg-white border border-slate-300 text-slate-300")}>
+                                                    {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className={cn("text-sm", isDone ? "text-slate-700 line-through opacity-70" : "text-slate-900 font-medium")}>{req.description}</p>
+                                                    {!isDone && (
+                                                        <Button variant="link" className="h-auto p-0 text-amber-600 text-xs mt-0.5">
+                                                            View training <ChevronRight className="w-3 h-3" />
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <Progress value={progressPercent} className="h-2 bg-amber-100 [&>div]:bg-amber-500" />
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Required to Unlock</h4>
-                                            {nextStepRequirements.map((req, idx) => {
-                                                const hasCert = req.certificateId ? userCertificates.some(uc => uc.definitionId === req.certificateId) : false;
-                                                return (
-                                                    <div key={idx} className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${hasCert ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
-                                                        <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${hasCert ? 'bg-emerald-100 text-emerald-600' : 'bg-white border border-slate-300 text-slate-300'}`}>
-                                                            {hasCert ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className={`text-sm font-medium ${hasCert ? 'text-emerald-900' : 'text-slate-700'}`}>{req.description}</p>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="py-8 text-center space-y-4">
-                                        <div className="mx-auto w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                                            <Users className="w-8 h-8 text-slate-400" />
-                                        </div>
-                                        <p className="text-slate-600 max-w-sm mx-auto">
-                                            Your career path hasn't been calibrated yet. Schedule a chat with your manager to discuss your future goals.
-                                        </p>
-                                        <Button variant="outline">Request Calibration</Button>
-                                    </div>
-                                )}
-                            </DialogContent>
-                        </Dialog>
+                                        )
+                                    })}
+                                </div>
+                                <Button className="w-full bg-slate-900 text-white hover:bg-slate-800" disabled={progressPercent < 100}>
+                                    {progressPercent >= 100 ? "Apply for Promotion" : "Complete Requirements to Apply"}
+                                </Button>
+                            </div>
+                        </DialogContent>
                     )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6 relative z-10">
-                <div className="bg-background/60 backdrop-blur-sm p-4 rounded-xl border shadow-sm max-w-3xl">
-                  <h4 className="font-semibold mb-3 flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-amber-500" />
-                    Key Responsibilities
-                  </h4>
-                  <ul className="space-y-2">
-                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                      <span>Lead technical equipment diagnostics and repairs</span>
-                    </li>
-                    <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                      <span>Mentor junior engineers on site visits</span>
-                    </li>
-                     <li className="flex items-start gap-2 text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                      <span>Ensure 100% compliance with safety protocols</span>
-                    </li>
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
+                  </Dialog>
+               </div>
+            </div>
 
-            {/* History Section - Combined Milestones & Roles */}
-            {historyTimeline.length > 0 && (
-              <div className="pt-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2 mb-6 text-slate-600">
-                  <History className="w-5 h-5" />
-                  Journey So Far
-                </h3>
-                
-                <div className="relative pl-8 space-y-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                  {historyTimeline.map((item, index) => (
-                    <div key={index} className="relative group">
-                      <div className={`absolute -left-[2.35rem] w-6 h-6 rounded-full border-2 border-white ring-1 ring-slate-200 flex items-center justify-center transition-colors ${item.type === 'role_change' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                        {item.icon}
-                      </div>
-                      <div className="bg-white p-4 rounded-lg border shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex justify-between items-start mb-1">
-                          <h4 className="font-bold text-slate-800">{item.title}</h4>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">
-                            {item.date ? new Date(item.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : 'Previous'}
-                          </span>
+            {/* CURRENT ROLE (Center Stage) */}
+            <div className="grid md:grid-cols-2 gap-8 items-center">
+               <div className="order-2 md:order-1 flex justify-start md:justify-end">
+                    <Card className="w-full max-w-lg border-primary/20 bg-white shadow-lg shadow-primary/5 relative overflow-hidden group hover:border-primary/40 transition-colors cursor-default">
+                        <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.07] transition-opacity">
+                            <Star className="w-32 h-32 text-primary" />
                         </div>
-                        <p className="text-sm text-slate-500">{item.description}</p>
-                        {item.type === 'role_change' && (
-                            <Badge variant="secondary" className="mt-2 text-xs font-normal">Career Step</Badge>
-                        )}
-                      </div>
+                        <CardHeader className="pb-2">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <Badge className="bg-primary/10 text-primary hover:bg-primary/20 mb-2 border-none">Current Role</Badge>
+                                    <CardTitle className="text-2xl">{currentNode?.title}</CardTitle>
+                                    <CardDescription className="text-base">{currentNode?.department}</CardDescription>
+                                </div>
+                                <div className="h-10 w-10 rounded-lg bg-primary/5 flex items-center justify-center">
+                                    <Briefcase className="w-5 h-5 text-primary" />
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-700">
+                                    <Zap className="w-4 h-4 text-amber-500" />
+                                    Performance & Growth
+                                </h4>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-primary/20 hover:bg-primary/5 transition-colors cursor-pointer">
+                                        <p className="text-xs text-muted-foreground mb-1">Competency</p>
+                                        <div className="flex items-end gap-2">
+                                            <span className="text-xl font-bold text-slate-800">92%</span>
+                                            <span className="text-xs text-emerald-600 mb-1">Excellent</span>
+                                        </div>
+                                        <Progress value={92} className="h-1 mt-2" />
+                                    </div>
+                                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 hover:border-primary/20 hover:bg-primary/5 transition-colors cursor-pointer">
+                                        <p className="text-xs text-muted-foreground mb-1">Training</p>
+                                        <div className="flex items-end gap-2">
+                                            <span className="text-xl font-bold text-slate-800">4/5</span>
+                                            <span className="text-xs text-slate-500 mb-1">Modules</span>
+                                        </div>
+                                        <Progress value={80} className="h-1 mt-2" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <h4 className="text-sm font-semibold flex items-center gap-2 text-slate-700">
+                                    <BookOpen className="w-4 h-4 text-blue-500" />
+                                    Development Focus
+                                </h4>
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer group/item">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                        <span className="text-sm text-slate-600 group-hover/item:text-slate-900 flex-1">Advanced Hydraulics Certification</span>
+                                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover/item:text-slate-500" />
+                                    </div>
+                                    <div className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50 transition-colors cursor-pointer group/item">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                                        <span className="text-sm text-slate-600 group-hover/item:text-slate-900 flex-1">Mentorship Program (Mentee)</span>
+                                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover/item:text-slate-500" />
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+               </div>
+
+               <div className="order-1 md:order-2 flex justify-start">
+                  <div className="w-6 h-6 rounded-full bg-primary border-4 border-white shadow-md z-20 relative">
+                    <div className="absolute inset-0 rounded-full animate-ping bg-primary/20"></div>
+                  </div>
+               </div>
+            </div>
+
+            {/* HISTORY (Past) */}
+            <div className="space-y-8 pb-8">
+                {historyTimeline.map((item, index) => (
+                    <div key={index} className="grid md:grid-cols-2 gap-8 items-start opacity-70 hover:opacity-100 transition-opacity">
+                        <div className="order-2 md:order-1 flex justify-start md:justify-end">
+                            <div className="text-left md:text-right max-w-sm">
+                                <h4 className="font-semibold text-slate-800">{item.title}</h4>
+                                <p className="text-sm text-slate-500 mt-1">{item.description}</p>
+                                <p className="text-xs text-slate-400 mt-2">
+                                    {item.date ? new Date(item.date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : 'Previous'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="order-1 md:order-2 flex justify-start relative">
+                            <div className={cn(
+                                "w-4 h-4 rounded-full border-2 border-white shadow-sm z-10 relative mt-1.5",
+                                item.type === 'role_change' ? "bg-indigo-500" : "bg-slate-400"
+                            )} />
+                        </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                ))}
+            </div>
+
+          </div>
         </div>
       </div>
     </Layout>

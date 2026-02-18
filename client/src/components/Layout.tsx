@@ -25,6 +25,7 @@ import {
   Briefcase,
   Network,
   FileText,
+  BadgeCheck,
 } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
@@ -133,6 +134,12 @@ const navGroups: NavGroup[] = [
         href: '/admin/resources',
         label: 'Resource Manager',
         icon: <FolderOpen className="w-5 h-5" />,
+        roles: ['admin'],
+      },
+      {
+        href: '/admin/certificates',
+        label: 'Certificates',
+        icon: <BadgeCheck className="w-5 h-5" />,
         roles: ['admin'],
       },
     ]

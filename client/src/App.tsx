@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/authContext";
 import { ResourcesProvider } from "@/lib/resourcesContext";
+import { CertificatesProvider } from "@/lib/certificatesContext";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
@@ -18,6 +19,7 @@ import AdminUsers from "@/pages/admin/Users";
 import AdminTemplates from "@/pages/admin/Templates";
 import AdminRoles from "@/pages/admin/Roles";
 import AdminResources from "@/pages/admin/Resources";
+import AdminCertificates from "@/pages/admin/Certificates";
 import Organisation from "@/pages/admin/Organisation";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -67,6 +69,9 @@ function Router() {
       <Route path="/admin/resources">
         {() => <ProtectedRoute component={AdminResources} />}
       </Route>
+      <Route path="/admin/certificates">
+        {() => <ProtectedRoute component={AdminCertificates} />}
+      </Route>
       <Route path="/organisation">
         {() => <ProtectedRoute component={Organisation} />}
       </Route>
@@ -80,10 +85,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ResourcesProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
+          <CertificatesProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </CertificatesProvider>
         </ResourcesProvider>
       </AuthProvider>
     </QueryClientProvider>

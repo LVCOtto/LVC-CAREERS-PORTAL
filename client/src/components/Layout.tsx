@@ -39,79 +39,104 @@ interface NavItem {
   roles: ('colleague' | 'manager' | 'admin')[];
 }
 
-const navItems: NavItem[] = [
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
   {
-    href: '/dashboard',
-    label: 'Dashboard',
-    icon: <LayoutDashboard className="w-5 h-5" />,
-    roles: ['colleague', 'manager', 'admin'],
+    title: "My Career",
+    items: [
+      {
+        href: '/dashboard',
+        label: 'Dashboard',
+        icon: <LayoutDashboard className="w-5 h-5" />,
+        roles: ['colleague', 'manager', 'admin'],
+      },
+      {
+        href: '/induction',
+        label: 'Induction',
+        icon: <ClipboardCheck className="w-5 h-5" />,
+        roles: ['colleague', 'manager', 'admin'],
+      },
+      {
+        href: '/training',
+        label: 'Training Matrix',
+        icon: <GraduationCap className="w-5 h-5" />,
+        roles: ['colleague', 'manager', 'admin'],
+      },
+      {
+        href: '/role-playbook',
+        label: 'Role Playbook',
+        icon: <FileText className="w-5 h-5" />,
+        roles: ['colleague', 'manager', 'admin'],
+      },
+      {
+        href: '/milestones',
+        label: 'Career Milestones',
+        icon: <Award className="w-5 h-5" />,
+        roles: ['colleague', 'manager', 'admin'],
+      },
+    ]
   },
   {
-    href: '/induction',
-    label: 'Induction',
-    icon: <ClipboardCheck className="w-5 h-5" />,
-    roles: ['colleague', 'manager', 'admin'],
+    title: "Company",
+    items: [
+      {
+        href: '/resources',
+        label: 'Resources',
+        icon: <FolderOpen className="w-5 h-5" />,
+        roles: ['colleague', 'manager', 'admin'],
+      },
+      {
+        href: '/organisation',
+        label: 'Organisation',
+        icon: <Network className="w-5 h-5" />,
+        roles: ['manager', 'admin'],
+      },
+    ]
   },
   {
-    href: '/training',
-    label: 'Training Matrix',
-    icon: <GraduationCap className="w-5 h-5" />,
-    roles: ['colleague', 'manager', 'admin'],
+    title: "Team Management",
+    items: [
+      {
+        href: '/team',
+        label: 'My Team',
+        icon: <Users className="w-5 h-5" />,
+        roles: ['manager', 'admin'],
+      },
+    ]
   },
   {
-    href: '/role-playbook',
-    label: 'Role Playbook',
-    icon: <FileText className="w-5 h-5" />,
-    roles: ['colleague', 'manager', 'admin'],
-  },
-  {
-    href: '/milestones',
-    label: 'Career Milestones',
-    icon: <Award className="w-5 h-5" />,
-    roles: ['colleague', 'manager', 'admin'],
-  },
-  {
-    href: '/resources',
-    label: 'Resources',
-    icon: <FolderOpen className="w-5 h-5" />,
-    roles: ['colleague', 'manager', 'admin'],
-  },
-  {
-    href: '/team',
-    label: 'My Team',
-    icon: <Users className="w-5 h-5" />,
-    roles: ['manager', 'admin'],
-  },
-  {
-    href: '/admin/users',
-    label: 'User Management',
-    icon: <Users className="w-5 h-5" />,
-    roles: ['admin'],
-  },
-  {
-    href: '/admin/templates',
-    label: 'Templates',
-    icon: <Settings className="w-5 h-5" />,
-    roles: ['admin'],
-  },
-  {
-    href: '/admin/roles',
-    label: 'Job Roles',
-    icon: <Briefcase className="w-5 h-5" />,
-    roles: ['admin'],
-  },
-  {
-    href: '/admin/resources',
-    label: 'Resource Manager',
-    icon: <FolderOpen className="w-5 h-5" />,
-    roles: ['admin'],
-  },
-  {
-    href: '/organisation',
-    label: 'Organisation',
-    icon: <Network className="w-5 h-5" />,
-    roles: ['manager', 'admin'],
-  },
+    title: "Administration",
+    items: [
+      {
+        href: '/admin/users',
+        label: 'User Management',
+        icon: <Users className="w-5 h-5" />,
+        roles: ['admin'],
+      },
+      {
+        href: '/admin/templates',
+        label: 'Templates',
+        icon: <Settings className="w-5 h-5" />,
+        roles: ['admin'],
+      },
+      {
+        href: '/admin/roles',
+        label: 'Job Roles',
+        icon: <Briefcase className="w-5 h-5" />,
+        roles: ['admin'],
+      },
+      {
+        href: '/admin/resources',
+        label: 'Resource Manager',
+        icon: <FolderOpen className="w-5 h-5" />,
+        roles: ['admin'],
+      },
+    ]
+  }
 ];
 
 export function Layout({ children }: LayoutProps) {
@@ -121,10 +146,6 @@ export function Layout({ children }: LayoutProps) {
   if (!currentUser) {
     return <>{children}</>;
   }
-
-  const filteredNavItems = navItems.filter(item =>
-    item.roles.includes(currentUser.role)
-  );
 
   const getInitials = (name: string) => {
     return name
@@ -158,23 +179,40 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         <ScrollArea className="flex-1 py-4">
-          <nav className="px-3 space-y-1">
-            {filteredNavItems.map(item => (
-              <Link key={item.href} href={item.href}>
-                <a
-                  data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-                    location === item.href
-                      ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                      : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
-                  )}
-                >
-                  {item.icon}
-                  {item.label}
-                </a>
-              </Link>
-            ))}
+          <nav className="px-3 space-y-6">
+            {navGroups.map((group, groupIndex) => {
+              const filteredItems = group.items.filter(item => 
+                item.roles.includes(currentUser.role)
+              );
+
+              if (filteredItems.length === 0) return null;
+
+              return (
+                <div key={group.title}>
+                  <h3 className="mb-2 px-3 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
+                    {group.title}
+                  </h3>
+                  <div className="space-y-1">
+                    {filteredItems.map(item => (
+                      <Link key={item.href} href={item.href}>
+                        <a
+                          data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                          className={cn(
+                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                            location === item.href
+                              ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                              : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                          )}
+                        >
+                          {item.icon}
+                          {item.label}
+                        </a>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </nav>
         </ScrollArea>
 

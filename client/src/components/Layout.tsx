@@ -209,10 +209,10 @@ export function Layout({ children }: LayoutProps) {
                   <div className="space-y-1">
                     {filteredItems.map(item => (
                       <Link key={item.href} href={item.href}>
-                        <a
+                        <div
                           data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                           className={cn(
-                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
+                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer',
                             location === item.href
                               ? 'bg-sidebar-primary text-sidebar-primary-foreground'
                               : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
@@ -220,7 +220,7 @@ export function Layout({ children }: LayoutProps) {
                         >
                           {item.icon}
                           {item.label}
-                        </a>
+                        </div>
                       </Link>
                     ))}
                   </div>

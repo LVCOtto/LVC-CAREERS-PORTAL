@@ -17,7 +17,8 @@ import {
   XCircle,
   Map as MapIcon
 } from 'lucide-react';
-import ReactFlow, { 
+import { 
+  ReactFlow, 
   Node, 
   Edge, 
   Controls, 
@@ -27,8 +28,8 @@ import ReactFlow, {
   MarkerType,
   Position,
   Handle
-} from 'reactflow';
-import 'reactflow/dist/style.css';
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { useEffect, useMemo, useState } from 'react';
 
 // Custom Node Component for Career Steps

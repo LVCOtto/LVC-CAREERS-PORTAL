@@ -23,6 +23,7 @@ import {
   getComplianceStats,
   getInductionProgress,
 } from '@/lib/mockData';
+import { IndividualView } from '@/pages/Training';
 import {
   ArrowLeft,
   User,
@@ -33,7 +34,17 @@ import {
   Clock,
   AlertTriangle,
   XCircle,
+  FileText,
+  ClipboardCheck,
+  GraduationCap,
 } from 'lucide-react';
+import {
+  engineeringCategories,
+  adminCategories,
+  engineerMatrices,
+  adminMatrices,
+  type EngineerMatrix,
+} from '@/lib/trainingMatrixData';
 
 function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { currentUser } = useAuth();
@@ -75,6 +86,29 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
     }
   };
 
+  const categories = member.department?.toLowerCase().includes('engineering') ? engineeringCategories : adminCategories;
+  const matrices = member.department?.toLowerCase().includes('engineering') ? engineerMatrices : adminMatrices;
+  const fallbackRatings = matrices[0]?.ratings || {};
+
+  const memberMatrix: EngineerMatrix = {
+    id: member.id,
+    name: member.name,
+    role: member.jobRole,
+    department: member.department,
+    ratings: fallbackRatings,
+    lastAssessment: '2026-01-15',
+  };
+
+  const standardsSurvey = {
+    lastCompleted: '2026-01-20',
+    responses: [
+      { area: 'Tools & Equipment', score: 4, note: 'All good — just need more van stock checks.' },
+      { area: 'Site Safety', score: 5, note: 'Clear and consistent.' },
+      { area: 'Customer Communication', score: 3, note: 'Working on pre-visit expectations.' },
+      { area: 'Paperwork & Reporting', score: 4, note: 'Improving Protean notes.' },
+    ],
+  };
+
   return (
     <Layout>
       <div className="space-y-8 animate-fade-in">
@@ -85,8 +119,12 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
             </Button>
           </Link>
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">{member.name}</h1>
-            <p className="text-muted-foreground">{member.jobRole}</p>
+            <h1 className="font-display text-3xl font-bold text-foreground" data-testid="text-team-member-name">
+              {member.name}
+            </h1>
+            <p className="text-muted-foreground" data-testid="text-team-member-role">
+              {member.jobRole}
+            </p>
           </div>
         </div>
 
@@ -97,27 +135,27 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-xl font-semibold text-primary">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-xl font-semibold text-primary" data-testid="img-avatar">
                   {member.name
                     .split(' ')
-                    .map(n => n[0])
+                    .map((n) => n[0])
                     .join('')}
                 </div>
                 <div>
-                  <p className="font-semibold">{member.name}</p>
-                  <p className="text-sm text-muted-foreground">{member.email}</p>
+                  <p className="font-semibold" data-testid="text-name">{member.name}</p>
+                  <p className="text-sm text-muted-foreground" data-testid="text-email">{member.email}</p>
                 </div>
               </div>
               <div className="space-y-3 pt-4 border-t">
-                <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-3 text-sm" data-testid="text-job-role">
                   <Briefcase className="w-4 h-4 text-muted-foreground" />
                   <span>{member.jobRole}</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-3 text-sm" data-testid="text-department">
                   <User className="w-4 h-4 text-muted-foreground" />
                   <span>{member.department}</span>
                 </div>
-                <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-3 text-sm" data-testid="text-start-date">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
                   <span>Started {new Date(member.startDate).toLocaleDateString()}</span>
                 </div>
@@ -149,9 +187,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     <p className="text-xs text-muted-foreground">Completed</p>
                   </div>
                   <div className="text-center p-3 rounded-lg bg-emerald-500/10">
-                    <p className="text-2xl font-bold text-emerald-700">
-                      {inductionProgress.signedOff}
-                    </p>
+                    <p className="text-2xl font-bold text-emerald-700">{inductionProgress.signedOff}</p>
                     <p className="text-xs text-muted-foreground">Signed Off</p>
                   </div>
                 </div>
@@ -165,9 +201,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
             </CardHeader>
             <CardContent>
               <div className="text-center mb-4">
-                <p className="text-4xl font-display font-bold text-primary">
-                  {compliance.complianceRate}%
-                </p>
+                <p className="text-4xl font-display font-bold text-primary">{compliance.complianceRate}%</p>
                 <p className="text-sm text-muted-foreground">Overall Compliance</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -194,8 +228,18 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
 
         <Tabs defaultValue="induction">
           <TabsList>
-            <TabsTrigger value="induction">Induction Checklist</TabsTrigger>
-            <TabsTrigger value="training">Training Matrix</TabsTrigger>
+            <TabsTrigger value="induction" className="gap-2" data-testid="tab-profile-induction">
+              <ClipboardCheck className="w-4 h-4" />
+              Induction
+            </TabsTrigger>
+            <TabsTrigger value="training" className="gap-2" data-testid="tab-profile-training">
+              <GraduationCap className="w-4 h-4" />
+              Training Matrix
+            </TabsTrigger>
+            <TabsTrigger value="standards" className="gap-2" data-testid="tab-profile-standards">
+              <FileText className="w-4 h-4" />
+              Standards Survey
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="induction" className="mt-6">
@@ -213,7 +257,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {induction.items.map(item => (
+                    {induction.items.map((item) => (
                       <TableRow key={item.id}>
                         <TableCell>
                           <Badge variant="outline">{item.section}</Badge>
@@ -229,18 +273,14 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                           )}
                         </TableCell>
                         <TableCell>
-                          {item.completedDate
-                            ? new Date(item.completedDate).toLocaleDateString()
-                            : '-'}
+                          {item.completedDate ? new Date(item.completedDate).toLocaleDateString() : '-'}
                         </TableCell>
                         <TableCell>
-                          {item.signedOffDate
-                            ? new Date(item.signedOffDate).toLocaleDateString()
-                            : '-'}
+                          {item.signedOffDate ? new Date(item.signedOffDate).toLocaleDateString() : '-'}
                         </TableCell>
                         <TableCell className="text-right">
                           {item.completed && !item.signedOffBy && (
-                            <Button size="sm" data-testid={`button-signoff-${item.id}`}>
+                            <Button size="sm" data-testid={`button-signoff-${item.id}`} disabled>
                               Sign Off
                             </Button>
                           )}
@@ -255,53 +295,61 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
 
           <TabsContent value="training" className="mt-6">
             <Card className="border-border/50">
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-8"></TableHead>
-                      <TableHead>Requirement</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Expires</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {trainingRecords.map(record => (
-                      <TableRow key={record.id}>
-                        <TableCell>{getStatusIcon(record.status)}</TableCell>
-                        <TableCell className="font-medium">{record.requirementName}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{record.category}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {record.completedDate
-                            ? new Date(record.completedDate).toLocaleDateString()
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {record.expiresDate
-                            ? new Date(record.expiresDate).toLocaleDateString()
-                            : '-'}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={record.status} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {(record.status === 'missing' || record.status === 'overdue') && (
-                            <Button size="sm" variant="outline" data-testid={`button-schedule-${record.id}`}>
-                              Schedule
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <CardContent className="p-6">
+                <IndividualView engineer={memberMatrix} categories={categories} showBackButton={false} />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="standards" className="mt-6">
+            <div className="grid lg:grid-cols-3 gap-6">
+              <Card className="lg:col-span-1 border-border/50">
+                <CardHeader>
+                  <CardTitle className="text-lg">Latest Survey</CardTitle>
+                  <CardDescription>Quick pulse check against expected standards</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="p-3 rounded-lg bg-muted/40 border" data-testid="card-standards-last-completed">
+                    <p className="text-xs text-muted-foreground">Last completed</p>
+                    <p className="text-sm font-semibold">{new Date(standardsSurvey.lastCompleted).toLocaleDateString('en-GB')}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100">
+                    <p className="text-xs text-muted-foreground">Overall</p>
+                    <p className="text-2xl font-bold text-emerald-700">4.0</p>
+                    <p className="text-xs text-emerald-700/80">On track</p>
+                  </div>
+                  <Button className="w-full" variant="outline" disabled data-testid="button-request-standards-review">
+                    Request review
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="lg:col-span-2 border-border/50">
+                <CardHeader>
+                  <CardTitle className="text-lg">Responses</CardTitle>
+                  <CardDescription>Areas scored from 1 (needs support) to 5 (excellent)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {standardsSurvey.responses.map((r) => (
+                      <div key={r.area} className="p-4 rounded-lg border bg-background" data-testid={`row-standards-${r.area}`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="font-medium">{r.area}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{r.note}</p>
+                          </div>
+                          <div className="shrink-0">
+                            <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 text-primary font-bold">
+                              {r.score}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -316,7 +364,7 @@ function TeamList() {
 
   const teamMembers = getTeamMembers(currentUser.id);
 
-  const teamStats = teamMembers.map(member => {
+  const teamStats = teamMembers.map((member) => {
     const induction = getInductionForUser(member.id);
     const training = getTrainingRecordsForUser(member.id);
     const inductionProgress = getInductionProgress(induction.items);
@@ -337,13 +385,11 @@ function TeamList() {
       <div className="space-y-8 animate-fade-in">
         <div>
           <h1 className="font-display text-3xl font-bold text-foreground">My Team</h1>
-          <p className="text-muted-foreground mt-1">
-            View and manage your team members' training and induction
-          </p>
+          <p className="text-muted-foreground mt-1">View and manage your team members' training and induction</p>
         </div>
 
         <div className="grid gap-4">
-          {teamStats.map(member => (
+          {teamStats.map((member) => (
             <Link key={member.id} href={`/team/${member.id}`}>
               <Card
                 className="border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
@@ -355,7 +401,7 @@ function TeamList() {
                       <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-primary">
                         {member.name
                           .split(' ')
-                          .map(n => n[0])
+                          .map((n) => n[0])
                           .join('')}
                       </div>
                       <div>
@@ -389,18 +435,12 @@ function TeamList() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {member.overdue > 0 && (
-                          <Badge variant="destructive">{member.overdue} overdue</Badge>
-                        )}
+                        {member.overdue > 0 && <Badge variant="destructive">{member.overdue} overdue</Badge>}
                         {member.dueSoon > 0 && (
-                          <Badge className="bg-amber-500 hover:bg-amber-600">
-                            {member.dueSoon} due soon
-                          </Badge>
+                          <Badge className="bg-amber-500 hover:bg-amber-600">{member.dueSoon} due soon</Badge>
                         )}
                         {member.overdue === 0 && member.dueSoon === 0 && (
-                          <Badge className="bg-emerald-500 hover:bg-emerald-600">
-                            All clear
-                          </Badge>
+                          <Badge className="bg-emerald-500 hover:bg-emerald-600">All clear</Badge>
                         )}
                       </div>
                     </div>
@@ -415,9 +455,7 @@ function TeamList() {
               <CardContent className="py-12 text-center">
                 <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="font-display text-lg font-semibold mb-2">No team members</h3>
-                <p className="text-muted-foreground">
-                  You don't have any direct reports assigned yet.
-                </p>
+                <p className="text-muted-foreground">You don't have any direct reports assigned yet.</p>
               </CardContent>
             </Card>
           )}

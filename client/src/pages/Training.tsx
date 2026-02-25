@@ -4,29 +4,16 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   ChevronDown,
   ChevronRight,
   User,
-  Users,
   Calendar,
   TrendingUp,
   Download,
   HelpCircle,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  Plus,
   Clock,
   Target,
   CalendarPlus,
@@ -49,22 +36,11 @@ import {
   type EngineerMatrix,
 } from '@/lib/trainingMatrixData';
 import { departments } from '@/lib/departmentData';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
   const level = competencyLevels[rating];
-  
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -134,7 +110,7 @@ function CategorySection({
           </div>
         </div>
       </button>
-      
+
       {expanded && (
         <div className="divide-y">
           {category.items.map((item) => (
@@ -158,7 +134,7 @@ function CategorySection({
   );
 }
 
-function IndividualView({
+export function IndividualView({
   engineer,
   categories,
   onBack,
@@ -189,7 +165,7 @@ function IndividualView({
       {showBackButton && onBack && (
         <Button variant="ghost" onClick={onBack} className="gap-2 -ml-2" data-testid="button-back-to-team">
           <ArrowLeft className="h-4 w-4" />
-          Back to Team View
+          Back
         </Button>
       )}
 
@@ -200,7 +176,9 @@ function IndividualView({
           </div>
           <div>
             <h2 className="text-xl font-display font-bold">{engineer.name}</h2>
-            <p className="text-sm text-muted-foreground">{engineer.role} • {engineer.department}</p>
+            <p className="text-sm text-muted-foreground">
+              {engineer.role} • {engineer.department}
+            </p>
           </div>
         </div>
         <div className="text-right">
@@ -222,7 +200,9 @@ function IndividualView({
           return (
             <Card key={category.id} className="border-border/50">
               <CardContent className="p-3">
-                <p className="text-xs text-muted-foreground truncate mb-1">{category.name.replace('Technical Expertise - ', '')}</p>
+                <p className="text-xs text-muted-foreground truncate mb-1">
+                  {category.name.replace('Technical Expertise - ', '')}
+                </p>
                 <div className="flex items-baseline gap-1 mb-2">
                   <span className="text-lg font-bold">{avg.toFixed(1)}</span>
                   <span className="text-xs text-muted-foreground">/ 4</span>
@@ -251,193 +231,16 @@ function IndividualView({
   );
 }
 
-function TeamGrid({
-  engineers,
-  categories,
-  onSelectEngineer,
-}: {
-  engineers: EngineerMatrix[];
-  categories: CompetencyCategory[];
-  onSelectEngineer: (engineer: EngineerMatrix) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      {engineers.map((engineer) => {
-        const overallAvg = calculateOverallAverage(engineer.ratings, categories);
-        const gaps = categories.flatMap(cat => 
-          cat.items.filter(item => (engineer.ratings[item.id] ?? 0) <= 1)
-        );
-        
-        return (
-          <div
-            key={engineer.id}
-            onClick={() => onSelectEngineer(engineer)}
-            className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer group"
-            data-testid={`engineer-row-${engineer.id}`}
-          >
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <User className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium group-hover:text-primary transition-colors">{engineer.name}</p>
-                <p className="text-sm text-muted-foreground">{engineer.role}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-6">
-              <div className="hidden md:flex items-center gap-2">
-                {categories.slice(0, 3).map((category) => {
-                  const avg = calculateCategoryAverage(engineer.ratings, category);
-                  return (
-                    <TooltipProvider key={category.id}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className={`${getCompetencyColor(Math.round(avg))} w-8 h-8 rounded flex items-center justify-center text-xs font-semibold`}>
-                            {avg.toFixed(1)}
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">{category.name}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  );
-                })}
-              </div>
-
-              <div className="text-right min-w-[80px]">
-                <p className="text-xs text-muted-foreground">Overall</p>
-                <p className={`text-xl font-bold ${overallAvg >= 3 ? 'text-emerald-600' : overallAvg >= 2 ? 'text-amber-600' : 'text-red-600'}`}>
-                  {overallAvg.toFixed(1)}
-                </p>
-              </div>
-
-              {gaps.length > 0 && (
-                <Badge variant="destructive" className="gap-1">
-                  <Target className="h-3 w-3" />
-                  {gaps.length} gaps
-                </Badge>
-              )}
-
-              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function SkillGapsPanel({ department, isOwnGaps = false }: { department: string; isOwnGaps?: boolean }) {
-  const { toast } = useToast();
-  const matrices = department === 'engineering' ? engineerMatrices : adminMatrices;
-  const categories = department === 'engineering' ? engineeringCategories : adminCategories;
-  const gaps = identifySkillGaps(matrices, categories).slice(0, 6);
-
-  return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Target className="h-4 w-4 text-red-500" />
-            {isOwnGaps ? 'My Skills Gaps' : 'Team Skills Gaps'}
-          </CardTitle>
-          <Badge variant="destructive" className="text-xs">{gaps.length}</Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {gaps.map((gap, idx) => (
-            <div key={idx} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg text-sm">
-              <div className="flex-1 min-w-0 pr-2">
-                <p className="font-medium truncate text-xs">{gap.competencyName}</p>
-                {!isOwnGaps && <p className="text-xs text-muted-foreground truncate">{gap.engineerName}</p>}
-              </div>
-              <div className="flex items-center gap-2">
-                <div className={`${getCompetencyColor(gap.currentRating)} w-6 h-6 rounded flex items-center justify-center text-xs font-semibold`}>
-                  {gap.currentRating}
-                </div>
-                {isOwnGaps ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled>
-                          <Clock className="h-3 w-3" />
-                          Request
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p className="text-xs">Your line manager will schedule training for you</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-                    <CalendarPlus className="h-3 w-3" />
-                    Book
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function TrainingSessionsPanel() {
-  const sessions = scheduledTrainingSessions.slice(0, 4);
-
-  return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" />
-            Upcoming Training
-          </CardTitle>
-          <Button size="sm" variant="outline" className="h-7 text-xs gap-1">
-            <Plus className="h-3 w-3" />
-            Schedule
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {sessions.map((session) => (
-            <div key={session.id} className="p-2 bg-muted/30 rounded-lg text-sm">
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-medium text-xs truncate">{session.competencyName}</p>
-                <Badge variant="secondary" className="text-xs">
-                  {new Date(session.scheduledDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                </Badge>
-              </div>
-              <p className="text-xs text-muted-foreground">{session.attendees.length} attendees • {session.trainer}</p>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-
 export default function Training() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedDepartment, setSelectedDepartment] = useState('engineering');
-  const [selectedEngineer, setSelectedEngineer] = useState<EngineerMatrix | null>(null);
-  const [activeTab, setActiveTab] = useState('my-development');
 
   if (!currentUser) return null;
 
-  const isManager = currentUser.role === 'manager' || currentUser.role === 'admin';
   const isColleague = currentUser.role === 'colleague';
 
   const currentCategories = selectedDepartment === 'engineering' ? engineeringCategories : adminCategories;
-  const currentEngineers = selectedDepartment === 'engineering' ? engineerMatrices : adminMatrices;
 
   const myMatrix: EngineerMatrix = {
     id: 'self',
@@ -464,15 +267,13 @@ export default function Training() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold">Training Matrix</h1>
-            <p className="text-muted-foreground mt-1">
-              Competency assessments and skill development tracking
-            </p>
+            <p className="text-muted-foreground mt-1">Competency assessments and skill development tracking</p>
           </div>
           <div className="flex items-center gap-3">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon">
+                  <Button variant="outline" size="icon" data-testid="button-training-help">
                     <HelpCircle className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -488,181 +289,112 @@ export default function Training() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            {isManager && activeTab === 'my-team' && (
-              <Button variant="outline" className="gap-2" data-testid="button-export-matrix">
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            )}
+            <Button variant="outline" className="gap-2" data-testid="button-export-matrix" disabled>
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
           </div>
         </div>
 
-        {isColleague ? (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                My Training Matrix
-              </CardTitle>
-              <CardDescription>
-                Your self-assessment ratings. Complete the Smartsheet form to update.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <IndividualView
-                engineer={myMatrix}
-                categories={currentCategories}
-                showBackButton={false}
-              />
+        {!isColleague && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">Your Development Journey</p>
+                  <p className="text-sm text-muted-foreground">
+                    This is your personal training matrix. For team specifics, open a colleague from your dashboard to view their profile.
+                    <span className="block mt-1">Line manager: <span className="font-medium text-foreground">{myLineManager}</span></span>
+                  </p>
+                </div>
+              </div>
             </CardContent>
           </Card>
-        ) : (
-          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSelectedEngineer(null); }} className="space-y-6">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="my-development" className="gap-2" data-testid="tab-my-development">
-                <User className="h-4 w-4" />
-                My Development
-              </TabsTrigger>
-              <TabsTrigger value="my-team" className="gap-2" data-testid="tab-my-team">
-                <Users className="h-4 w-4" />
-                My Team
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="my-development" className="space-y-6">
-              <Card className="border-primary/20 bg-primary/5">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <User className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Your Development Journey</p>
-                      <p className="text-sm text-muted-foreground">
-                        This is your personal training matrix. To book training or request sign-offs, please speak to your line manager: <span className="font-medium text-foreground">{myLineManager}</span>
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="grid lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-primary" />
-                        My Training Matrix
-                      </CardTitle>
-                      <CardDescription>
-                        Your self-assessment ratings. Complete the Smartsheet form to update.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <IndividualView
-                        engineer={myMatrix}
-                        categories={currentCategories}
-                        showBackButton={false}
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="space-y-6">
-                  <SkillGapsPanel department={selectedDepartment} isOwnGaps={true} />
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-primary" />
-                        My Scheduled Training
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Calendar className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No training sessions scheduled</p>
-                        <p className="text-xs mt-1">Contact your line manager to book training</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-              
-            </TabsContent>
-
-            <TabsContent value="my-team" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <Select value={selectedDepartment} onValueChange={(v) => { setSelectedDepartment(v); setSelectedEngineer(null); }}>
-                    <SelectTrigger className="w-[220px]" data-testid="select-department">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departmentOptions.map(dept => (
-                        <SelectItem key={dept.value} value={dept.value}>
-                          <div className="flex items-center gap-2">
-                            <div className={`h-2 w-2 rounded-full ${dept.color}`} />
-                            {dept.label}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Badge variant="outline" className="gap-1">
-                  <Calendar className="h-3 w-3" />
-                  Last updated: Jan 2026
-                </Badge>
-              </div>
-
-              {selectedEngineer ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <IndividualView
-                      engineer={selectedEngineer}
-                      categories={currentCategories}
-                      onBack={() => setSelectedEngineer(null)}
-                    />
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  <div className="grid lg:grid-cols-3 gap-6">
-                    <div className="lg:col-span-2">
-                      <Card>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-primary" />
-                            Team Overview
-                          </CardTitle>
-                          <CardDescription>
-                            Click on a team member to view their detailed assessment
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <CompetencyLegend />
-                          <div className="mt-4">
-                            <TeamGrid
-                              engineers={currentEngineers}
-                              categories={currentCategories}
-                              onSelectEngineer={setSelectedEngineer}
-                            />
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    <div className="space-y-6">
-                      <SkillGapsPanel department={selectedDepartment} isOwnGaps={false} />
-                      <TrainingSessionsPanel />
-                    </div>
-                  </div>
-                </>
-              )}
-            </TabsContent>
-          </Tabs>
         )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
+              <SelectTrigger className="w-[220px]" data-testid="select-department">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {departmentOptions.map((dept) => (
+                  <SelectItem key={dept.value} value={dept.value}>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${dept.color}`} />
+                      {dept.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Badge variant="outline" className="gap-1 w-fit">
+            <Calendar className="h-3 w-3" />
+            Last updated: Jan 2026
+          </Badge>
+        </div>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              My Training Matrix
+            </CardTitle>
+            <CardDescription>
+              Your self-assessment ratings. Complete the Smartsheet form to update.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <IndividualView engineer={myMatrix} categories={currentCategories} showBackButton={false} />
+          </CardContent>
+        </Card>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Card className="h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4 text-red-500" />
+                  My Skills Gaps
+                </CardTitle>
+                <Badge variant="destructive" className="text-xs">6</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-sm text-muted-foreground">
+                Managers can review skills gaps per colleague from their profile.
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="h-full">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  My Scheduled Training
+                </CardTitle>
+                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled data-testid="button-schedule-training">
+                  <CalendarPlus className="h-3 w-3" />
+                  Schedule
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-6 text-muted-foreground">
+                <Calendar className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No training sessions scheduled</p>
+                <p className="text-xs mt-1">Contact your line manager to book training</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </Layout>
   );

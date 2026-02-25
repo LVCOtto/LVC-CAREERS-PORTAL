@@ -20,7 +20,15 @@ export async function registerRoutes(
   });
 
   app.post("/api/users", async (req, res) => {
-    const user = await storage.createUser(req.body);
+    const body = req.body;
+    if (!body.id) {
+      const slug = (body.name || "user")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "");
+      body.id = `${slug}-${Date.now().toString(36)}`;
+    }
+    const user = await storage.createUser(body);
     res.status(201).json(user);
   });
 

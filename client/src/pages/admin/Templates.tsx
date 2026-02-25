@@ -21,8 +21,14 @@ import {
   Trash2,
   FileCheck,
   History,
+  ClipboardList,
+  Search,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getAllSurveyRoles, getSurveyByRoleId } from '@/lib/standardsSurveyData';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 export default function AdminTemplates() {
   const { currentUser } = useAuth();
@@ -33,6 +39,9 @@ export default function AdminTemplates() {
   }
 
   const sections = Array.from(new Set(inductionItems.map(item => item.section)));
+
+  const [surveySearch, setSurveySearch] = useState('');
+  const [editingSurveyRole, setEditingSurveyRole] = useState<{ id: string; title: string } | null>(null);
 
   const trainingRequirements = [
     { category: 'Mandatory', items: ['Health & Safety Fundamentals', 'Data Protection & GDPR', 'Fire Safety Awareness', 'Manual Handling'] },
@@ -67,6 +76,10 @@ export default function AdminTemplates() {
             <TabsTrigger value="training" className="gap-2" data-testid="tab-training-templates">
               <GraduationCap className="w-4 h-4" />
               Training Matrix
+            </TabsTrigger>
+            <TabsTrigger value="standards" className="gap-2" data-testid="tab-standards-templates">
+              <ClipboardList className="w-4 h-4" />
+              Standards Survey
             </TabsTrigger>
           </TabsList>
 
@@ -270,6 +283,184 @@ export default function AdminTemplates() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="standards">
+            <div className="space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold">Standards Survey Templates</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Link and maintain the standards survey for each job role
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Input
+                      value={surveySearch}
+                      onChange={(e) => setSurveySearch(e.target.value)}
+                      placeholder="Search job roles..."
+                      className="pl-9 w-[260px]"
+                      data-testid="input-search-standards-templates"
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => toast({ title: 'Add survey template', description: 'In this prototype, surveys are loaded from the standards survey dataset.' })}
+                    data-testid="button-add-standards-template"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Template
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                {getAllSurveyRoles()
+                  .filter(r => r.title.toLowerCase().includes(surveySearch.toLowerCase()))
+                  .map((role) => {
+                    const survey = getSurveyByRoleId(role.id);
+                    const taskCount = survey?.tasks?.length || 0;
+
+                    return (
+                      <Card key={role.id} className="border-border/50">
+                        <CardHeader>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                <ClipboardList className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <CardTitle className="text-lg">{role.title}</CardTitle>
+                                <CardDescription>Standards Survey</CardDescription>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {survey ? (
+                                <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30" data-testid={`badge-standards-configured-${role.id}`}>
+                                  Configured
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-muted-foreground" data-testid={`badge-standards-missing-${role.id}`}>
+                                  Not configured
+                                </Badge>
+                              )}
+                              <Badge variant="secondary" data-testid={`badge-standards-count-${role.id}`}>
+                                {taskCount} items
+                              </Badge>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setEditingSurveyRole(role)}
+                                data-testid={`button-edit-standards-${role.id}`}
+                              >
+                                <Edit className="w-4 h-4 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+
+                        <CardContent>
+                          <div className="rounded-lg border bg-muted/20 p-4">
+                            <p className="text-sm font-medium" data-testid={`text-standards-preview-title-${role.id}`}>Preview</p>
+                            <p className="text-sm text-muted-foreground mt-1" data-testid={`text-standards-preview-body-${role.id}`}>
+                              {survey
+                                ? 'This role has a standards survey linked. Open Edit to view or adjust items.'
+                                : 'No standards survey linked yet for this role.'}
+                            </p>
+
+                            {survey && (
+                              <div className="mt-4 grid sm:grid-cols-2 gap-2">
+                                {survey.tasks.slice(0, 4).map((t) => (
+                                  <div key={t.id} className="p-2 rounded-md bg-background border text-sm" data-testid={`row-standards-item-${role.id}-${t.id}`}>
+                                    {t.text}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+
+                {getAllSurveyRoles().filter(r => r.title.toLowerCase().includes(surveySearch.toLowerCase())).length === 0 && (
+                  <Card className="border-border/50">
+                    <CardContent className="py-12 text-center">
+                      <ClipboardList className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                      <p className="font-medium">No job roles match that search</p>
+                      <p className="text-sm text-muted-foreground mt-1">Try a different keyword.</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              <Dialog open={!!editingSurveyRole} onOpenChange={(open) => !open && setEditingSurveyRole(null)}>
+                <DialogContent className="max-w-2xl" data-testid="dialog-edit-standards-template">
+                  <DialogHeader>
+                    <DialogTitle className="font-display">Edit standards survey</DialogTitle>
+                    <DialogDescription>
+                      This is a template linked to the job role. In this prototype, editing is visual-only.
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Job role</Label>
+                        <div className="mt-2 p-3 rounded-lg border bg-muted/20" data-testid="text-edit-standards-role">
+                          {editingSurveyRole?.title}
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Status</Label>
+                        <div className="mt-2 p-3 rounded-lg border bg-muted/20" data-testid="text-edit-standards-status">
+                          {editingSurveyRole && getSurveyByRoleId(editingSurveyRole.id) ? 'Configured' : 'Not configured'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border bg-background">
+                      <div className="p-4 border-b">
+                        <p className="text-sm font-medium">Items</p>
+                        <p className="text-sm text-muted-foreground">Showing the first 12 items for a quick edit view.</p>
+                      </div>
+                      <div className="p-4 space-y-2 max-h-[320px] overflow-auto">
+                        {(editingSurveyRole ? (getSurveyByRoleId(editingSurveyRole.id)?.tasks || []) : [])
+                          .slice(0, 12)
+                          .map((t) => (
+                            <div key={t.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/20" data-testid={`row-edit-standards-item-${t.id}`}>
+                              <div className="text-sm">{t.text}</div>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-standards-item-${t.id}`}>
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setEditingSurveyRole(null)} data-testid="button-close-standards-editor">
+                      Close
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        toast({ title: 'Saved (mock)', description: 'Standards survey template saved.' });
+                        setEditingSurveyRole(null);
+                      }}
+                      data-testid="button-save-standards-template"
+                    >
+                      Save changes
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           </TabsContent>
         </Tabs>

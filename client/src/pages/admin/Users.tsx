@@ -48,6 +48,7 @@ export default function AdminUsers() {
   const [newJobRole, setNewJobRole] = useState('');
   const [newDepartment, setNewDepartment] = useState('');
   const [newManagerId, setNewManagerId] = useState('');
+  const [newStartDate, setNewStartDate] = useState(new Date().toISOString().split('T')[0]);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -57,6 +58,7 @@ export default function AdminUsers() {
   const [editJobRole, setEditJobRole] = useState('');
   const [editDepartment, setEditDepartment] = useState('');
   const [editManagerId, setEditManagerId] = useState('');
+  const [editStartDate, setEditStartDate] = useState('');
 
   const { data: users = [], isLoading } = useUsers();
   const createUser = useCreateUser();
@@ -71,6 +73,7 @@ export default function AdminUsers() {
     setEditJobRole(user.jobRole || '');
     setEditDepartment(user.department || '');
     setEditManagerId(user.managerId || '');
+    setEditStartDate(user.startDate || '');
     setIsEditDialogOpen(true);
   };
 
@@ -86,6 +89,7 @@ export default function AdminUsers() {
           jobRole: editJobRole,
           department: editDepartment,
           managerId: editManagerId || null,
+          startDate: editStartDate,
         },
       });
       toast({ title: 'User updated', description: 'User details have been saved.' });
@@ -145,7 +149,7 @@ export default function AdminUsers() {
         jobRole: newJobRole,
         department: newDepartment,
         managerId: newManagerId || null,
-        startDate: new Date().toISOString().split('T')[0],
+        startDate: newStartDate,
       });
       toast({ title: 'User created', description: 'New user has been added to the system.' });
       setIsAddDialogOpen(false);
@@ -157,6 +161,7 @@ export default function AdminUsers() {
       setNewJobRole('');
       setNewDepartment('');
       setNewManagerId('');
+      setNewStartDate(new Date().toISOString().split('T')[0]);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
@@ -235,6 +240,10 @@ export default function AdminUsers() {
                 <div className="space-y-2">
                   <Label htmlFor="department">Department</Label>
                   <Input id="department" placeholder="Enter department" value={newDepartment} onChange={e => setNewDepartment(e.target.value)} data-testid="input-department" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="startDate">Start Date</Label>
+                  <Input id="startDate" type="date" value={newStartDate} onChange={e => setNewStartDate(e.target.value)} data-testid="input-start-date" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="manager">Line Manager</Label>
@@ -415,6 +424,10 @@ export default function AdminUsers() {
               <div className="space-y-2">
                 <Label htmlFor="edit-department">Department</Label>
                 <Input id="edit-department" placeholder="Enter department" value={editDepartment} onChange={e => setEditDepartment(e.target.value)} data-testid="input-edit-department" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-startDate">Start Date</Label>
+                <Input id="edit-startDate" type="date" value={editStartDate} onChange={e => setEditStartDate(e.target.value)} data-testid="input-edit-start-date" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-manager">Line Manager</Label>

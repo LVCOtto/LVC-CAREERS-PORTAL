@@ -54,6 +54,8 @@ export interface IStorage {
 
   getCareerMilestones(userId: string): Promise<schema.CareerMilestone[]>;
   createCareerMilestone(milestone: schema.InsertCareerMilestone): Promise<schema.CareerMilestone>;
+  updateCareerMilestone(id: number, data: Partial<schema.InsertCareerMilestone>): Promise<schema.CareerMilestone | undefined>;
+  deleteCareerMilestone(id: number): Promise<void>;
 
   getCareerNodes(): Promise<schema.CareerNode[]>;
   createCareerNode(node: schema.InsertCareerNode): Promise<schema.CareerNode>;
@@ -294,6 +296,15 @@ export class DatabaseStorage implements IStorage {
   async createCareerMilestone(milestone: schema.InsertCareerMilestone) {
     const [created] = await db.insert(schema.careerMilestones).values(milestone).returning();
     return created;
+  }
+
+  async updateCareerMilestone(id: number, data: Partial<schema.InsertCareerMilestone>) {
+    const [updated] = await db.update(schema.careerMilestones).set(data).where(eq(schema.careerMilestones.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCareerMilestone(id: number) {
+    await db.delete(schema.careerMilestones).where(eq(schema.careerMilestones.id, id));
   }
 
   async getCareerNodes() {

@@ -127,6 +127,27 @@ export function useCareerMilestones(userId: string) {
   return useQuery({ queryKey: ["career-milestones", userId], queryFn: () => api.careerMilestones.list(userId), enabled: !!userId });
 }
 
+export function useCreateCareerMilestone() {
+  return useMutation({
+    mutationFn: (data: any) => api.careerMilestones.create(data),
+    onSuccess: () => invalidate("career-milestones"),
+  });
+}
+
+export function useUpdateCareerMilestone() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.careerMilestones.update(id, data),
+    onSuccess: () => invalidate("career-milestones"),
+  });
+}
+
+export function useDeleteCareerMilestone() {
+  return useMutation({
+    mutationFn: (id: number) => api.careerMilestones.delete(id),
+    onSuccess: () => invalidate("career-milestones"),
+  });
+}
+
 export function useCareerNodes() {
   return useQuery({ queryKey: ["career-nodes"], queryFn: api.careerNodes.list });
 }

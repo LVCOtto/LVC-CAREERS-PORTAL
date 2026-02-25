@@ -79,6 +79,8 @@ export const api = {
   careerMilestones: {
     list: (userId: string) => apiFetch<any[]>(`/career-milestones/${userId}`),
     create: (data: any) => apiFetch<any>("/career-milestones", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: any) => apiFetch<any>(`/career-milestones/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: number) => apiFetch<void>(`/career-milestones/${id}`, { method: "DELETE" }),
   },
   careerNodes: {
     list: () => apiFetch<any[]>("/career-nodes"),

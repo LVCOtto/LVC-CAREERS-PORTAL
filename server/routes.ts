@@ -317,6 +317,17 @@ export async function registerRoutes(
     res.status(201).json(milestone);
   });
 
+  app.patch("/api/career-milestones/:id", async (req, res) => {
+    const milestone = await storage.updateCareerMilestone(Number(req.params.id), req.body);
+    if (!milestone) return res.status(404).json({ message: "Milestone not found" });
+    res.json(milestone);
+  });
+
+  app.delete("/api/career-milestones/:id", async (req, res) => {
+    await storage.deleteCareerMilestone(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // ===== CAREER NODES =====
   app.get("/api/career-nodes", async (_req, res) => {
     const nodes = await storage.getCareerNodes();

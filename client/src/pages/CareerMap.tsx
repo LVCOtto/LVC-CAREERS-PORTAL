@@ -10,20 +10,15 @@ import { Progress } from '@/components/ui/progress';
 import { 
   Briefcase, 
   ChevronRight, 
-  Lock, 
-  Unlock, 
   Star, 
   Trophy, 
   ArrowRight,
   CheckCircle2,
   History,
-  Target,
   GraduationCap,
   Award,
   Zap,
   BookOpen,
-  ArrowUpRight,
-  MoreHorizontal
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -93,22 +88,6 @@ export default function CareerMap() {
     return 0; 
   });
 
-  // 3. Determine Next Step (Direct next step)
-  const nextStepIds = currentNode?.nextSteps || [];
-  const nextStepNode = careerNodes.find(n => nextStepIds.includes(n.id));
-
-  // 4. Calculate Progress for Next Step
-  const nextStepRequirements = nextStepNode?.requirements || [];
-  const completedRequirements = nextStepRequirements.filter(req => {
-    if (!req.certificateId) return false;
-    return userCertificates.some(uc => uc.definitionId === req.certificateId);
-  });
-  const progressPercent = nextStepRequirements.length > 0 
-    ? Math.round((completedRequirements.length / nextStepRequirements.length) * 100)
-    : 0;
-
-  // 5. Check if next step is calibrated
-  const isNextStepCalibrated = currentUser.nextRoleCalibrated;
 
   return (
     <Layout>
@@ -119,7 +98,7 @@ export default function CareerMap() {
           <div>
             <h1 className="font-display text-4xl font-bold text-foreground">Your Career Journey</h1>
             <p className="text-lg text-muted-foreground mt-1">
-              Track your growth and explore your future at LVC
+              Track your growth and development at LVC
             </p>
           </div>
         </div>
@@ -131,108 +110,6 @@ export default function CareerMap() {
 
           <div className="space-y-12 relative z-10">
             
-            {/* NEXT STEP (Future) */}
-            <div className="grid md:grid-cols-2 gap-8 items-center">
-               <div className="order-2 md:order-1 flex justify-start md:justify-end">
-                  {isNextStepCalibrated && nextStepNode ? (
-                    <div className="text-left md:text-right space-y-2 max-w-sm">
-                        <div className="inline-flex items-center gap-2 text-amber-600 font-medium bg-amber-50 px-3 py-1 rounded-full text-sm">
-                            <Target className="w-4 h-4" />
-                            Next Target
-                        </div>
-                        <h3 className="text-2xl font-bold text-foreground">{nextStepNode.title}</h3>
-                        <p className="text-muted-foreground">
-                            {nextStepNode.description}
-                        </p>
-                        <div className="flex items-center gap-2 justify-start md:justify-end text-sm font-medium pt-2">
-                             <span>Readiness: {progressPercent}%</span>
-                             <Progress value={progressPercent} className="w-24 h-2 bg-slate-100" />
-                        </div>
-                    </div>
-                  ) : (
-                    <div className="text-left md:text-right space-y-2 max-w-sm opacity-60">
-                        <h3 className="text-xl font-bold">Future Role</h3>
-                        <p className="text-sm">Path not yet calibrated</p>
-                    </div>
-                  )}
-               </div>
-
-               <div className="order-1 md:order-2 flex justify-start">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                        <div className={cn(
-                            "w-16 h-16 rounded-2xl flex items-center justify-center cursor-pointer transition-all duration-300 shadow-sm border-2 relative group",
-                            isNextStepCalibrated 
-                                ? "bg-white border-amber-400 hover:border-amber-500 hover:shadow-amber-100 hover:scale-105" 
-                                : "bg-slate-50 border-dashed border-slate-300"
-                        )}>
-                            {isNextStepCalibrated ? (
-                                <>
-                                    {progressPercent >= 100 ? (
-                                        <Unlock className="w-8 h-8 text-amber-500 animate-pulse" />
-                                    ) : (
-                                        <Lock className="w-8 h-8 text-amber-300" />
-                                    )}
-                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                                        <ArrowUpRight className="w-3 h-3" />
-                                    </div>
-                                </>
-                            ) : (
-                                <MoreHorizontal className="w-8 h-8 text-slate-300" />
-                            )}
-                        </div>
-                    </DialogTrigger>
-                    
-                    {isNextStepCalibrated && nextStepNode && (
-                        <DialogContent className="max-w-xl">
-                            <DialogHeader>
-                                <DialogTitle className="text-2xl flex items-center gap-2">
-                                    <Target className="w-6 h-6 text-amber-500" />
-                                    {nextStepNode.title}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Target Level: {nextStepNode.level} • {nextStepNode.department}
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-6 py-4">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="font-medium">Promotion Readiness</span>
-                                        <span className="text-muted-foreground">{completedRequirements.length}/{nextStepRequirements.length} completed</span>
-                                    </div>
-                                    <Progress value={progressPercent} className="h-2.5 bg-amber-100 [&>div]:bg-amber-500" />
-                                </div>
-                                
-                                <div className="bg-slate-50 rounded-lg p-4 space-y-3">
-                                    <h4 className="text-sm font-semibold text-slate-900">Requirements to Unlock</h4>
-                                    {nextStepRequirements.map((req, i) => {
-                                        const isDone = req.certificateId ? userCertificates.some(c => c.definitionId === req.certificateId) : false;
-                                        return (
-                                            <div key={i} className="flex gap-3 items-start">
-                                                <div className={cn("mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0", isDone ? "bg-emerald-100 text-emerald-600" : "bg-white border border-slate-300 text-slate-300")}>
-                                                    {isDone ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Lock className="w-3 h-3" />}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p className={cn("text-sm", isDone ? "text-slate-700 line-through opacity-70" : "text-slate-900 font-medium")}>{req.description}</p>
-                                                    {!isDone && (
-                                                        <Button variant="link" className="h-auto p-0 text-amber-600 text-xs mt-0.5">
-                                                            View training <ChevronRight className="w-3 h-3" />
-                                                        </Button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                                <Button className="w-full bg-slate-900 text-white hover:bg-slate-800" disabled={progressPercent < 100}>
-                                    {progressPercent >= 100 ? "Apply for Promotion" : "Complete Requirements to Apply"}
-                                </Button>
-                            </div>
-                        </DialogContent>
-                    )}
-                  </Dialog>
-               </div>
-            </div>
 
             {/* CURRENT ROLE (Center Stage) */}
             <div className="grid md:grid-cols-2 gap-8 items-center">

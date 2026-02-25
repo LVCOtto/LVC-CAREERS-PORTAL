@@ -23,6 +23,7 @@ export interface EngineerMatrix {
   department: string;
   ratings: Record<string, number>;
   lastAssessment: string;
+  status?: 'draft' | 'pending_review' | 'approved';
 }
 
 export const competencyLevels = [
@@ -255,6 +256,8 @@ export const adminMatrices: EngineerMatrix[] = [
     lastAssessment: '2025-10-15',
   },
 ];
+
+export const submittedMatrices: Record<string, EngineerMatrix> = {};
 
 export function getCompetencyColor(rating: number): string {
   return competencyLevels[rating]?.color || competencyLevels[0].color;

@@ -1,6 +1,7 @@
 import { useAuth } from '@/lib/authContext';
 import { useRoute, Link } from 'wouter';
 import { Layout } from '@/components/Layout';
+import { useToast } from '@/hooks/use-toast';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -45,9 +46,11 @@ import {
   adminMatrices,
   type EngineerMatrix,
 } from '@/lib/trainingMatrixData';
+import { submittedMatrices } from '@/lib/trainingMatrixData';
 
 function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const member = getUserById(memberId);
 
   if (!member) {
@@ -90,13 +93,16 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const matrices = member.department?.toLowerCase().includes('engineering') ? engineerMatrices : adminMatrices;
   const fallbackRatings = matrices[0]?.ratings || {};
 
+  const submitted = submittedMatrices[member.id];
+
   const memberMatrix: EngineerMatrix = {
     id: member.id,
     name: member.name,
     role: member.jobRole,
     department: member.department,
-    ratings: fallbackRatings,
-    lastAssessment: '2026-01-15',
+    ratings: submitted?.ratings || fallbackRatings,
+    lastAssessment: submitted?.lastAssessment || '2026-01-15',
+    status: submitted?.status,
   };
 
   const standardsSurvey = {
@@ -295,6 +301,55 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
 
           <TabsContent value="training" className="mt-6">
             <Card className="border-border/50">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-lg">Training Matrix</CardTitle>
+                    <CardDescription>
+                      Review the colleague\u2019s submitted matrix and approve when you\u2019re happy.
+                    </CardDescription>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {memberMatrix.status === 'pending_review' && (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-800" data-testid="status-team-matrix-pending">
+                        Pending sign-off
+                      </Badge>
+                    )}
+                    {memberMatrix.status === 'approved' && (
+                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-800" data-testid="status-team-matrix-approved">
+                        Approved
+                      </Badge>
+                    )}
+                    {(!memberMatrix.status || memberMatrix.status === 'draft') && (
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-800" data-testid="status-team-matrix-none">
+                        Not submitted
+                      </Badge>
+                    )}
+
+                    <Button
+                      size="sm"
+                      className="gap-2"
+                      disabled={memberMatrix.status !== 'pending_review'}
+                      onClick={() => {
+                        submittedMatrices[member.id] = {
+                          ...(submittedMatrices[member.id] || memberMatrix),
+                          status: 'approved',
+                          lastAssessment: new Date().toISOString().slice(0, 10),
+                        };
+                        toast({
+                          title: 'Matrix approved',
+                          description: 'The colleague can now see this matrix as approved.',
+                        });
+                        window.location.reload();
+                      }}
+                      data-testid="button-approve-matrix"
+                    >
+                      Approve
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
               <CardContent className="p-6">
                 <IndividualView engineer={memberMatrix} categories={categories} showBackButton={false} />
               </CardContent>

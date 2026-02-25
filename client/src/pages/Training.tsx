@@ -20,6 +20,7 @@ import {
   Building2,
   Filter,
   ArrowLeft,
+  Send,
 } from 'lucide-react';
 import {
   engineeringCategories,
@@ -32,11 +33,13 @@ import {
   calculateOverallAverage,
   identifySkillGaps,
   scheduledTrainingSessions,
+  submittedMatrices,
   type CompetencyCategory,
   type EngineerMatrix,
 } from '@/lib/trainingMatrixData';
 import { departments } from '@/lib/departmentData';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
   const level = competencyLevels[rating];
@@ -235,6 +238,7 @@ export default function Training() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [selectedDepartment, setSelectedDepartment] = useState('engineering');
+  const [isSubmitOpen, setIsSubmitOpen] = useState(false);
 
   if (!currentUser) return null;
 
@@ -242,13 +246,17 @@ export default function Training() {
 
   const currentCategories = selectedDepartment === 'engineering' ? engineeringCategories : adminCategories;
 
+  const submittedForMe = submittedMatrices[currentUser.id];
+
+  const baseRatings = engineerMatrices[0]?.ratings || {};
   const myMatrix: EngineerMatrix = {
-    id: 'self',
+    id: currentUser.id,
     name: currentUser.name,
     role: currentUser.jobRole || 'Engineering Manager',
     department: currentUser.department,
-    ratings: engineerMatrices[0]?.ratings || {},
-    lastAssessment: '2025-01-01',
+    ratings: submittedForMe?.ratings || baseRatings,
+    lastAssessment: submittedForMe?.lastAssessment || '2025-01-01',
+    status: submittedForMe?.status || 'draft',
   };
 
   const myLineManager = 'James Wilson (Operations Director)';
@@ -342,18 +350,140 @@ export default function Training() {
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              My Training Matrix
-            </CardTitle>
-            <CardDescription>
-              Your self-assessment ratings. Complete the Smartsheet form to update.
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  My Training Matrix
+                </CardTitle>
+                <CardDescription>
+                  Your self-assessment ratings. Submit when you're happy \u2014 your line manager will review and sign it off.
+                </CardDescription>
+              </div>
+
+              {isColleague && (
+                <div className="flex items-center gap-2">
+                  {myMatrix.status === 'pending_review' && (
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800" data-testid="status-matrix-pending">
+                      Pending line manager sign-off
+                    </Badge>
+                  )}
+                  {myMatrix.status === 'approved' && (
+                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800" data-testid="status-matrix-approved">
+                      Approved
+                    </Badge>
+                  )}
+                  {myMatrix.status === 'draft' && (
+                    <Badge variant="secondary" className="bg-slate-100 text-slate-800" data-testid="status-matrix-draft">
+                      Draft
+                    </Badge>
+                  )}
+
+                  <Button
+                    onClick={() => setIsSubmitOpen(true)}
+                    className="gap-2"
+                    disabled={myMatrix.status === 'pending_review' || myMatrix.status === 'approved'}
+                    data-testid="button-submit-matrix"
+                  >
+                    <Send className="h-4 w-4" />
+                    Submit training matrix
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <IndividualView engineer={myMatrix} categories={currentCategories} showBackButton={false} />
           </CardContent>
         </Card>
+
+        <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
+          <DialogContent className="max-w-3xl p-0 overflow-hidden" data-testid="dialog-submit-matrix">
+            <div className="relative">
+              <div className="px-6 py-5 border-b bg-gradient-to-b from-slate-50 to-white">
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-display">Submit your training matrix</DialogTitle>
+                  <DialogDescription>
+                    Take a moment to confirm your ratings. When submitted, your line manager will review and sign off.
+                  </DialogDescription>
+                </DialogHeader>
+              </div>
+
+              <div className="px-6 py-5 space-y-5">
+                <div className="rounded-xl border bg-slate-50/60 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold" data-testid="text-submit-summary-title">What happens next</p>
+                      <p className="text-sm text-muted-foreground mt-1" data-testid="text-submit-summary-body">
+                        Your matrix will move to <span className="font-medium text-foreground">Pending review</span> and your line manager will be asked to sign it off.
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 w-fit" data-testid="badge-pending-preview">
+                      Pending review
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <Card className="border-border/60">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">Matrix</p>
+                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-matrix-name">{selectedDepartment === 'engineering' ? 'Engineering' : 'Service Admin'}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-border/60">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">Line manager</p>
+                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-line-manager">{myLineManager}</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-border/60">
+                    <CardContent className="p-4">
+                      <p className="text-xs text-muted-foreground">Last updated</p>
+                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-last-updated">
+                        {new Date().toLocaleDateString('en-GB')}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="rounded-xl border p-4">
+                  <p className="text-sm font-semibold" data-testid="text-submit-confirmation">Ready to submit?</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Make sure the ratings reflect your current confidence. You can\u2019t edit while it\u2019s waiting for sign-off.
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 border-t bg-white">
+                <DialogFooter className="sm:justify-between">
+                  <Button variant="ghost" onClick={() => setIsSubmitOpen(false)} data-testid="button-cancel-submit">
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      submittedMatrices[currentUser.id] = {
+                        ...myMatrix,
+                        status: 'pending_review',
+                        lastAssessment: new Date().toISOString().slice(0, 10),
+                      };
+                      setIsSubmitOpen(false);
+                      toast({
+                        title: 'Submitted for sign-off',
+                        description: 'Your line manager can now review and approve your training matrix.',
+                      });
+                    }}
+                    className="gap-2"
+                    data-testid="button-confirm-submit"
+                  >
+                    <Send className="h-4 w-4" />
+                    Submit for sign-off
+                  </Button>
+                </DialogFooter>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid lg:grid-cols-2 gap-6">
           <Card className="h-full">

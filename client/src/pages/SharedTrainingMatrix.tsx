@@ -229,6 +229,8 @@ export default function SharedTrainingMatrix() {
                     <div className="divide-y">
                       {category.items.map((item: any) => {
                         const currentRating = ratings[item.slug];
+                        const previousRating = existingRatings[item.slug];
+                        const hasPrevious = previousRating !== undefined && previousRating !== currentRating;
                         return (
                           <div
                             key={item.id}
@@ -244,18 +246,25 @@ export default function SharedTrainingMatrix() {
                             <div className="flex items-center gap-1 shrink-0">
                               {competencyLevels.map((level) => {
                                 const isActive = currentRating === level.value;
+                                const wasPrevious = hasPrevious && previousRating === level.value;
                                 return (
                                   <button
                                     key={level.value}
                                     onClick={() => setRating(item.slug, level.value)}
-                                    className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all ${
+                                    className={`relative w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all ${
                                       isActive
                                         ? `${level.color} ring-2 ring-offset-1 ring-current scale-110`
-                                        : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
+                                        : wasPrevious
+                                          ? `${level.color} opacity-30 ring-1 ring-current`
+                                          : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
                                     }`}
+                                    title={wasPrevious ? `Previous rating: ${level.label}` : level.label}
                                     data-testid={`shared-rating-btn-${item.slug}-${level.value}`}
                                   >
                                     {level.value}
+                                    {wasPrevious && (
+                                      <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-muted-foreground/40" />
+                                    )}
                                   </button>
                                 );
                               })}

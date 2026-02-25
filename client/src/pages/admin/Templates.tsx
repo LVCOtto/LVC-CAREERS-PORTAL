@@ -16,16 +16,15 @@ import {
   GraduationCap,
   Plus,
   Edit,
-  Copy,
   Trash2,
   FileCheck,
-  History,
   ClipboardList,
   Search,
+  Check,
+  X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -46,7 +45,7 @@ export default function AdminTemplates() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  const { data: inductionTemplates = [], isLoading: loadingInduction } = useInductionTemplates();
+  const { data: inductionItems = [], isLoading: loadingInduction } = useInductionTemplates();
   const { data: competencies = [], isLoading: loadingCompetencies } = useCompetencies();
   const { data: standardsSurveys = [], isLoading: loadingStandards } = useStandardsSurveys();
 
@@ -65,7 +64,6 @@ export default function AdminTemplates() {
     mode: 'add' | 'edit';
     item?: any;
     section?: string;
-    templateSlug?: string;
   }>({ open: false, mode: 'add' });
   const [inductionForm, setInductionForm] = useState({
     section: '',
@@ -85,23 +83,22 @@ export default function AdminTemplates() {
     return null;
   }
 
-  const handleAction = (action: string, item: string) => {
-    toast({
-      title: `${action} action`,
-      description: `${action} performed on "${item}".`,
-    });
-  };
+  const inductionSections: string[] = Array.from(
+    new Set(inductionItems.map((item: any) => item.section))
+  );
 
-  const openAddInductionItem = (section: string, templateSlug?: string) => {
+  const openAddInductionItem = (section: string) => {
+    const sectionItems = inductionItems.filter((i: any) => i.section === section);
+    const maxSort = sectionItems.length > 0 ? Math.max(...sectionItems.map((i: any) => i.sortOrder || 0)) : 0;
     setInductionForm({
       section,
       title: '',
       description: '',
       requiresEvidence: false,
-      slug: templateSlug || '',
-      sortOrder: 0,
+      slug: '',
+      sortOrder: maxSort + 1,
     });
-    setInductionDialog({ open: true, mode: 'add', section, templateSlug });
+    setInductionDialog({ open: true, mode: 'add', section });
   };
 
   const openEditInductionItem = (item: any) => {
@@ -117,6 +114,10 @@ export default function AdminTemplates() {
   };
 
   const handleSaveInductionItem = async () => {
+    if (!inductionForm.title.trim()) {
+      toast({ title: 'Missing title', description: 'Please enter a title for the item.', variant: 'destructive' });
+      return;
+    }
     try {
       if (inductionDialog.mode === 'edit' && inductionDialog.item) {
         await updateInductionItem.mutateAsync({
@@ -135,7 +136,7 @@ export default function AdminTemplates() {
           title: inductionForm.title,
           description: inductionForm.description,
           requiresEvidence: inductionForm.requiresEvidence,
-          slug: inductionForm.slug || inductionForm.title.toLowerCase().replace(/\s+/g, '-'),
+          slug: inductionForm.slug || `ind-${Date.now()}`,
           sortOrder: inductionForm.sortOrder,
         });
         toast({ title: 'Created', description: 'Induction item created successfully.' });
@@ -250,9 +251,9 @@ export default function AdminTemplates() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold">Induction Checklist Templates</h2>
+                  <h2 className="text-xl font-semibold">Induction Checklist Items</h2>
                   <p className="text-sm text-muted-foreground">
-                    Define induction checklists for each job role
+                    Define induction checklist items grouped by section
                   </p>
                 </div>
                 <Button
@@ -266,127 +267,104 @@ export default function AdminTemplates() {
 
               {loadingInduction ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
+              ) : inductionSections.length === 0 ? (
+                <Card className="border-border/50">
+                  <CardContent className="py-12 text-center">
+                    <ClipboardCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                    <p className="font-medium">No induction items yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">Click "New Item" to create your first checklist item.</p>
+                  </CardContent>
+                </Card>
               ) : (
-                inductionTemplates.map((template: any) => {
-                  const sections: string[] = Array.from(new Set((template.items || []).map((item: any) => item.section)));
-                  return (
-                    <Card key={template.id} className="border-border/50">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <ClipboardCheck className="w-5 h-5 text-primary" />
+                <Card className="border-border/50">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <ClipboardCheck className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">Standard Induction Checklist</CardTitle>
+                        <CardDescription>
+                          {inductionItems.length} items across {inductionSections.length} sections
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <Accordion type="single" collapsible>
+                      {inductionSections.map((section) => (
+                        <AccordionItem key={section} value={section}>
+                          <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center gap-3">
+                              <span className="font-medium">{section}</span>
+                              <Badge variant="secondary">
+                                {inductionItems.filter((i: any) => i.section === section).length} items
+                              </Badge>
                             </div>
-                            <div>
-                              <CardTitle className="text-lg">{template.name}</CardTitle>
-                              <CardDescription>{template.jobRole || 'All roles'}</CardDescription>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="gap-1">
-                              <History className="w-3 h-3" />
-                              v1.0
-                            </Badge>
-                            <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30">
-                              Active
-                            </Badge>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAction('Edit', template.name)}
-                              data-testid={`button-edit-induction-${template.id}`}
-                            >
-                              <Edit className="w-4 h-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleAction('Duplicate', template.name)}
-                              data-testid={`button-duplicate-${template.id}`}
-                            >
-                              <Copy className="w-4 h-4 mr-1" />
-                              Duplicate
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <Accordion type="single" collapsible>
-                          {sections.map((section) => (
-                            <AccordionItem key={section} value={section}>
-                              <AccordionTrigger className="hover:no-underline">
-                                <div className="flex items-center gap-3">
-                                  <span className="font-medium">{section}</span>
-                                  <Badge variant="secondary">
-                                    {(template.items || []).filter((i: any) => i.section === section).length} items
-                                  </Badge>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="space-y-2 pl-4">
-                                  {(template.items || [])
-                                    .filter((i: any) => i.section === section)
-                                    .map((item: any) => (
-                                      <div
-                                        key={item.id}
-                                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                                      >
-                                        <div>
-                                          <p className="font-medium text-sm">{item.title}</p>
-                                          {item.description && (
-                                            <p className="text-xs text-muted-foreground">
-                                              {item.description}
-                                            </p>
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                          {item.requiresEvidence && (
-                                            <Badge variant="outline" className="text-xs">
-                                              <FileCheck className="w-3 h-3 mr-1" />
-                                              Evidence
-                                            </Badge>
-                                          )}
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            onClick={() => openEditInductionItem(item)}
-                                            data-testid={`button-edit-induction-item-${item.id}`}
-                                          >
-                                            <Edit className="w-3 h-3" />
-                                          </Button>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 text-destructive hover:text-destructive"
-                                            onClick={() => handleDeleteInductionItem(item)}
-                                            data-testid={`button-delete-induction-item-${item.id}`}
-                                          >
-                                            <Trash2 className="w-3 h-3" />
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="w-full mt-2"
-                                    onClick={() => openAddInductionItem(section, template.slug)}
-                                    data-testid={`button-add-item-section-${section}`}
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="space-y-2 pl-4">
+                              {inductionItems
+                                .filter((i: any) => i.section === section)
+                                .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                                .map((item: any) => (
+                                  <div
+                                    key={item.id}
+                                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                                   >
-                                    <Plus className="w-4 h-4 mr-1" />
-                                    Add Item
-                                  </Button>
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </Accordion>
-                      </CardContent>
-                    </Card>
-                  );
-                })
+                                    <div>
+                                      <p className="font-medium text-sm">{item.title}</p>
+                                      {item.description && (
+                                        <p className="text-xs text-muted-foreground">
+                                          {item.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      {item.requiresEvidence && (
+                                        <Badge variant="outline" className="text-xs">
+                                          <FileCheck className="w-3 h-3 mr-1" />
+                                          Evidence
+                                        </Badge>
+                                      )}
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() => openEditInductionItem(item)}
+                                        data-testid={`button-edit-induction-item-${item.id}`}
+                                      >
+                                        <Edit className="w-3 h-3" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive"
+                                        onClick={() => handleDeleteInductionItem(item)}
+                                        data-testid={`button-delete-induction-item-${item.id}`}
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full mt-2"
+                                onClick={() => openAddInductionItem(section)}
+                                data-testid={`button-add-item-section-${section}`}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add Item
+                              </Button>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </CardContent>
+                </Card>
               )}
             </div>
           </TabsContent>
@@ -400,10 +378,6 @@ export default function AdminTemplates() {
                     Define training requirements for each job role
                   </p>
                 </div>
-                <Button data-testid="button-add-training-template">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Template
-                </Button>
               </div>
 
               {loadingCompetencies ? (
@@ -411,33 +385,13 @@ export default function AdminTemplates() {
               ) : (
                 <Card className="border-border/50">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <GraduationCap className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">Training Matrix Competencies</CardTitle>
-                          <CardDescription>All Departments</CardDescription>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <GraduationCap className="w-5 h-5 text-primary" />
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="gap-1">
-                          <History className="w-3 h-3" />
-                          v1.0
-                        </Badge>
-                        <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30">
-                          Active
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAction('Edit', 'Training Matrix')}
-                          data-testid="button-edit-training-matrix"
-                        >
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
+                      <div>
+                        <CardTitle className="text-lg">Training Matrix Competencies</CardTitle>
+                        <CardDescription>All Departments</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
@@ -456,16 +410,9 @@ export default function AdminTemplates() {
                                 className="flex items-center justify-between p-2 rounded bg-background"
                               >
                                 <span className="text-sm">{item.name}</span>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                  <Edit className="w-3 h-3" />
-                                </Button>
                               </div>
                             ))}
                           </div>
-                          <Button variant="ghost" size="sm" className="w-full mt-2">
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add Requirement
-                          </Button>
                         </div>
                       ))}
                     </div>
@@ -496,14 +443,6 @@ export default function AdminTemplates() {
                       data-testid="input-search-standards-templates"
                     />
                   </div>
-                  <Button
-                    variant="outline"
-                    onClick={() => toast({ title: 'Add survey template', description: 'In this prototype, surveys are loaded from the standards survey dataset.' })}
-                    data-testid="button-add-standards-template"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    New Template
-                  </Button>
                 </div>
               </div>
 
@@ -550,16 +489,18 @@ export default function AdminTemplates() {
                         <CardContent>
                           <div className="rounded-lg border bg-muted/20 p-4">
                             <p className="text-sm font-medium" data-testid={`text-standards-preview-title-${survey.id}`}>Preview</p>
-                            <p className="text-sm text-muted-foreground mt-1" data-testid={`text-standards-preview-body-${survey.id}`}>
-                              This role has a standards survey linked. Open Edit to view or adjust items.
-                            </p>
                             {(survey.items || []).length > 0 && (
-                              <div className="mt-4 grid sm:grid-cols-2 gap-2">
+                              <div className="mt-3 grid sm:grid-cols-2 gap-2">
                                 {(survey.items || []).slice(0, 4).map((item: any) => (
                                   <div key={item.id} className="p-2 rounded-md bg-background border text-sm" data-testid={`row-standards-item-${survey.id}-${item.id}`}>
                                     {item.text}
                                   </div>
                                 ))}
+                                {taskCount > 4 && (
+                                  <div className="p-2 rounded-md text-sm text-muted-foreground">
+                                    +{taskCount - 4} more items...
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -580,123 +521,82 @@ export default function AdminTemplates() {
                 </div>
               )}
 
-              <Dialog open={!!editingSurvey} onOpenChange={(open) => !open && setEditingSurvey(null)}>
+              <Dialog open={!!editingSurvey} onOpenChange={(open) => {
+                if (!open) {
+                  setEditingSurvey(null);
+                  setEditingSurveyItem(null);
+                  setAddingSurveyItem(false);
+                }
+              }}>
                 <DialogContent className="max-w-2xl" data-testid="dialog-edit-standards-template">
                   <DialogHeader>
-                    <DialogTitle className="font-display">Edit standards survey</DialogTitle>
+                    <DialogTitle className="font-display">Edit Standards Survey - {editingSurvey?.roleTitle}</DialogTitle>
                     <DialogDescription>
-                      Edit, add, or remove items for this role's standards survey.
+                      Edit, add, or remove items for this survey template.
                     </DialogDescription>
                   </DialogHeader>
 
                   <div className="space-y-4">
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Job role</Label>
-                        <div className="mt-2 p-3 rounded-lg border bg-muted/20" data-testid="text-edit-standards-role">
-                          {editingSurvey?.roleTitle}
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Status</Label>
-                        <div className="mt-2 p-3 rounded-lg border bg-muted/20" data-testid="text-edit-standards-status">
-                          Configured
-                        </div>
-                      </div>
-                    </div>
-
                     <div className="rounded-lg border bg-background">
                       <div className="p-4 border-b flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium">Items</p>
-                          <p className="text-sm text-muted-foreground">{(editingSurvey?.items || []).length} items total.</p>
+                          <p className="text-sm font-medium">Items ({(editingSurvey?.items || []).length})</p>
                         </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => { setAddingSurveyItem(true); setNewSurveyItemText(''); }}
+                          onClick={() => setAddingSurveyItem(true)}
                           data-testid="button-add-survey-item"
                         >
                           <Plus className="w-4 h-4 mr-1" />
                           Add Item
                         </Button>
                       </div>
-                      <div className="p-4 space-y-2 max-h-[320px] overflow-auto">
+                      <div className="p-4 space-y-2 max-h-[400px] overflow-auto">
                         {addingSurveyItem && (
-                          <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                            <div className="flex-1">
-                              <Input
-                                value={newSurveyItemText}
-                                onChange={(e) => setNewSurveyItemText(e.target.value)}
-                                placeholder="Enter survey item text..."
-                                data-testid="input-new-survey-item"
-                              />
-                            </div>
-                            <Button
-                              size="sm"
-                              onClick={handleAddSurveyItem}
-                              disabled={!newSurveyItemText.trim() || createSurveyItem.isPending}
-                              data-testid="button-save-new-survey-item"
-                            >
-                              {createSurveyItem.isPending ? 'Saving...' : 'Save'}
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                            <Input
+                              value={newSurveyItemText}
+                              onChange={(e) => setNewSurveyItemText(e.target.value)}
+                              placeholder="Enter new survey item text..."
+                              className="flex-1"
+                              data-testid="input-new-survey-item"
+                              onKeyDown={(e) => e.key === 'Enter' && handleAddSurveyItem()}
+                            />
+                            <Button size="icon" className="h-8 w-8" onClick={handleAddSurveyItem} disabled={createSurveyItem.isPending} data-testid="button-save-new-survey-item">
+                              <Check className="w-4 h-4" />
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setAddingSurveyItem(false)}
-                              data-testid="button-cancel-new-survey-item"
-                            >
-                              Cancel
+                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setAddingSurveyItem(false); setNewSurveyItemText(''); }}>
+                              <X className="w-4 h-4" />
                             </Button>
                           </div>
                         )}
                         {(editingSurvey?.items || []).map((item: any) => (
                           <div key={item.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/20" data-testid={`row-edit-standards-item-${item.id}`}>
                             {editingSurveyItem?.id === item.id ? (
-                              <div className="flex-1 flex items-start gap-2">
+                              <div className="flex-1 flex items-center gap-2">
                                 <Input
                                   value={surveyItemText}
                                   onChange={(e) => setSurveyItemText(e.target.value)}
                                   className="flex-1"
                                   data-testid={`input-edit-survey-item-${item.id}`}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleSaveSurveyItem()}
                                 />
-                                <Button
-                                  size="sm"
-                                  onClick={handleSaveSurveyItem}
-                                  disabled={updateSurveyItem.isPending}
-                                  data-testid={`button-save-survey-item-${item.id}`}
-                                >
-                                  {updateSurveyItem.isPending ? 'Saving...' : 'Save'}
+                                <Button size="icon" className="h-8 w-8" onClick={handleSaveSurveyItem} disabled={updateSurveyItem.isPending}>
+                                  <Check className="w-4 h-4" />
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setEditingSurveyItem(null)}
-                                  data-testid={`button-cancel-edit-survey-item-${item.id}`}
-                                >
-                                  Cancel
+                                <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingSurveyItem(null)}>
+                                  <X className="w-4 h-4" />
                                 </Button>
                               </div>
                             ) : (
                               <>
                                 <div className="text-sm flex-1">{item.text}</div>
                                 <div className="flex items-center gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleEditSurveyItem(item)}
-                                    data-testid={`button-edit-standards-item-${item.id}`}
-                                  >
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditSurveyItem(item)} data-testid={`button-edit-standards-item-${item.id}`}>
                                     <Edit className="w-4 h-4" />
                                   </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                    onClick={() => handleDeleteSurveyItem(item)}
-                                    data-testid={`button-delete-standards-item-${item.id}`}
-                                  >
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteSurveyItem(item)} data-testid={`button-delete-standards-item-${item.id}`}>
                                     <Trash2 className="w-4 h-4" />
                                   </Button>
                                 </div>
@@ -722,70 +622,70 @@ export default function AdminTemplates() {
         <Dialog open={inductionDialog.open} onOpenChange={(open) => !open && setInductionDialog({ open: false, mode: 'add' })}>
           <DialogContent data-testid="dialog-induction-item">
             <DialogHeader>
-              <DialogTitle className="font-display">
+              <DialogTitle>
                 {inductionDialog.mode === 'edit' ? 'Edit Induction Item' : 'Add Induction Item'}
               </DialogTitle>
               <DialogDescription>
-                {inductionDialog.mode === 'edit' ? 'Update the details of this induction checklist item.' : 'Add a new item to the induction checklist.'}
+                {inductionDialog.mode === 'edit'
+                  ? 'Update the details for this checklist item.'
+                  : 'Create a new checklist item for the induction template.'}
               </DialogDescription>
             </DialogHeader>
-
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="induction-section">Section</Label>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="ind-section">Section</Label>
                 <Input
-                  id="induction-section"
+                  id="ind-section"
                   value={inductionForm.section}
                   onChange={(e) => setInductionForm({ ...inductionForm, section: e.target.value })}
                   placeholder="e.g. 1. Pre-Start Setup"
                   data-testid="input-induction-section"
                 />
               </div>
-              <div>
-                <Label htmlFor="induction-title">Title</Label>
+              <div className="space-y-2">
+                <Label htmlFor="ind-title">Title</Label>
                 <Input
-                  id="induction-title"
+                  id="ind-title"
                   value={inductionForm.title}
                   onChange={(e) => setInductionForm({ ...inductionForm, title: e.target.value })}
-                  placeholder="Item title"
+                  placeholder="e.g. Health & Safety orientation"
                   data-testid="input-induction-title"
                 />
               </div>
-              <div>
-                <Label htmlFor="induction-description">Description</Label>
-                <Textarea
-                  id="induction-description"
+              <div className="space-y-2">
+                <Label htmlFor="ind-desc">Description</Label>
+                <Input
+                  id="ind-desc"
                   value={inductionForm.description}
                   onChange={(e) => setInductionForm({ ...inductionForm, description: e.target.value })}
-                  placeholder="Optional description"
+                  placeholder="Brief description of this checklist item"
                   data-testid="input-induction-description"
                 />
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="induction-evidence"
+                  id="ind-evidence"
                   checked={inductionForm.requiresEvidence}
-                  onCheckedChange={(checked) => setInductionForm({ ...inductionForm, requiresEvidence: !!checked })}
+                  onCheckedChange={(checked) =>
+                    setInductionForm({ ...inductionForm, requiresEvidence: checked === true })
+                  }
                   data-testid="checkbox-induction-evidence"
                 />
-                <Label htmlFor="induction-evidence">Requires evidence</Label>
+                <Label htmlFor="ind-evidence" className="text-sm">
+                  Requires evidence upload
+                </Label>
               </div>
             </div>
-
             <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setInductionDialog({ open: false, mode: 'add' })}
-                data-testid="button-cancel-induction-item"
-              >
+              <Button variant="outline" onClick={() => setInductionDialog({ open: false, mode: 'add' })} data-testid="button-cancel-induction">
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveInductionItem}
-                disabled={!inductionForm.title.trim() || !inductionForm.section.trim() || createInductionItem.isPending || updateInductionItem.isPending}
-                data-testid="button-save-induction-item"
+                disabled={createInductionItem.isPending || updateInductionItem.isPending}
+                data-testid="button-save-induction"
               >
-                {(createInductionItem.isPending || updateInductionItem.isPending) ? 'Saving...' : 'Save'}
+                {inductionDialog.mode === 'edit' ? 'Save Changes' : 'Add Item'}
               </Button>
             </DialogFooter>
           </DialogContent>

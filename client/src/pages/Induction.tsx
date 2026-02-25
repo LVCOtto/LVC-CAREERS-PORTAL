@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '@/lib/authContext';
+import { useAuth, User } from '@/lib/authContext';
+import { useInduction, useCompleteInductionItem } from '@/lib/hooks';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -21,20 +22,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  getInductionForUser,
-  getInductionProgress,
-  ChecklistItem,
-} from '@/lib/mockData';
-import {
   ClipboardCheck,
   CheckCircle2,
   Clock,
   FileText,
-  User,
+  User as UserIcon,
   Shield,
   PartyPopper,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Spinner } from '@/components/ui/spinner';
 
 const availableAssignees = [
   { id: 'assignee-1', name: 'James Wilson', role: 'Operations Director' },
@@ -57,13 +54,28 @@ export default function Induction() {
 
   const isManager = currentUser.role === 'manager' || currentUser.role === 'admin';
 
-  const induction = getInductionForUser(currentUser.id);
-  const [items, setItems] = useState<ChecklistItem[]>(induction.items);
-  const progress = getInductionProgress(items);
+  const { data: inductionData, isLoading } = useInduction(currentUser.id);
+  const completeItemMutation = useCompleteInductionItem(currentUser.id);
 
-  const sections = Array.from(new Set(items.map((item) => item.section)));
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <Spinner />
+        </div>
+      </Layout>
+    );
+  }
 
-  const inductionComplete = sections.every((section) => sectionSignOffs[section]?.colleague && sectionSignOffs[section]?.manager);
+  const items = inductionData?.items ?? [];
+
+  const completedCount = items.filter((i: any) => i.completed).length;
+  const totalCount = items.length;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  const sections: string[] = Array.from(new Set(items.map((item: any) => item.section as string)));
+
+  const inductionComplete = sections.length > 0 && sections.every((section) => sectionSignOffs[section]?.colleague && sectionSignOffs[section]?.manager);
 
   const handleAssigneeChange = (itemId: string, assigneeId: string) => {
     setItemAssignees((prev) => ({
@@ -84,20 +96,15 @@ export default function Induction() {
     return availableAssignees.find((a) => a.id === assigneeId);
   };
 
-  const handleToggleItem = (itemId: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? {
-              ...item,
-              completed: !item.completed,
-              completedDate: !item.completed ? new Date().toISOString().split('T')[0] : undefined,
-              signedOffBy: !item.completed ? currentUser.id : undefined,
-              signedOffDate: !item.completed ? new Date().toISOString().split('T')[0] : undefined,
-            }
-          : item
-      )
-    );
+  const handleToggleItem = (item: any) => {
+    const newCompleted = !item.completed;
+    completeItemMutation.mutate({
+      templateItemId: item.templateItemId,
+      completed: newCompleted,
+      completedDate: newCompleted ? new Date().toISOString().split('T')[0] : null,
+      signedOffBy: newCompleted ? currentUser.id : null,
+      signedOffDate: newCompleted ? new Date().toISOString().split('T')[0] : null,
+    });
   };
 
   const handleSectionColleagueSignOff = (section: string) => {
@@ -124,10 +131,11 @@ export default function Induction() {
     });
   };
 
-  const getSectionItems = (section: string) => items.filter((item) => item.section === section);
+  const getSectionItems = (section: string) => items.filter((item: any) => item.section === section);
   const getSectionProgress = (section: string) => {
     const sectionItems = getSectionItems(section);
-    const completed = sectionItems.filter((i) => i.completed).length;
+    if (sectionItems.length === 0) return 0;
+    const completed = sectionItems.filter((i: any) => i.completed).length;
     return Math.round((completed / sectionItems.length) * 100);
   };
 
@@ -182,10 +190,10 @@ export default function Induction() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Overall Item Progress</p>
-                  <p className="text-2xl font-bold">{progress.progressPercent}%</p>
+                  <p className="text-2xl font-bold">{progressPercent}%</p>
                 </div>
               </div>
-              <Progress value={progress.progressPercent} className="mt-4 h-2" />
+              <Progress value={progressPercent} className="mt-4 h-2" />
             </CardContent>
           </Card>
 
@@ -203,7 +211,7 @@ export default function Induction() {
                 </div>
               </div>
               <Progress
-                value={(sectionsFullySignedOff / sections.length) * 100}
+                value={sections.length > 0 ? (sectionsFullySignedOff / sections.length) * 100 : 0}
                 className="mt-4 h-2 bg-emerald-100 [&>div]:bg-emerald-500"
               />
             </CardContent>
@@ -225,18 +233,18 @@ export default function Induction() {
                 </CardDescription>
               </div>
               <Badge variant="outline" className="w-fit">
-                {progress.completed} of {progress.total} tasks checked
+                {completedCount} of {totalCount} tasks checked
               </Badge>
             </div>
           </CardHeader>
 
           <CardContent>
-            <Accordion type="multiple" defaultValue={[sections[0]]} className="space-y-4">
+            <Accordion type="multiple" defaultValue={sections[0] ? [sections[0]] : []} className="space-y-4">
               {sections.map((section) => {
                 const sectionItems = getSectionItems(section);
-                const sectionCompleted = sectionItems.filter((i) => i.completed).length;
+                const sectionCompleted = sectionItems.filter((i: any) => i.completed).length;
                 const sectionTotal = sectionItems.length;
-                const isAllItemsChecked = sectionCompleted === sectionTotal;
+                const isAllItemsChecked = sectionCompleted === sectionTotal && sectionTotal > 0;
                 const isColleagueSigned = sectionSignOffs[section]?.colleague;
                 const isManagerSigned = sectionSignOffs[section]?.manager;
                 const isFullySignedOff = isColleagueSigned && isManagerSigned;
@@ -285,28 +293,29 @@ export default function Induction() {
 
                     <AccordionContent className="pb-6">
                       <div className="space-y-3 pt-2">
-                        {sectionItems.map((item) => {
-                          const assignee = getAssigneeName(item.id);
+                        {sectionItems.map((item: any) => {
+                          const assignee = getAssigneeName(item.id?.toString() ?? item.templateItemId?.toString());
+                          const itemKey = item.id?.toString() ?? item.templateItemId?.toString();
                           return (
                             <div
-                              key={item.id}
+                              key={itemKey}
                               className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
                                 item.completed ? 'bg-white shadow-sm border border-slate-200' : 'bg-background border border-slate-100'
                               }`}
-                              data-testid={`checklist-item-${item.id}`}
+                              data-testid={`checklist-item-${itemKey}`}
                             >
                               <Checkbox
-                                id={item.id}
+                                id={itemKey}
                                 checked={item.completed}
-                                onCheckedChange={() => isManager && handleToggleItem(item.id)}
+                                onCheckedChange={() => isManager && handleToggleItem(item)}
                                 disabled={!isManager || isFullySignedOff}
                                 className={`mt-1 ${!isManager || isFullySignedOff ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                data-testid={`checkbox-${item.id}`}
+                                data-testid={`checkbox-${itemKey}`}
                               />
                               <div className="flex-1">
                                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                                   <label
-                                    htmlFor={item.id}
+                                    htmlFor={itemKey}
                                     className={`text-sm font-medium ${isManager && !isFullySignedOff ? 'cursor-pointer' : ''} ${
                                       item.completed ? 'text-slate-700' : 'text-slate-900'
                                     }`}
@@ -318,10 +327,10 @@ export default function Induction() {
                                     <div className="flex items-center gap-2 shrink-0">
                                       <span className="text-xs text-muted-foreground hidden sm:inline-block">Tag Colleague:</span>
                                       <Select
-                                        value={itemAssignees[item.id] || 'none'}
-                                        onValueChange={(value) => handleAssigneeChange(item.id, value === 'none' ? '' : value)}
+                                        value={itemAssignees[itemKey] || 'none'}
+                                        onValueChange={(value) => handleAssigneeChange(itemKey, value === 'none' ? '' : value)}
                                       >
-                                        <SelectTrigger className="h-7 w-[160px] text-xs bg-slate-50" data-testid={`assignee-select-${item.id}`}>
+                                        <SelectTrigger className="h-7 w-[160px] text-xs bg-slate-50" data-testid={`assignee-select-${itemKey}`}>
                                           <SelectValue placeholder="No tag" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -331,7 +340,7 @@ export default function Induction() {
                                           {availableAssignees.map((person) => (
                                             <SelectItem key={person.id} value={person.id}>
                                               <div className="flex items-center gap-2">
-                                                <User className="h-3 w-3" />
+                                                <UserIcon className="h-3 w-3" />
                                                 <span>{person.name}</span>
                                               </div>
                                             </SelectItem>
@@ -344,7 +353,7 @@ export default function Induction() {
                                       variant="secondary"
                                       className="text-xs shrink-0 gap-1 bg-blue-50 text-blue-700 hover:bg-blue-50 border-blue-100"
                                     >
-                                      <User className="h-3 w-3" />
+                                      <UserIcon className="h-3 w-3" />
                                       {assignee.name} assisting
                                     </Badge>
                                   ) : null}

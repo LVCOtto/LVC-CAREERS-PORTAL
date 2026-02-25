@@ -1,4 +1,4 @@
-import { useAuth } from '@/lib/authContext';
+import { useAuth, User } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,16 +6,14 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Link } from 'wouter';
+import { Spinner } from '@/components/ui/spinner';
 import {
-  getInductionForUser,
-  getTrainingRecordsForUser,
-  getComplianceStats,
-  getInductionProgress,
-  getTeamMembers,
-  users,
-  User,
-  certificates,
-} from '@/lib/mockData';
+  useInduction,
+  useTrainingRecords,
+  useUserCertificates,
+  useTeamMembers,
+  useUsers,
+} from '@/lib/hooks';
 import {
   ClipboardCheck,
   GraduationCap,
@@ -39,14 +37,33 @@ import {
 } from 'lucide-react';
 
 function ColleagueDashboard({ user }: { user: User }) {
-  const induction = getInductionForUser(user.id);
-  const trainingRecords = getTrainingRecordsForUser(user.id);
-  const inductionProgress = getInductionProgress(induction.items);
-  const compliance = getComplianceStats(trainingRecords);
-  const userCertificates = certificates.filter(c => c.userId === user.id);
+  const { data: inductionData, isLoading: inductionLoading } = useInduction(user.id);
+  const { data: trainingRecords = [], isLoading: trainingLoading } = useTrainingRecords(user.id);
+  const { data: userCertificates = [], isLoading: certsLoading } = useUserCertificates(user.id);
+
+  const isLoading = inductionLoading || trainingLoading || certsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner />
+      </div>
+    );
+  }
+
+  const inductionItems = inductionData?.items ?? [];
+  const totalItems = inductionItems.length;
+  const completedItems = inductionItems.filter((item: any) => item.completed).length;
+  const inductionProgressPercent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+
+  const compliantTraining = trainingRecords.filter((r: any) => r.status === 'compliant').length;
+  const dueSoonTraining = trainingRecords.filter((r: any) => r.status === 'due_soon').length;
+  const overdueTraining = trainingRecords.filter((r: any) => r.status === 'overdue').length;
+  const totalTraining = trainingRecords.length;
+  const complianceRate = totalTraining > 0 ? Math.round((compliantTraining / totalTraining) * 100) : 0;
 
   const upcomingExpiries = trainingRecords
-    .filter(r => r.status === 'due_soon' || r.status === 'overdue')
+    .filter((r: any) => r.status === 'due_soon' || r.status === 'overdue')
     .slice(0, 3);
 
   const startDate = new Date(user.startDate);
@@ -94,7 +111,7 @@ function ColleagueDashboard({ user }: { user: User }) {
                   <TrendingUp className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{compliance.complianceRate}%</p>
+                  <p className="text-2xl font-bold">{complianceRate}%</p>
                   <p className="text-sm text-white/70">Training Complete</p>
                 </div>
               </div>
@@ -105,7 +122,7 @@ function ColleagueDashboard({ user }: { user: User }) {
                   <Trophy className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{inductionProgress.progressPercent}%</p>
+                  <p className="text-2xl font-bold">{inductionProgressPercent}%</p>
                   <p className="text-sm text-white/70">Induction Progress</p>
                 </div>
               </div>
@@ -134,22 +151,22 @@ function ColleagueDashboard({ user }: { user: User }) {
               <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-induction-card">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${inductionProgress.progressPercent === 100 ? 'bg-emerald-100' : 'bg-primary/10'}`}>
-                      <ClipboardCheck className={`h-6 w-6 ${inductionProgress.progressPercent === 100 ? 'text-emerald-600' : 'text-primary'}`} />
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${inductionProgressPercent === 100 ? 'bg-emerald-100' : 'bg-primary/10'}`}>
+                      <ClipboardCheck className={`h-6 w-6 ${inductionProgressPercent === 100 ? 'text-emerald-600' : 'text-primary'}`} />
                     </div>
                     <div>
                       <h3 className="font-semibold">Induction & Onboarding</h3>
                       <p className="text-sm text-muted-foreground">
-                        {inductionProgress.progressPercent === 100 
-                          ? 'Completed - Great job!' 
-                          : `${inductionProgress.completed} of ${inductionProgress.total} items completed`}
+                        {inductionProgressPercent === 100
+                          ? 'Completed - Great job!'
+                          : `${completedItems} of ${totalItems} items completed`}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <Progress value={inductionProgress.progressPercent} className="w-32 h-2" />
-                      <p className="text-sm text-muted-foreground mt-1">{inductionProgress.progressPercent}%</p>
+                      <Progress value={inductionProgressPercent} className="w-32 h-2" />
+                      <p className="text-sm text-muted-foreground mt-1">{inductionProgressPercent}%</p>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
@@ -264,7 +281,7 @@ function ColleagueDashboard({ user }: { user: User }) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {upcomingExpiries.map(record => (
+                  {upcomingExpiries.map((record: any) => (
                     <div
                       key={record.id}
                       className="flex items-center justify-between p-3 bg-background rounded-lg border"
@@ -299,15 +316,15 @@ function ColleagueDashboard({ user }: { user: User }) {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Compliant Training</span>
-                  <span className="font-semibold text-emerald-600">{compliance.compliant}</span>
+                  <span className="font-semibold text-emerald-600">{compliantTraining}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Due Soon</span>
-                  <span className="font-semibold text-amber-600">{compliance.dueSoon}</span>
+                  <span className="font-semibold text-amber-600">{dueSoonTraining}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Overdue</span>
-                  <span className="font-semibold text-red-600">{compliance.overdue}</span>
+                  <span className="font-semibold text-red-600">{overdueTraining}</span>
                 </div>
               </div>
             </CardContent>
@@ -319,29 +336,15 @@ function ColleagueDashboard({ user }: { user: User }) {
 }
 
 function ManagerDashboard({ user }: { user: User }) {
-  const teamMembers = getTeamMembers(user.id);
+  const { data: teamMembers = [], isLoading } = useTeamMembers(user.id);
 
-  const teamStats = teamMembers.map(member => {
-    const induction = getInductionForUser(member.id);
-    const training = getTrainingRecordsForUser(member.id);
-    const inductionProgress = getInductionProgress(induction.items);
-    const compliance = getComplianceStats(training);
-
-    return {
-      ...member,
-      inductionProgress: inductionProgress.progressPercent,
-      inductionStatus: induction.status,
-      complianceRate: compliance.complianceRate,
-      overdue: compliance.overdue,
-      dueSoon: compliance.dueSoon,
-    };
-  });
-
-  const totalOverdue = teamStats.reduce((sum, m) => sum + m.overdue, 0);
-  const totalDueSoon = teamStats.reduce((sum, m) => sum + m.dueSoon, 0);
-  const avgCompliance = Math.round(
-    teamStats.reduce((sum, m) => sum + m.complianceRate, 0) / teamStats.length || 0
-  );
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -352,7 +355,7 @@ function ManagerDashboard({ user }: { user: User }) {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid md:grid-cols-2 gap-4">
         <Card className="border-border/50">
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -374,36 +377,10 @@ function ManagerDashboard({ user }: { user: User }) {
                 <TrendingUp className="w-6 h-6 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-display font-bold">{avgCompliance}%</p>
-                <p className="text-sm text-muted-foreground">Avg Compliance</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-display font-bold">{totalDueSoon}</p>
-                <p className="text-sm text-muted-foreground">Due Soon</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border/50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-display font-bold">{totalOverdue}</p>
-                <p className="text-sm text-muted-foreground">Overdue</p>
+                <p className="text-2xl font-display font-bold">
+                  {teamMembers.length > 0 ? teamMembers.length : 0} Active
+                </p>
+                <p className="text-sm text-muted-foreground">Team Active</p>
               </div>
             </div>
           </CardContent>
@@ -419,7 +396,7 @@ function ManagerDashboard({ user }: { user: User }) {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {teamStats.map(member => (
+            {teamMembers.map((member: any) => (
               <Link key={member.id} href={`/team/${member.id}`}>
                 <div
                   className="flex items-center justify-between p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors cursor-pointer"
@@ -429,7 +406,7 @@ function ManagerDashboard({ user }: { user: User }) {
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-medium text-primary">
                       {member.name
                         .split(' ')
-                        .map(n => n[0])
+                        .map((n: string) => n[0])
                         .join('')}
                     </div>
                     <div>
@@ -438,52 +415,21 @@ function ManagerDashboard({ user }: { user: User }) {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-8">
-                    <div className="text-right">
-                      <p className="text-sm font-medium">Induction</p>
-                      <div className="flex items-center gap-2">
-                        <Progress value={member.inductionProgress} className="w-24 h-1.5" />
-                        <span className="text-sm text-muted-foreground w-10">
-                          {member.inductionProgress}%
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-right min-w-[100px]">
-                      <p className="text-sm font-medium">Compliance</p>
-                      <p
-                        className={`text-lg font-semibold ${
-                          member.complianceRate >= 80
-                            ? 'text-emerald-600'
-                            : member.complianceRate >= 60
-                            ? 'text-amber-600'
-                            : 'text-red-600'
-                        }`}
-                      >
-                        {member.complianceRate}%
-                      </p>
-                    </div>
-
-                    {(member.overdue > 0 || member.dueSoon > 0) && (
-                      <div className="flex items-center gap-2">
-                        {member.overdue > 0 && (
-                          <span className="px-2 py-1 rounded bg-red-500/10 text-red-700 text-xs font-medium">
-                            {member.overdue} overdue
-                          </span>
-                        )}
-                        {member.dueSoon > 0 && (
-                          <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-700 text-xs font-medium">
-                            {member.dueSoon} due soon
-                          </span>
-                        )}
+                  <div className="flex items-center gap-6">
+                    {member.startDate && (
+                      <div className="text-right">
+                        <p className="text-sm font-medium text-muted-foreground">Started</p>
+                        <p className="text-sm">{new Date(member.startDate).toLocaleDateString('en-GB')}</p>
                       </div>
                     )}
-
                     <ArrowRight className="w-5 h-5 text-muted-foreground" />
                   </div>
                 </div>
               </Link>
             ))}
+            {teamMembers.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">No team members found.</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -492,19 +438,18 @@ function ManagerDashboard({ user }: { user: User }) {
 }
 
 function AdminDashboard({ user }: { user: User }) {
-  const allColleagues = users.filter(u => u.role === 'colleague');
-  const allManagers = users.filter(u => u.role === 'manager');
+  const { data: allUsers = [], isLoading } = useUsers();
 
-  const overallStats = allColleagues.map(colleague => {
-    const training = getTrainingRecordsForUser(colleague.id);
-    return getComplianceStats(training);
-  });
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Spinner />
+      </div>
+    );
+  }
 
-  const totalOverdue = overallStats.reduce((sum, s) => sum + s.overdue, 0);
-  const totalDueSoon = overallStats.reduce((sum, s) => sum + s.dueSoon, 0);
-  const avgCompliance = Math.round(
-    overallStats.reduce((sum, s) => sum + s.complianceRate, 0) / overallStats.length || 0
-  );
+  const colleagues = allUsers.filter((u: any) => u.role === 'colleague');
+  const managers = allUsers.filter((u: any) => u.role === 'manager');
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -515,35 +460,23 @@ function AdminDashboard({ user }: { user: User }) {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-5 gap-4">
+      <div className="grid md:grid-cols-3 gap-4">
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <p className="text-3xl font-display font-bold text-primary">{users.length}</p>
+            <p className="text-3xl font-display font-bold text-primary">{allUsers.length}</p>
             <p className="text-sm text-muted-foreground">Total Users</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <p className="text-3xl font-display font-bold">{allColleagues.length}</p>
+            <p className="text-3xl font-display font-bold">{colleagues.length}</p>
             <p className="text-sm text-muted-foreground">Colleagues</p>
           </CardContent>
         </Card>
         <Card className="border-border/50">
           <CardContent className="pt-6">
-            <p className="text-3xl font-display font-bold">{allManagers.length}</p>
+            <p className="text-3xl font-display font-bold">{managers.length}</p>
             <p className="text-sm text-muted-foreground">Managers</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-6">
-            <p className="text-3xl font-display font-bold text-emerald-600">{avgCompliance}%</p>
-            <p className="text-sm text-muted-foreground">Avg Compliance</p>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50">
-          <CardContent className="pt-6">
-            <p className="text-3xl font-display font-bold text-red-600">{totalOverdue}</p>
-            <p className="text-sm text-muted-foreground">Total Overdue</p>
           </CardContent>
         </Card>
       </div>
@@ -575,22 +508,23 @@ function AdminDashboard({ user }: { user: User }) {
           </CardContent>
         </Card>
 
-        <Card className="border-amber-500/30 bg-amber-500/5">
+        <Card className="border-border/50">
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-600" />
-              <CardTitle>Compliance Alerts</CardTitle>
-            </div>
+            <CardTitle>System Overview</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
-                <span className="font-medium">Overdue Training Items</span>
-                <span className="text-lg font-bold text-red-600">{totalOverdue}</span>
+                <span className="font-medium">Total Users</span>
+                <span className="text-lg font-bold text-primary">{allUsers.length}</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
-                <span className="font-medium">Expiring Within 30 Days</span>
-                <span className="text-lg font-bold text-amber-600">{totalDueSoon}</span>
+                <span className="font-medium">Colleagues</span>
+                <span className="text-lg font-bold">{colleagues.length}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-background rounded-lg border">
+                <span className="font-medium">Managers</span>
+                <span className="text-lg font-bold">{managers.length}</span>
               </div>
             </div>
           </CardContent>

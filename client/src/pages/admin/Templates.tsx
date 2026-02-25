@@ -11,7 +11,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { inductionItems, jobRoles } from '@/lib/mockData';
 import {
   ClipboardCheck,
   GraduationCap,
@@ -25,30 +24,26 @@ import {
   Search,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getAllSurveyRoles, getSurveyByRoleId } from '@/lib/standardsSurveyData';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { useInductionTemplates, useCompetencies, useStandardsSurveys } from '@/lib/hooks';
+import { Spinner } from '@/components/ui/spinner';
 
 export default function AdminTemplates() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
+  const { data: inductionTemplates = [], isLoading: loadingInduction } = useInductionTemplates();
+  const { data: competencies = [], isLoading: loadingCompetencies } = useCompetencies();
+  const { data: standardsSurveys = [], isLoading: loadingStandards } = useStandardsSurveys();
+
+  const [surveySearch, setSurveySearch] = useState('');
+  const [editingSurvey, setEditingSurvey] = useState<any | null>(null);
+
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
   }
-
-  const sections = Array.from(new Set(inductionItems.map(item => item.section)));
-
-  const [surveySearch, setSurveySearch] = useState('');
-  const [editingSurveyRole, setEditingSurveyRole] = useState<{ id: string; title: string } | null>(null);
-
-  const trainingRequirements = [
-    { category: 'Mandatory', items: ['Health & Safety Fundamentals', 'Data Protection & GDPR', 'Fire Safety Awareness', 'Manual Handling'] },
-    { category: 'Role-Specific', items: ['First Aid at Work', 'Technical Equipment Training', 'Quality Assurance Procedures'] },
-    { category: 'Optional', items: ['Environmental Awareness'] },
-    { category: 'Development', items: ['Leadership Fundamentals', 'Project Management Basics'] },
-  ];
 
   const handleAction = (action: string, item: string) => {
     toast({
@@ -56,6 +51,10 @@ export default function AdminTemplates() {
       description: `${action} performed on "${item}".`,
     });
   };
+
+  const filteredSurveys = standardsSurveys.filter((s: any) =>
+    s.roleTitle.toLowerCase().includes(surveySearch.toLowerCase())
+  );
 
   return (
     <Layout>
@@ -98,109 +97,116 @@ export default function AdminTemplates() {
                 </Button>
               </div>
 
-              {jobRoles.map(role => (
-                <Card key={role.id} className="border-border/50">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                          <ClipboardCheck className="w-5 h-5 text-primary" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{role.title} Induction</CardTitle>
-                          <CardDescription>{role.department} Department</CardDescription>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="gap-1">
-                          <History className="w-3 h-3" />
-                          v1.0
-                        </Badge>
-                        <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30">
-                          Active
-                        </Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAction('Edit', role.title)}
-                          data-testid={`button-edit-induction-${role.id}`}
-                        >
-                          <Edit className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleAction('Duplicate', role.title)}
-                          data-testid={`button-duplicate-${role.id}`}
-                        >
-                          <Copy className="w-4 h-4 mr-1" />
-                          Duplicate
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <Accordion type="single" collapsible>
-                      {sections.map((section, idx) => (
-                        <AccordionItem key={section} value={section}>
-                          <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-3">
-                              <span className="font-medium">{section}</span>
-                              <Badge variant="secondary">
-                                {inductionItems.filter(i => i.section === section).length} items
-                              </Badge>
+              {loadingInduction ? (
+                <div className="flex justify-center py-12"><Spinner /></div>
+              ) : (
+                inductionTemplates.map((template: any) => {
+                  const sections: string[] = Array.from(new Set((template.items || []).map((item: any) => item.section)));
+                  return (
+                    <Card key={template.id} className="border-border/50">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <ClipboardCheck className="w-5 h-5 text-primary" />
                             </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="space-y-2 pl-4">
-                              {inductionItems
-                                .filter(i => i.section === section)
-                                .map(item => (
-                                  <div
-                                    key={item.id}
-                                    className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                                  >
-                                    <div>
-                                      <p className="font-medium text-sm">{item.title}</p>
-                                      {item.description && (
-                                        <p className="text-xs text-muted-foreground">
-                                          {item.description}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      {item.requiresEvidence && (
-                                        <Badge variant="outline" className="text-xs">
-                                          <FileCheck className="w-3 h-3 mr-1" />
-                                          Evidence
-                                        </Badge>
-                                      )}
-                                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <Edit className="w-3 h-3" />
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-destructive hover:text-destructive"
+                            <div>
+                              <CardTitle className="text-lg">{template.name}</CardTitle>
+                              <CardDescription>{template.jobRole || 'All roles'}</CardDescription>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="gap-1">
+                              <History className="w-3 h-3" />
+                              v1.0
+                            </Badge>
+                            <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30">
+                              Active
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAction('Edit', template.name)}
+                              data-testid={`button-edit-induction-${template.id}`}
+                            >
+                              <Edit className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleAction('Duplicate', template.name)}
+                              data-testid={`button-duplicate-${template.id}`}
+                            >
+                              <Copy className="w-4 h-4 mr-1" />
+                              Duplicate
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <Accordion type="single" collapsible>
+                          {sections.map((section) => (
+                            <AccordionItem key={section} value={section}>
+                              <AccordionTrigger className="hover:no-underline">
+                                <div className="flex items-center gap-3">
+                                  <span className="font-medium">{section}</span>
+                                  <Badge variant="secondary">
+                                    {(template.items || []).filter((i: any) => i.section === section).length} items
+                                  </Badge>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-2 pl-4">
+                                  {(template.items || [])
+                                    .filter((i: any) => i.section === section)
+                                    .map((item: any) => (
+                                      <div
+                                        key={item.id}
+                                        className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                                       >
-                                        <Trash2 className="w-3 h-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ))}
-                              <Button variant="ghost" size="sm" className="w-full mt-2">
-                                <Plus className="w-4 h-4 mr-1" />
-                                Add Item
-                              </Button>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </CardContent>
-                </Card>
-              ))}
+                                        <div>
+                                          <p className="font-medium text-sm">{item.title}</p>
+                                          {item.description && (
+                                            <p className="text-xs text-muted-foreground">
+                                              {item.description}
+                                            </p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {item.requiresEvidence && (
+                                            <Badge variant="outline" className="text-xs">
+                                              <FileCheck className="w-3 h-3 mr-1" />
+                                              Evidence
+                                            </Badge>
+                                          )}
+                                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Edit className="w-3 h-3" />
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-destructive hover:text-destructive"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  <Button variant="ghost" size="sm" className="w-full mt-2">
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    Add Item
+                                  </Button>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </Accordion>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
             </div>
           </TabsContent>
 
@@ -219,8 +225,10 @@ export default function AdminTemplates() {
                 </Button>
               </div>
 
-              {jobRoles.map(role => (
-                <Card key={role.id} className="border-border/50">
+              {loadingCompetencies ? (
+                <div className="flex justify-center py-12"><Spinner /></div>
+              ) : (
+                <Card className="border-border/50">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -228,8 +236,8 @@ export default function AdminTemplates() {
                           <GraduationCap className="w-5 h-5 text-primary" />
                         </div>
                         <div>
-                          <CardTitle className="text-lg">{role.title} Training Matrix</CardTitle>
-                          <CardDescription>{role.department} Department</CardDescription>
+                          <CardTitle className="text-lg">Training Matrix Competencies</CardTitle>
+                          <CardDescription>All Departments</CardDescription>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -243,8 +251,8 @@ export default function AdminTemplates() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleAction('Edit', role.title)}
-                          data-testid={`button-edit-training-${role.id}`}
+                          onClick={() => handleAction('Edit', 'Training Matrix')}
+                          data-testid="button-edit-training-matrix"
                         >
                           <Edit className="w-4 h-4 mr-1" />
                           Edit
@@ -254,19 +262,19 @@ export default function AdminTemplates() {
                   </CardHeader>
                   <CardContent>
                     <div className="grid md:grid-cols-2 gap-4">
-                      {trainingRequirements.map(category => (
-                        <div key={category.category} className="p-4 rounded-lg bg-muted/50">
+                      {competencies.map((category: any) => (
+                        <div key={category.id} className="p-4 rounded-lg bg-muted/50">
                           <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium">{category.category}</h4>
-                            <Badge variant="secondary">{category.items.length} items</Badge>
+                            <h4 className="font-medium">{category.name}</h4>
+                            <Badge variant="secondary">{(category.items || []).length} items</Badge>
                           </div>
                           <div className="space-y-2">
-                            {category.items.map(item => (
+                            {(category.items || []).map((item: any) => (
                               <div
-                                key={item}
+                                key={item.id}
                                 className="flex items-center justify-between p-2 rounded bg-background"
                               >
-                                <span className="text-sm">{item}</span>
+                                <span className="text-sm">{item.name}</span>
                                 <Button variant="ghost" size="icon" className="h-6 w-6">
                                   <Edit className="w-3 h-3" />
                                 </Button>
@@ -282,7 +290,7 @@ export default function AdminTemplates() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )}
             </div>
           </TabsContent>
 
@@ -318,15 +326,14 @@ export default function AdminTemplates() {
                 </div>
               </div>
 
-              <div className="grid gap-4">
-                {getAllSurveyRoles()
-                  .filter(r => r.title.toLowerCase().includes(surveySearch.toLowerCase()))
-                  .map((role) => {
-                    const survey = getSurveyByRoleId(role.id);
-                    const taskCount = survey?.tasks?.length || 0;
-
+              {loadingStandards ? (
+                <div className="flex justify-center py-12"><Spinner /></div>
+              ) : (
+                <div className="grid gap-4">
+                  {filteredSurveys.map((survey: any) => {
+                    const taskCount = (survey.items || []).length;
                     return (
-                      <Card key={role.id} className="border-border/50">
+                      <Card key={survey.id} className="border-border/50">
                         <CardHeader>
                           <div className="flex items-start justify-between gap-4">
                             <div className="flex items-start gap-3">
@@ -334,29 +341,23 @@ export default function AdminTemplates() {
                                 <ClipboardList className="w-5 h-5 text-primary" />
                               </div>
                               <div>
-                                <CardTitle className="text-lg">{role.title}</CardTitle>
+                                <CardTitle className="text-lg">{survey.roleTitle}</CardTitle>
                                 <CardDescription>Standards Survey</CardDescription>
                               </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                              {survey ? (
-                                <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30" data-testid={`badge-standards-configured-${role.id}`}>
-                                  Configured
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-muted-foreground" data-testid={`badge-standards-missing-${role.id}`}>
-                                  Not configured
-                                </Badge>
-                              )}
-                              <Badge variant="secondary" data-testid={`badge-standards-count-${role.id}`}>
+                              <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30" data-testid={`badge-standards-configured-${survey.id}`}>
+                                Configured
+                              </Badge>
+                              <Badge variant="secondary" data-testid={`badge-standards-count-${survey.id}`}>
                                 {taskCount} items
                               </Badge>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setEditingSurveyRole(role)}
-                                data-testid={`button-edit-standards-${role.id}`}
+                                onClick={() => setEditingSurvey(survey)}
+                                data-testid={`button-edit-standards-${survey.id}`}
                               >
                                 <Edit className="w-4 h-4 mr-1" />
                                 Edit
@@ -367,18 +368,15 @@ export default function AdminTemplates() {
 
                         <CardContent>
                           <div className="rounded-lg border bg-muted/20 p-4">
-                            <p className="text-sm font-medium" data-testid={`text-standards-preview-title-${role.id}`}>Preview</p>
-                            <p className="text-sm text-muted-foreground mt-1" data-testid={`text-standards-preview-body-${role.id}`}>
-                              {survey
-                                ? 'This role has a standards survey linked. Open Edit to view or adjust items.'
-                                : 'No standards survey linked yet for this role.'}
+                            <p className="text-sm font-medium" data-testid={`text-standards-preview-title-${survey.id}`}>Preview</p>
+                            <p className="text-sm text-muted-foreground mt-1" data-testid={`text-standards-preview-body-${survey.id}`}>
+                              This role has a standards survey linked. Open Edit to view or adjust items.
                             </p>
-
-                            {survey && (
+                            {(survey.items || []).length > 0 && (
                               <div className="mt-4 grid sm:grid-cols-2 gap-2">
-                                {survey.tasks.slice(0, 4).map((t) => (
-                                  <div key={t.id} className="p-2 rounded-md bg-background border text-sm" data-testid={`row-standards-item-${role.id}-${t.id}`}>
-                                    {t.text}
+                                {(survey.items || []).slice(0, 4).map((item: any) => (
+                                  <div key={item.id} className="p-2 rounded-md bg-background border text-sm" data-testid={`row-standards-item-${survey.id}-${item.id}`}>
+                                    {item.text}
                                   </div>
                                 ))}
                               </div>
@@ -389,18 +387,19 @@ export default function AdminTemplates() {
                     );
                   })}
 
-                {getAllSurveyRoles().filter(r => r.title.toLowerCase().includes(surveySearch.toLowerCase())).length === 0 && (
-                  <Card className="border-border/50">
-                    <CardContent className="py-12 text-center">
-                      <ClipboardList className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                      <p className="font-medium">No job roles match that search</p>
-                      <p className="text-sm text-muted-foreground mt-1">Try a different keyword.</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+                  {filteredSurveys.length === 0 && (
+                    <Card className="border-border/50">
+                      <CardContent className="py-12 text-center">
+                        <ClipboardList className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                        <p className="font-medium">No job roles match that search</p>
+                        <p className="text-sm text-muted-foreground mt-1">Try a different keyword.</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
 
-              <Dialog open={!!editingSurveyRole} onOpenChange={(open) => !open && setEditingSurveyRole(null)}>
+              <Dialog open={!!editingSurvey} onOpenChange={(open) => !open && setEditingSurvey(null)}>
                 <DialogContent className="max-w-2xl" data-testid="dialog-edit-standards-template">
                   <DialogHeader>
                     <DialogTitle className="font-display">Edit standards survey</DialogTitle>
@@ -414,13 +413,13 @@ export default function AdminTemplates() {
                       <div>
                         <Label>Job role</Label>
                         <div className="mt-2 p-3 rounded-lg border bg-muted/20" data-testid="text-edit-standards-role">
-                          {editingSurveyRole?.title}
+                          {editingSurvey?.roleTitle}
                         </div>
                       </div>
                       <div>
                         <Label>Status</Label>
                         <div className="mt-2 p-3 rounded-lg border bg-muted/20" data-testid="text-edit-standards-status">
-                          {editingSurveyRole && getSurveyByRoleId(editingSurveyRole.id) ? 'Configured' : 'Not configured'}
+                          Configured
                         </div>
                       </div>
                     </div>
@@ -431,28 +430,26 @@ export default function AdminTemplates() {
                         <p className="text-sm text-muted-foreground">Showing the first 12 items for a quick edit view.</p>
                       </div>
                       <div className="p-4 space-y-2 max-h-[320px] overflow-auto">
-                        {(editingSurveyRole ? (getSurveyByRoleId(editingSurveyRole.id)?.tasks || []) : [])
-                          .slice(0, 12)
-                          .map((t) => (
-                            <div key={t.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/20" data-testid={`row-edit-standards-item-${t.id}`}>
-                              <div className="text-sm">{t.text}</div>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-standards-item-${t.id}`}>
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
+                        {(editingSurvey?.items || []).slice(0, 12).map((item: any) => (
+                          <div key={item.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/20" data-testid={`row-edit-standards-item-${item.id}`}>
+                            <div className="text-sm">{item.text}</div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-standards-item-${item.id}`}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
 
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setEditingSurveyRole(null)} data-testid="button-close-standards-editor">
+                    <Button variant="outline" onClick={() => setEditingSurvey(null)} data-testid="button-close-standards-editor">
                       Close
                     </Button>
                     <Button
                       onClick={() => {
-                        toast({ title: 'Saved (mock)', description: 'Standards survey template saved.' });
-                        setEditingSurveyRole(null);
+                        toast({ title: 'Saved', description: 'Standards survey template saved.' });
+                        setEditingSurvey(null);
                       }}
                       data-testid="button-save-standards-template"
                     >

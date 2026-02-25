@@ -1,5 +1,5 @@
 import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCertificates, CertificateCategory, CertificateLevel, CertificateDefinition } from '@/lib/certificatesContext';
+import {
+  useCertificateDefinitions,
+  useCreateCertificateDefinition,
+  useUpdateCertificateDefinition,
+  useDeleteCertificateDefinition,
+} from '@/lib/hooks';
 import { useState } from 'react';
 import { 
   Plus, 
@@ -40,6 +45,9 @@ import {
   Star
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+type CertificateCategory = 'Safety' | 'Technical' | 'Professional' | 'Compliance' | 'Leadership';
+type CertificateLevel = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Standard';
 
 const ICONS = [
   'shield-check',
@@ -75,13 +83,15 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export default function AdminCertificates() {
-  const { definitions, addDefinition, updateDefinition, deleteDefinition } = useCertificates();
+  const { data: definitions = [], isLoading } = useCertificateDefinitions();
+  const createDef = useCreateCertificateDefinition();
+  const updateDef = useUpdateCertificateDefinition();
+  const deleteDef = useDeleteCertificateDefinition();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingDef, setEditingDef] = useState<CertificateDefinition | null>(null);
+  const [editingDef, setEditingDef] = useState<any | null>(null);
 
-  // Form state
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<CertificateCategory>('Technical');
@@ -90,10 +100,9 @@ export default function AdminCertificates() {
   const [provider, setProvider] = useState('');
   const [validityMonths, setValidityMonths] = useState<string>('');
 
-  const filteredDefinitions = definitions.filter(
-    d =>
-      d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      d.category.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredDefinitions = definitions.filter((d: any) =>
+    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const resetForm = () => {
@@ -107,7 +116,7 @@ export default function AdminCertificates() {
     setEditingDef(null);
   };
 
-  const handleOpenDialog = (def?: CertificateDefinition) => {
+  const handleOpenDialog = (def?: any) => {
     if (def) {
       setEditingDef(def);
       setName(def.name);
@@ -142,27 +151,47 @@ export default function AdminCertificates() {
       level,
       icon,
       provider,
-      validityMonths: validityMonths ? parseInt(validityMonths) : undefined
+      validityMonths: validityMonths ? parseInt(validityMonths) : null
     };
 
     if (editingDef) {
-      updateDefinition(editingDef.id, defData);
-      toast({ title: "Certificate updated", description: `${name} has been updated.` });
+      updateDef.mutate({ id: editingDef.id, data: defData }, {
+        onSuccess: () => {
+          toast({ title: "Certificate updated", description: `${name} has been updated.` });
+          setIsDialogOpen(false);
+          resetForm();
+        }
+      });
     } else {
-      addDefinition(defData);
-      toast({ title: "Certificate created", description: `${name} has been added.` });
-    }
-
-    setIsDialogOpen(false);
-    resetForm();
-  };
-
-  const handleDelete = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"?`)) {
-      deleteDefinition(id);
-      toast({ title: "Certificate deleted", description: `${name} has been removed.` });
+      createDef.mutate(defData, {
+        onSuccess: () => {
+          toast({ title: "Certificate created", description: `${name} has been added.` });
+          setIsDialogOpen(false);
+          resetForm();
+        }
+      });
     }
   };
+
+  const handleDelete = (id: number, defName: string) => {
+    if (confirm(`Are you sure you want to delete "${defName}"?`)) {
+      deleteDef.mutate(id, {
+        onSuccess: () => {
+          toast({ title: "Certificate deleted", description: `${defName} has been removed.` });
+        }
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -174,7 +203,7 @@ export default function AdminCertificates() {
               Configure certificate types, levels, and badges
             </p>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="gap-2">
+          <Button onClick={() => handleOpenDialog()} className="gap-2" data-testid="button-add-certificate">
             <Plus className="w-4 h-4" />
             Add Certificate Type
           </Button>
@@ -188,12 +217,13 @@ export default function AdminCertificates() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-10"
+              data-testid="input-search-certificates"
             />
           </div>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredDefinitions.map(def => {
+          {filteredDefinitions.map((def: any) => {
             const Icon = iconMap[def.icon] || Award;
             
             let levelColor = 'bg-slate-100 text-slate-700 border-slate-200';
@@ -203,7 +233,7 @@ export default function AdminCertificates() {
             if (def.level === 'Platinum') levelColor = 'bg-cyan-100 text-cyan-800 border-cyan-200';
 
             return (
-              <Card key={def.id} className="group relative overflow-hidden transition-all hover:shadow-md">
+              <Card key={def.id} className="group relative overflow-hidden transition-all hover:shadow-md" data-testid={`card-certificate-${def.id}`}>
                 <div className={`absolute top-0 right-0 px-3 py-1 rounded-bl-lg text-xs font-bold border-b border-l ${levelColor}`}>
                   {def.level}
                 </div>
@@ -213,7 +243,7 @@ export default function AdminCertificates() {
                       <Icon className="w-8 h-8 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0 pt-1">
-                      <h3 className="font-bold text-lg leading-tight mb-1">{def.name}</h3>
+                      <h3 className="font-bold text-lg leading-tight mb-1" data-testid={`text-cert-name-${def.id}`}>{def.name}</h3>
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">{def.category}</p>
                       <p className="text-sm text-muted-foreground line-clamp-2">{def.description}</p>
                     </div>
@@ -222,10 +252,10 @@ export default function AdminCertificates() {
                   <div className="mt-4 flex items-center justify-between pt-4 border-t border-dashed">
                     <span className="text-xs text-muted-foreground">{def.provider}</span>
                     <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(def)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenDialog(def)} data-testid={`button-edit-certificate-${def.id}`}>
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(def.id, def.name)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(def.id, def.name)} data-testid={`button-delete-certificate-${def.id}`}>
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -248,14 +278,14 @@ export default function AdminCertificates() {
             <form onSubmit={handleSubmit} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Certificate Name</Label>
-                <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Advanced Leadership" />
+                <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Advanced Leadership" data-testid="input-cert-name" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
                   <Select value={category} onValueChange={(v: CertificateCategory) => setCategory(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="select-cert-category"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
@@ -264,7 +294,7 @@ export default function AdminCertificates() {
                 <div className="space-y-2">
                   <Label htmlFor="level">Level</Label>
                   <Select value={level} onValueChange={(v: CertificateLevel) => setLevel(v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger data-testid="select-cert-level"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {LEVELS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                     </SelectContent>
@@ -274,17 +304,17 @@ export default function AdminCertificates() {
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
-                <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="What does this certificate represent?" />
+                <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} placeholder="What does this certificate represent?" data-testid="input-cert-description" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="provider">Provider/Issuer</Label>
-                  <Input id="provider" value={provider} onChange={e => setProvider(e.target.value)} placeholder="e.g. LVC Training Academy" />
+                  <Input id="provider" value={provider} onChange={e => setProvider(e.target.value)} placeholder="e.g. LVC Training Academy" data-testid="input-cert-provider" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="validity">Validity (Months)</Label>
-                  <Input id="validity" type="number" value={validityMonths} onChange={e => setValidityMonths(e.target.value)} placeholder="Optional" />
+                  <Input id="validity" type="number" value={validityMonths} onChange={e => setValidityMonths(e.target.value)} placeholder="Optional" data-testid="input-cert-validity" />
                 </div>
               </div>
 
@@ -298,6 +328,7 @@ export default function AdminCertificates() {
                         key={i}
                         onClick={() => setIcon(i)}
                         className={`aspect-square flex items-center justify-center rounded-md cursor-pointer transition-all ${icon === i ? 'bg-primary text-primary-foreground shadow-sm scale-110' : 'hover:bg-muted text-muted-foreground'}`}
+                        data-testid={`icon-select-${i}`}
                       >
                         <I className="w-5 h-5" />
                       </div>
@@ -307,8 +338,8 @@ export default function AdminCertificates() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                <Button type="submit">Save Certificate</Button>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} data-testid="button-cancel-cert">Cancel</Button>
+                <Button type="submit" data-testid="button-save-cert">Save Certificate</Button>
               </DialogFooter>
             </form>
           </DialogContent>

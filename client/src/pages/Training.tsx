@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '@/lib/authContext';
+import { useAuth, User } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,39 +9,52 @@ import { Progress } from '@/components/ui/progress';
 import {
   ChevronDown,
   ChevronRight,
-  User,
+  User as UserIcon,
   Calendar,
   TrendingUp,
   Download,
   HelpCircle,
-  Clock,
   Target,
   CalendarPlus,
-  Building2,
   ArrowLeft,
   Send,
 } from 'lucide-react';
-import {
-  engineeringCategories,
-  adminCategories,
-  engineerMatrices,
-  adminMatrices,
-  competencyLevels,
-  getCompetencyColor,
-  calculateCategoryAverage,
-  calculateOverallAverage,
-  identifySkillGaps,
-  scheduledTrainingSessions,
-  submittedMatrices,
-  type CompetencyCategory,
-  type EngineerMatrix,
-} from '@/lib/trainingMatrixData';
-import { departments } from '@/lib/departmentData';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { useCompetencies, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix } from '@/lib/hooks';
+import { Spinner } from '@/components/ui/spinner';
+
+const competencyLevels = [
+  { value: 0, label: 'No Experience', description: 'Has no experience, or does not understand', color: 'bg-gray-200 text-gray-600' },
+  { value: 1, label: 'Needs Training', description: 'Has some experience but not confident, more training required', color: 'bg-red-100 text-red-700' },
+  { value: 2, label: 'Developing', description: 'Has experience and is reasonably confident but occasional support required', color: 'bg-amber-100 text-amber-700' },
+  { value: 3, label: 'Competent', description: 'Is highly confident and does not require support', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 4, label: 'Expert/Trainer', description: 'Thorough knowledge, willing and able to train others', color: 'bg-blue-100 text-blue-700' },
+];
+
+function getCompetencyColor(rating: number): string {
+  return competencyLevels[rating]?.color || competencyLevels[0].color;
+}
+
+function calculateCategoryAverage(ratings: Record<string, number>, category: any): number {
+  const categoryRatings = category.items.map((item: any) => ratings[item.slug] ?? 0);
+  return categoryRatings.reduce((a: number, b: number) => a + b, 0) / (categoryRatings.length || 1);
+}
+
+function calculateOverallAverage(ratings: Record<string, number>, categories: any[]): number {
+  let total = 0;
+  let count = 0;
+  categories.forEach((cat: any) => {
+    cat.items.forEach((item: any) => {
+      total += ratings[item.slug] ?? 0;
+      count++;
+    });
+  });
+  return count > 0 ? total / count : 0;
+}
 
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
-  const level = competencyLevels[rating];
+  const level = competencyLevels[rating] || competencyLevels[0];
 
   return (
     <TooltipProvider>
@@ -79,16 +92,16 @@ function CompetencyLegend() {
 
 function CategorySection({
   category,
-  engineer,
+  ratings,
   expanded,
   onToggle,
 }: {
-  category: CompetencyCategory;
-  engineer: EngineerMatrix;
+  category: any;
+  ratings: Record<string, number>;
   expanded: boolean;
   onToggle: () => void;
 }) {
-  const avgRating = calculateCategoryAverage(engineer.ratings, category);
+  const avgRating = calculateCategoryAverage(ratings, category);
   const avgColor = getCompetencyColor(Math.round(avgRating));
 
   return (
@@ -96,7 +109,7 @@ function CategorySection({
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
-        data-testid={`category-toggle-${category.id}`}
+        data-testid={`category-toggle-${category.slug}`}
       >
         <div className="flex items-center gap-2">
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -115,11 +128,11 @@ function CategorySection({
 
       {expanded && (
         <div className="divide-y">
-          {category.items.map((item) => (
+          {category.items.map((item: any) => (
             <div
               key={item.id}
               className="flex items-center justify-between p-3 hover:bg-muted/10"
-              data-testid={`competency-row-${item.id}`}
+              data-testid={`competency-row-${item.slug}`}
             >
               <div className="flex-1 min-w-0 pr-4">
                 <p className="text-sm font-medium">{item.name}</p>
@@ -127,7 +140,7 @@ function CategorySection({
                   <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
                 )}
               </div>
-              <RatingCell rating={engineer.ratings[item.id] ?? 0} compact />
+              <RatingCell rating={ratings[item.slug] ?? 0} compact />
             </div>
           ))}
         </div>
@@ -137,26 +150,34 @@ function CategorySection({
 }
 
 export function IndividualView({
-  engineer,
+  name,
+  jobRole,
+  department,
+  ratings,
+  lastAssessment,
   categories,
   onBack,
   showBackButton = true,
 }: {
-  engineer: EngineerMatrix;
-  categories: CompetencyCategory[];
+  name: string;
+  jobRole: string;
+  department: string;
+  ratings: Record<string, number>;
+  lastAssessment?: string;
+  categories: any[];
   onBack?: () => void;
   showBackButton?: boolean;
 }) {
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set([categories[0]?.id]));
-  const overallAvg = calculateOverallAverage(engineer.ratings, categories);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set([categories[0]?.slug]));
+  const overallAvg = calculateOverallAverage(ratings, categories);
 
-  const toggleCategory = (categoryId: string) => {
+  const toggleCategory = (categorySlug: string) => {
     setExpandedCategories((prev) => {
       const next = new Set(prev);
-      if (next.has(categoryId)) {
-        next.delete(categoryId);
+      if (next.has(categorySlug)) {
+        next.delete(categorySlug);
       } else {
-        next.add(categoryId);
+        next.add(categorySlug);
       }
       return next;
     });
@@ -174,12 +195,12 @@ export function IndividualView({
       <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
         <div className="flex items-center gap-4">
           <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-            <User className="h-7 w-7 text-primary" />
+            <UserIcon className="h-7 w-7 text-primary" />
           </div>
           <div>
-            <h2 className="text-xl font-display font-bold">{engineer.name}</h2>
+            <h2 className="text-xl font-display font-bold">{name}</h2>
             <p className="text-sm text-muted-foreground">
-              {engineer.role} • {engineer.department}
+              {jobRole} • {department}
             </p>
           </div>
         </div>
@@ -189,18 +210,20 @@ export function IndividualView({
             <span className="text-3xl font-bold">{overallAvg.toFixed(1)}</span>
             <span className="text-muted-foreground">/ 4</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Updated: {new Date(engineer.lastAssessment).toLocaleDateString('en-GB')}
-          </p>
+          {lastAssessment && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Updated: {new Date(lastAssessment).toLocaleDateString('en-GB')}
+            </p>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {categories.slice(0, 4).map((category) => {
-          const avg = calculateCategoryAverage(engineer.ratings, category);
+        {categories.slice(0, 4).map((category: any) => {
+          const avg = calculateCategoryAverage(ratings, category);
           const percentage = (avg / 4) * 100;
           return (
-            <Card key={category.id} className="border-border/50">
+            <Card key={category.slug} className="border-border/50">
               <CardContent className="p-3">
                 <p className="text-xs text-muted-foreground truncate mb-1">
                   {category.name.replace('Technical Expertise - ', '')}
@@ -219,13 +242,13 @@ export function IndividualView({
       <CompetencyLegend />
 
       <div className="space-y-2">
-        {categories.map((category) => (
+        {categories.map((category: any) => (
           <CategorySection
-            key={category.id}
+            key={category.slug}
             category={category}
-            engineer={engineer}
-            expanded={expandedCategories.has(category.id)}
-            onToggle={() => toggleCategory(category.id)}
+            ratings={ratings}
+            expanded={expandedCategories.has(category.slug)}
+            onToggle={() => toggleCategory(category.slug)}
           />
         ))}
       </div>
@@ -238,27 +261,65 @@ export default function Training() {
   const { toast } = useToast();
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
 
+  const isEngineeringUser = (currentUser?.department || '').toLowerCase().includes('engineering');
+  const departmentType = isEngineeringUser ? 'engineering' : 'admin';
+
+  const { data: categories = [], isLoading: categoriesLoading } = useCompetencies(departmentType);
+  const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(currentUser?.id || '');
+  const createMatrix = useCreateTrainingMatrix();
+  const updateMatrix = useUpdateTrainingMatrix();
+
   if (!currentUser) return null;
 
   const isColleague = currentUser.role === 'colleague';
 
-  const isEngineeringUser = (currentUser.department || '').toLowerCase().includes('engineering');
-  const currentCategories = isEngineeringUser ? engineeringCategories : adminCategories;
+  const isLoading = categoriesLoading || matrixLoading;
 
-  const submittedForMe = submittedMatrices[currentUser.id];
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <Spinner />
+        </div>
+      </Layout>
+    );
+  }
 
-  const baseRatings = engineerMatrices[0]?.ratings || {};
-  const myMatrix: EngineerMatrix = {
-    id: currentUser.id,
-    name: currentUser.name,
-    role: currentUser.jobRole || 'Engineering Manager',
-    department: currentUser.department,
-    ratings: submittedForMe?.ratings || baseRatings,
-    lastAssessment: submittedForMe?.lastAssessment || '2025-01-01',
-    status: submittedForMe?.status || 'draft',
+  const ratings: Record<string, number> = (matrixSubmission?.ratings as Record<string, number>) || {};
+  const matrixStatus = matrixSubmission?.status || 'draft';
+  const lastAssessment = matrixSubmission?.lastAssessment || undefined;
+
+  const myLineManager = 'Line Manager';
+
+  const handleSubmit = async () => {
+    try {
+      if (matrixSubmission?.id) {
+        await updateMatrix.mutateAsync({
+          id: matrixSubmission.id,
+          data: { status: 'pending_review', submittedDate: new Date().toISOString().slice(0, 10) },
+        });
+      } else {
+        await createMatrix.mutateAsync({
+          userId: currentUser.id,
+          status: 'pending_review',
+          ratings: ratings,
+          lastAssessment: new Date().toISOString().slice(0, 10),
+          submittedDate: new Date().toISOString().slice(0, 10),
+        });
+      }
+      setIsSubmitOpen(false);
+      toast({
+        title: 'Submitted for sign-off',
+        description: 'Your line manager can now review and approve your training matrix.',
+      });
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: 'Failed to submit training matrix.',
+        variant: 'destructive',
+      });
+    }
   };
-
-  const myLineManager = 'James Wilson (Operations Director)';
 
   return (
     <Layout>
@@ -300,7 +361,7 @@ export default function Training() {
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <User className="h-5 w-5 text-primary" />
+                  <UserIcon className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="font-medium">Your Development Journey</p>
@@ -320,7 +381,7 @@ export default function Training() {
           </Badge>
           <Badge variant="outline" className="gap-1 w-fit">
             <Calendar className="h-3 w-3" />
-            Last updated: Jan 2026
+            Last updated: {lastAssessment ? new Date(lastAssessment).toLocaleDateString('en-GB') : 'Not submitted'}
           </Badge>
         </div>
 
@@ -333,23 +394,23 @@ export default function Training() {
                   My Training Matrix
                 </CardTitle>
                 <CardDescription>
-                  Your self-assessment ratings. Submit when you're happy \u2014 your line manager will review and sign it off.
+                  Your self-assessment ratings. Submit when you&apos;re happy — your line manager will review and sign it off.
                 </CardDescription>
               </div>
 
               {isColleague && (
                 <div className="flex items-center gap-2">
-                  {myMatrix.status === 'pending_review' && (
+                  {matrixStatus === 'pending_review' && (
                     <Badge variant="secondary" className="bg-amber-100 text-amber-800" data-testid="status-matrix-pending">
                       Pending line manager sign-off
                     </Badge>
                   )}
-                  {myMatrix.status === 'approved' && (
+                  {matrixStatus === 'approved' && (
                     <Badge variant="secondary" className="bg-emerald-100 text-emerald-800" data-testid="status-matrix-approved">
                       Approved
                     </Badge>
                   )}
-                  {myMatrix.status === 'draft' && (
+                  {matrixStatus === 'draft' && (
                     <Badge variant="secondary" className="bg-slate-100 text-slate-800" data-testid="status-matrix-draft">
                       Draft
                     </Badge>
@@ -358,7 +419,7 @@ export default function Training() {
                   <Button
                     onClick={() => setIsSubmitOpen(true)}
                     className="gap-2"
-                    disabled={myMatrix.status === 'pending_review' || myMatrix.status === 'approved'}
+                    disabled={matrixStatus === 'pending_review' || matrixStatus === 'approved'}
                     data-testid="button-submit-matrix"
                   >
                     <Send className="h-4 w-4" />
@@ -369,7 +430,15 @@ export default function Training() {
             </div>
           </CardHeader>
           <CardContent>
-            <IndividualView engineer={myMatrix} categories={currentCategories} showBackButton={false} />
+            <IndividualView
+              name={currentUser.name}
+              jobRole={currentUser.jobRole || 'Engineer'}
+              department={currentUser.department}
+              ratings={ratings}
+              lastAssessment={lastAssessment}
+              categories={categories}
+              showBackButton={false}
+            />
           </CardContent>
         </Card>
 
@@ -426,7 +495,7 @@ export default function Training() {
                 <div className="rounded-xl border p-4">
                   <p className="text-sm font-semibold" data-testid="text-submit-confirmation">Ready to submit?</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Make sure the ratings reflect your current confidence. You can\u2019t edit while it\u2019s waiting for sign-off.
+                    Make sure the ratings reflect your current confidence. You can&apos;t edit while it&apos;s waiting for sign-off.
                   </p>
                 </div>
               </div>
@@ -437,19 +506,9 @@ export default function Training() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={() => {
-                      submittedMatrices[currentUser.id] = {
-                        ...myMatrix,
-                        status: 'pending_review',
-                        lastAssessment: new Date().toISOString().slice(0, 10),
-                      };
-                      setIsSubmitOpen(false);
-                      toast({
-                        title: 'Submitted for sign-off',
-                        description: 'Your line manager can now review and approve your training matrix.',
-                      });
-                    }}
+                    onClick={handleSubmit}
                     className="gap-2"
+                    disabled={createMatrix.isPending || updateMatrix.isPending}
                     data-testid="button-confirm-submit"
                   >
                     <Send className="h-4 w-4" />
@@ -469,7 +528,6 @@ export default function Training() {
                   <Target className="h-4 w-4 text-red-500" />
                   My Skills Gaps
                 </CardTitle>
-                <Badge variant="destructive" className="text-xs">6</Badge>
               </div>
             </CardHeader>
             <CardContent>

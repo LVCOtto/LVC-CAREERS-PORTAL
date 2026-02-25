@@ -1,9 +1,9 @@
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { useResources } from '@/lib/resourcesContext';
+import { useResources } from '@/lib/hooks';
 import { useState } from 'react';
 import {
   BookOpen,
@@ -35,10 +35,20 @@ const iconMap: Record<string, React.ReactNode> = {
 
 export default function Resources() {
   const { currentUser } = useAuth();
-  const { resources } = useResources();
+  const { data: resources = [], isLoading } = useResources();
   const [searchQuery, setSearchQuery] = useState('');
 
   if (!currentUser) return null;
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   const categories = Array.from(new Set(resources.map(r => r.category)));
 

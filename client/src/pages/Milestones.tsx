@@ -1,19 +1,16 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/authContext';
-import { useCertificates, CertificateDefinition } from '@/lib/certificatesContext';
+import { useUserCertificates, useCertificateDefinitions, useCareerMilestones } from '@/lib/hooks';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { careerMilestones } from '@/lib/mockData';
 import {
   Award,
   Briefcase,
   GraduationCap,
   Star,
   Trophy,
-  FileCheck,
   ShieldCheck,
   Wrench,
   HeartHandshake,
@@ -24,10 +21,6 @@ import {
   Zap,
   BadgeCheck,
   Medal,
-  Calendar,
-  Download,
-  ExternalLink,
-  AlertTriangle,
   Lock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -52,14 +45,13 @@ function CertificateBadge({
   userCert, 
   locked = false 
 }: { 
-  definition: CertificateDefinition; 
+  definition: any; 
   userCert?: any; 
   locked?: boolean 
 }) {
   const Icon = iconMap[definition.icon] || Award;
   
-  // Visual styles based on level
-  let badgeStyle = "bg-slate-100 border-slate-300 text-slate-500"; // Standard/Locked default
+  let badgeStyle = "bg-slate-100 border-slate-300 text-slate-500";
   let iconStyle = "text-slate-400";
   let shineEffect = "";
 
@@ -84,7 +76,7 @@ function CertificateBadge({
         iconStyle = "text-blue-700 drop-shadow-md";
         shineEffect = "after:absolute after:inset-0 after:bg-gradient-to-tr after:from-transparent after:via-white/50 after:to-transparent after:translate-x-[-100%] hover:after:translate-x-[100%] after:transition-transform after:duration-1000 overflow-hidden";
         break;
-      default: // Standard
+      default:
         badgeStyle = "bg-white border-slate-200 text-slate-700 shadow-sm";
         iconStyle = "text-primary";
     }
@@ -119,24 +111,23 @@ function CertificateBadge({
           </div>
         )}
       </div>
-      
-      {/* Tooltip-like overlay on hover could go here, but simple card is nice */}
     </div>
   );
 }
 
 export default function Milestones() {
   const { currentUser } = useAuth();
-  const { definitions, getUserCertificates } = useCertificates();
   const [activeTab, setActiveTab] = useState('certificates');
+
+  const { data: definitions = [], isLoading: defsLoading } = useCertificateDefinitions();
+  const { data: userCertsData = [], isLoading: certsLoading } = useUserCertificates(currentUser?.id);
+  const { data: milestones = [], isLoading: milestonesLoading } = useCareerMilestones(currentUser?.id ?? '');
 
   if (!currentUser) return null;
 
-  const userMilestones = careerMilestones.filter(m => m.userId === currentUser.id);
-  const myCertificates = getUserCertificates(currentUser.id);
-  
-  // Group definitions by category
-  const categories = Array.from(new Set(definitions.map(d => d.category)));
+  const isLoading = defsLoading || certsLoading || milestonesLoading;
+
+  const categories = Array.from(new Set(definitions.map((d: any) => d.category)));
   
   const getMilestoneIcon = (title: string) => {
     if (title.toLowerCase().includes('joined')) return <Briefcase className="w-5 h-5" />;
@@ -145,6 +136,16 @@ export default function Milestones() {
     if (title.toLowerCase().includes('award')) return <Award className="w-5 h-5" />;
     return <Star className="w-5 h-5" />;
   };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -171,19 +172,19 @@ export default function Milestones() {
           <TabsContent value="certificates">
             <div className="grid gap-8">
               {categories.map(category => {
-                const categoryDefs = definitions.filter(d => d.category === category);
+                const categoryDefs = definitions.filter((d: any) => d.category === category);
                 if (categoryDefs.length === 0) return null;
 
                 return (
-                  <div key={category} className="space-y-4">
+                  <div key={category as string} className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <h2 className="text-xl font-display font-bold text-foreground">{category}</h2>
+                      <h2 className="text-xl font-display font-bold text-foreground">{category as string}</h2>
                       <div className="h-px flex-1 bg-border" />
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                      {categoryDefs.map(def => {
-                        const userCert = myCertificates.find(uc => uc.definitionId === def.id);
+                      {categoryDefs.map((def: any) => {
+                        const userCert = userCertsData.find((uc: any) => uc.definitionId === def.id);
                         return (
                           <CertificateBadge 
                             key={def.id} 
@@ -229,11 +230,11 @@ export default function Milestones() {
                 </div>
               </CardHeader>
               <CardContent>
-                {userMilestones.length > 0 ? (
+                {milestones.length > 0 ? (
                   <div className="relative">
                     <div className="absolute left-6 top-0 bottom-0 w-px bg-border" />
                     <div className="space-y-6">
-                      {userMilestones.map((milestone, index) => (
+                      {milestones.map((milestone: any, index: number) => (
                         <div
                           key={milestone.id}
                           className="relative pl-14 animate-slide-in-right"

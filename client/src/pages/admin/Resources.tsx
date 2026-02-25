@@ -1,5 +1,5 @@
 import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Select,
@@ -20,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useResources } from '@/lib/resourcesContext';
+import { useResources, useCreateResource, useUpdateResource, useDeleteResource } from '@/lib/hooks';
 import { useState } from 'react';
 import {
   Plus,
@@ -41,7 +40,15 @@ import {
   Headphones,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Resource } from '@/lib/mockData';
+
+interface Resource {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  url: string;
+  icon: string;
+}
 
 const ICONS = [
   'book-open',
@@ -79,13 +86,15 @@ const CATEGORIES = [
 ];
 
 export default function AdminResources() {
-  const { resources, addResource, updateResource, deleteResource } = useResources();
+  const { data: resources = [], isLoading } = useResources();
+  const createResource = useCreateResource();
+  const updateResource = useUpdateResource();
+  const deleteResource = useDeleteResource();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
 
-  // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -118,7 +127,6 @@ export default function AdminResources() {
       setCategory(resource.category);
       setUrl(resource.url);
       setIcon(resource.icon);
-      // Guess type based on URL (mock logic)
       setType(resource.url.startsWith('http') || resource.url === '#' ? 'link' : 'file');
     } else {
       resetForm();
@@ -126,10 +134,9 @@ export default function AdminResources() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Basic validation
     if (!title || !category || !url || !icon) {
       toast({
         title: "Missing fields",
@@ -140,25 +147,13 @@ export default function AdminResources() {
     }
 
     if (editingResource) {
-      updateResource(editingResource.id, {
-        title,
-        description,
-        category,
-        url,
-        icon
-      });
+      await updateResource.mutateAsync({ id: editingResource.id, data: { title, description, category, url, icon } });
       toast({
         title: "Resource updated",
         description: `${title} has been updated successfully.`
       });
     } else {
-      addResource({
-        title,
-        description,
-        category,
-        url,
-        icon
-      });
+      await createResource.mutateAsync({ title, description, category, url, icon });
       toast({
         title: "Resource created",
         description: `${title} has been added to resources.`
@@ -169,15 +164,25 @@ export default function AdminResources() {
     resetForm();
   };
 
-  const handleDelete = (id: string, title: string) => {
-    if (confirm(`Are you sure you want to delete "${title}"?`)) {
-      deleteResource(id);
+  const handleDelete = async (id: number, resourceTitle: string) => {
+    if (confirm(`Are you sure you want to delete "${resourceTitle}"?`)) {
+      await deleteResource.mutateAsync(id);
       toast({
         title: "Resource deleted",
-        description: `${title} has been removed.`
+        description: `${resourceTitle} has been removed.`
       });
     }
   };
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -189,7 +194,7 @@ export default function AdminResources() {
               Manage company documents, links, and resources
             </p>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="gap-2">
+          <Button onClick={() => handleOpenDialog()} className="gap-2" data-testid="button-add-resource">
             <Plus className="w-4 h-4" />
             Add Resource
           </Button>
@@ -203,13 +208,14 @@ export default function AdminResources() {
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               className="pl-10"
+              data-testid="input-search-resources"
             />
           </div>
         </div>
 
         <div className="grid gap-4">
           {filteredResources.map(resource => (
-            <Card key={resource.id} className="group hover:border-primary/50 transition-colors">
+            <Card key={resource.id} className="group hover:border-primary/50 transition-colors" data-testid={`card-resource-${resource.id}`}>
               <CardContent className="p-6 flex items-center gap-6">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   {iconMap[resource.icon] || <BookOpen className="w-6 h-6" />}
@@ -217,7 +223,7 @@ export default function AdminResources() {
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3">
-                    <h3 className="font-semibold text-lg">{resource.title}</h3>
+                    <h3 className="font-semibold text-lg" data-testid={`text-resource-title-${resource.id}`}>{resource.title}</h3>
                     <div className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
                       {resource.category}
                     </div>
@@ -227,10 +233,10 @@ export default function AdminResources() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(resource)}>
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(resource)} data-testid={`button-edit-resource-${resource.id}`}>
                     <Pencil className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(resource.id, resource.title)}>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(resource.id, resource.title)} data-testid={`button-delete-resource-${resource.id}`}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -261,6 +267,7 @@ export default function AdminResources() {
                   <div 
                     className={`flex-1 border rounded-lg p-3 cursor-pointer transition-colors flex items-center gap-2 ${type === 'link' ? 'border-primary bg-primary/5' : 'hover:bg-secondary/50'}`}
                     onClick={() => setType('link')}
+                    data-testid="button-type-link"
                   >
                     <Globe className="w-4 h-4" />
                     <span className="font-medium">External Link</span>
@@ -268,6 +275,7 @@ export default function AdminResources() {
                   <div 
                     className={`flex-1 border rounded-lg p-3 cursor-pointer transition-colors flex items-center gap-2 ${type === 'file' ? 'border-primary bg-primary/5' : 'hover:bg-secondary/50'}`}
                     onClick={() => setType('file')}
+                    data-testid="button-type-file"
                   >
                     <FileText className="w-4 h-4" />
                     <span className="font-medium">File Upload</span>
@@ -282,13 +290,14 @@ export default function AdminResources() {
                   value={title} 
                   onChange={e => setTitle(e.target.value)} 
                   placeholder="e.g. Employee Handbook"
+                  data-testid="input-resource-title"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="select-resource-category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -307,10 +316,10 @@ export default function AdminResources() {
                     value={url} 
                     onChange={e => setUrl(e.target.value)} 
                     placeholder={type === 'link' ? "https://..." : "/uploads/..."}
+                    data-testid="input-resource-url"
                   />
                   {type === 'file' && (
                     <Button type="button" variant="outline" onClick={() => {
-                        // Mock upload
                         const mockFile = `file-${Date.now()}.pdf`;
                         setUrl(`/uploads/resources/${mockFile}`);
                         toast({ title: "File uploaded", description: `${mockFile} ready.` });
@@ -328,13 +337,14 @@ export default function AdminResources() {
                   value={description} 
                   onChange={e => setDescription(e.target.value)} 
                   placeholder="Brief description of the resource..."
+                  data-testid="textarea-resource-description"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="icon">Icon</Label>
                 <Select value={icon} onValueChange={setIcon}>
-                  <SelectTrigger>
+                  <SelectTrigger data-testid="select-resource-icon">
                     <SelectValue placeholder="Select icon" />
                   </SelectTrigger>
                   <SelectContent>
@@ -350,10 +360,10 @@ export default function AdminResources() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} data-testid="button-cancel-resource">
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" data-testid="button-submit-resource">
                   {editingResource ? 'Save Changes' : 'Create Resource'}
                 </Button>
               </DialogFooter>

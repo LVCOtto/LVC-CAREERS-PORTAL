@@ -1,8 +1,6 @@
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
-import { useCareerPath } from '@/lib/careerPathContext';
-import { useCertificates } from '@/lib/certificatesContext';
-import { careerMilestones } from '@/lib/mockData';
+import { useCareerMilestones, useCareerNodes } from '@/lib/hooks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,13 +40,10 @@ const getMilestoneIcon = (title: string) => {
 
 export default function CareerMap() {
   const { currentUser } = useAuth();
-  const { nodes: careerNodes } = useCareerPath();
-  const { getUserCertificates } = useCertificates();
+  const { data: careerNodes = [] } = useCareerNodes();
+  const { data: milestones = [] } = useCareerMilestones(currentUser?.id || '');
 
   if (!currentUser) return null;
-
-  const userCertificates = getUserCertificates(currentUser.id);
-  const userMilestones = careerMilestones.filter(m => m.userId === currentUser.id);
 
   // 1. Determine Current Node
   const currentNodeId = useMemo(() => {
@@ -71,7 +66,7 @@ export default function CareerMap() {
       level: node.level
     }));
 
-  const milestones = userMilestones.map(m => ({
+  const milestonesTimeline = milestones.map((m: any) => ({
     type: 'milestone',
     id: m.id,
     title: m.title,
@@ -81,7 +76,7 @@ export default function CareerMap() {
   }));
 
   // Combine and sort by date (descending)
-  const historyTimeline = [...historyNodes, ...milestones].sort((a, b) => {
+  const historyTimeline = [...historyNodes, ...milestonesTimeline].sort((a, b) => {
     if (a.date && b.date) {
         return new Date(b.date).getTime() - new Date(a.date).getTime();
     }

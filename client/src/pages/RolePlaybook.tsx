@@ -7,9 +7,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/authContext';
-import { roleDefinitions, getRoleById, getRoleOptions } from '@/lib/roleStandardsData';
-import { getSurveyByRoleId } from '@/lib/standardsSurveyData';
+import { useJobRoles, useStandardsSurvey } from '@/lib/hooks';
 import { FileText, Building2, Calendar, Hash, ClipboardList, CheckCircle2, MessageCircle, Circle, HelpCircle, XCircle, AlertCircle } from 'lucide-react';
 
 type AssessmentStatus = 'none' | 'no' | 'unsure' | 'yes';
@@ -77,18 +77,20 @@ export default function RolePlaybook() {
   const { currentUser } = useAuth();
   const isManager = currentUser?.role === 'manager' || currentUser?.role === 'admin';
   
-  const defaultRoleId = currentUser?.jobRole 
-    ? Object.keys(roleDefinitions).find(id => 
-        roleDefinitions[id].title.toLowerCase() === currentUser.jobRole.toLowerCase()
-      ) || 'field-service-engineer'
-    : 'field-service-engineer';
+  const { data: jobRoles, isLoading: rolesLoading } = useJobRoles();
   
-  const [selectedRoleId, setSelectedRoleId] = useState(defaultRoleId);
+  const defaultRoleId = currentUser?.jobRole 
+    ? jobRoles?.find(role => role.title.toLowerCase() === currentUser.jobRole.toLowerCase())?.slug || (jobRoles?.[0]?.slug)
+    : (jobRoles?.[0]?.slug);
+  
+  const [selectedRoleId, setSelectedRoleId] = useState<string>(defaultRoleId || '');
   const [surveyStatuses, setSurveyStatuses] = useState<Record<string, AssessmentStatus>>({});
   const [feedbackResponses, setFeedbackResponses] = useState<Record<string, string>>({});
-  const currentRoleStandards = getRoleById(selectedRoleId);
-  const currentSurvey = getSurveyByRoleId(selectedRoleId);
-  const roleOptions = getRoleOptions();
+  
+  const { data: surveyData } = useStandardsSurvey(selectedRoleId);
+  
+  const currentRoleStandards = jobRoles?.find(role => role.slug === selectedRoleId);
+  const currentSurvey = surveyData;
 
   const handleStatusChange = (taskId: string, status: AssessmentStatus) => {
     setSurveyStatuses(prev => ({
@@ -98,10 +100,10 @@ export default function RolePlaybook() {
   };
 
   const getSurveyProgress = () => {
-    if (!currentSurvey) return { no: 0, unsure: 0, yes: 0, total: 0, completed: 0 };
-    const taskItems = currentSurvey.tasks.filter(t => !t.isFeedback);
+    if (!currentSurvey || !currentSurvey.items) return { no: 0, unsure: 0, yes: 0, total: 0, completed: 0 };
+    const taskItems = currentSurvey.items.filter((t: any) => !t.isFeedback);
     let no = 0, unsure = 0, yes = 0;
-    taskItems.forEach(t => {
+    taskItems.forEach((t: any) => {
       const status = surveyStatuses[t.id];
       if (status === 'no') no++;
       else if (status === 'unsure') unsure++;
@@ -109,6 +111,26 @@ export default function RolePlaybook() {
     });
     return { no, unsure, yes, total: taskItems.length, completed: no + unsure + yes };
   };
+
+  if (rolesLoading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center py-12">
+          <Spinner />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!jobRoles || jobRoles.length === 0) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No roles found.</p>
+        </div>
+      </Layout>
+    );
+  }
 
   if (!currentRoleStandards) {
     return (
@@ -146,10 +168,10 @@ export default function RolePlaybook() {
                   <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roleOptions.map((role) => (
-                    <SelectItem key={role.value} value={role.value}>
+                  {jobRoles.map((role) => (
+                    <SelectItem key={role.slug} value={role.slug}>
                       <span className="flex items-center gap-2">
-                        {role.label}
+                        {role.title}
                         <span className="text-xs text-muted-foreground">({role.department})</span>
                       </span>
                     </SelectItem>
@@ -192,50 +214,34 @@ export default function RolePlaybook() {
                           <Building2 className="h-3.5 w-3.5" />
                           {currentRoleStandards.department}
                         </span>
-                        {currentRoleStandards.version && (
-                          <span className="flex items-center gap-1">
-                            <Hash className="h-3.5 w-3.5" />
-                            v{currentRoleStandards.version}
-                          </span>
-                        )}
-                        {currentRoleStandards.lastReviewed && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            Reviewed {currentRoleStandards.lastReviewed}
-                          </span>
-                        )}
                       </CardDescription>
                     </div>
                   </div>
                   <Badge variant="outline" className="bg-background">
-                    {currentRoleStandards.sections.reduce((acc, s) => acc + s.standards.length, 0)} Standards
+                    {currentRoleStandards.standards?.length || 0} Standards
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-8">
-                  {currentRoleStandards.sections.map((section, sectionIdx) => (
-                    <div key={section.id}>
-                      <h3 className="font-semibold text-base mb-3 text-primary">{section.name}</h3>
-                      
+                  {currentRoleStandards.standards && currentRoleStandards.standards.length > 0 ? (
+                    <div>
                       <ul className="space-y-2">
-                        {section.standards.map((standard) => (
+                        {currentRoleStandards.standards.map((standard: any) => (
                           <li 
                             key={standard.id} 
                             className="flex items-start gap-2 text-sm"
                             data-testid={`standard-${standard.id}`}
                           >
                             <span className="text-primary mt-1">•</span>
-                            <span>{standard.text}</span>
+                            <span>{standard.description || standard.text}</span>
                           </li>
                         ))}
                       </ul>
-                      
-                      {sectionIdx < currentRoleStandards.sections.length - 1 && (
-                        <Separator className="mt-6" />
-                      )}
                     </div>
-                  ))}
+                  ) : (
+                    <p className="text-muted-foreground text-center py-6">No standards defined for this role.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -296,7 +302,7 @@ export default function RolePlaybook() {
                         Task Checklist
                       </h3>
                       <div className="space-y-2">
-                        {currentSurvey.tasks.filter(t => !t.isFeedback).map((task) => {
+                        {currentSurvey.items && currentSurvey.items.filter((t: any) => !t.isFeedback).map((task: any) => {
                           const status = surveyStatuses[task.id] || 'none';
                           const config = statusConfig[status];
                           return (
@@ -330,7 +336,7 @@ export default function RolePlaybook() {
                         Feedback Questions
                       </h3>
                       <div className="space-y-4 bg-blue-50/50 rounded-lg p-4 border border-blue-100">
-                        {currentSurvey.tasks.filter(t => t.isFeedback).map((task) => (
+                        {currentSurvey.items && currentSurvey.items.filter((t: any) => t.isFeedback).map((task: any) => (
                           <div
                             key={task.id}
                             className="space-y-2"

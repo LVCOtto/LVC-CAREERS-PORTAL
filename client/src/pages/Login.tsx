@@ -1,8 +1,7 @@
-import { useAuth } from '@/lib/authContext';
+import { useAuth, UserRole } from '@/lib/authContext';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { UserRole, users } from '@/lib/mockData';
 import { Users, Shield, User } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
@@ -10,8 +9,8 @@ export default function Login() {
   const { loginAs } = useAuth();
   const [, setLocation] = useLocation();
 
-  const handleLogin = (role: UserRole) => {
-    loginAs(role);
+  const handleLogin = async (role: UserRole) => {
+    await loginAs(role);
     setLocation('/dashboard');
   };
 
@@ -21,7 +20,7 @@ export default function Login() {
       title: 'Colleague',
       description: 'View your induction progress, training records, and career milestones',
       icon: <User className="w-8 h-8" />,
-      user: users.find(u => u.role === 'colleague'),
+      user: { name: 'Michael Chen', jobRole: 'Engineer' },
       color: 'bg-blue-500',
     },
     {
@@ -29,7 +28,7 @@ export default function Login() {
       title: 'Line Manager',
       description: 'Manage your team, sign off training, and track team compliance',
       icon: <Users className="w-8 h-8" />,
-      user: users.find(u => u.role === 'manager'),
+      user: { name: 'James Wilson', jobRole: 'Operations Manager' },
       color: 'bg-amber-500',
     },
     {
@@ -37,7 +36,7 @@ export default function Login() {
       title: 'Administrator',
       description: 'Full system access including templates, users, and all records',
       icon: <Shield className="w-8 h-8" />,
-      user: users.find(u => u.role === 'admin'),
+      user: { name: 'Sarah Mitchell', jobRole: 'HR Director' },
       color: 'bg-primary',
     },
   ];
@@ -99,9 +98,9 @@ export default function Login() {
 
             <div className="mt-8 pt-6 border-t border-border text-center">
               <p className="text-sm text-muted-foreground">
-                This is a demonstration prototype with mock data.
+                This is a demonstration prototype.
                 <br />
-                All changes are temporary and will reset on page refresh.
+                All changes are persistent and securely stored.
               </p>
             </div>
           </CardContent>

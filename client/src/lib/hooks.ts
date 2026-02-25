@@ -160,6 +160,27 @@ export function useDeleteJobRole() {
   });
 }
 
+export function useGenerateShareToken() {
+  return useMutation({
+    mutationFn: (id: number) => api.trainingMatrix.generateShareToken(id),
+  });
+}
+
+export function useSharedTrainingMatrix(token: string) {
+  return useQuery({
+    queryKey: ["shared-training-matrix", token],
+    queryFn: () => api.trainingMatrix.getShared(token),
+    enabled: !!token,
+  });
+}
+
+export function useUpdateSharedTrainingMatrix() {
+  return useMutation({
+    mutationFn: ({ token, data }: { token: string; data: any }) => api.trainingMatrix.updateShared(token, data),
+    onSuccess: () => invalidate("shared-training-matrix"),
+  });
+}
+
 export function useCreateUser() {
   return useMutation({
     mutationFn: (data: any) => api.users.create(data),

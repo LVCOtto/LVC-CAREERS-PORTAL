@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth, User } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,10 +18,16 @@ import {
   CalendarPlus,
   ArrowLeft,
   Send,
+  Share2,
+  Copy,
+  Check,
+  Link,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { useCompetencies, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix } from '@/lib/hooks';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
+import { useCompetencies, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 
 const competencyLevels = [
@@ -260,6 +266,11 @@ export default function Training() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
+  const [dialogRatings, setDialogRatings] = useState<Record<string, number>>({});
+  const [dialogExpandedCategories, setDialogExpandedCategories] = useState<Set<string>>(new Set());
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const isEngineeringUser = (currentUser?.department || '').toLowerCase().includes('engineering');
   const departmentType = isEngineeringUser ? 'engineering' : 'admin';
@@ -268,11 +279,40 @@ export default function Training() {
   const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(currentUser?.id || '');
   const createMatrix = useCreateTrainingMatrix();
   const updateMatrix = useUpdateTrainingMatrix();
+  const generateShareToken = useGenerateShareToken();
+
+  const totalItems = useMemo(() => {
+    let count = 0;
+    categories.forEach((cat: any) => { count += cat.items.length; });
+    return count;
+  }, [categories]);
+
+  const ratedCount = useMemo(() => {
+    let count = 0;
+    categories.forEach((cat: any) => {
+      cat.items.forEach((item: any) => {
+        if (dialogRatings[item.slug] !== undefined) count++;
+      });
+    });
+    return count;
+  }, [dialogRatings, categories]);
+
+  const setRating = useCallback((slug: string, value: number) => {
+    setDialogRatings(prev => ({ ...prev, [slug]: value }));
+  }, []);
+
+  const toggleDialogCategory = useCallback((slug: string) => {
+    setDialogExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(slug)) next.delete(slug);
+      else next.add(slug);
+      return next;
+    });
+  }, []);
 
   if (!currentUser) return null;
 
   const isColleague = currentUser.role === 'colleague';
-
   const isLoading = categoriesLoading || matrixLoading;
 
   if (isLoading) {
@@ -291,20 +331,31 @@ export default function Training() {
 
   const myLineManager = 'Line Manager';
 
+  const openSelfAssessment = () => {
+    if (matrixStatus === 'approved') {
+      setDialogRatings({});
+    } else {
+      setDialogRatings({ ...ratings });
+    }
+    setDialogExpandedCategories(new Set(categories.map((c: any) => c.slug)));
+    setIsSubmitOpen(true);
+  };
+
   const handleSubmit = async () => {
     try {
-      if (matrixSubmission?.id) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (matrixSubmission?.id && matrixStatus !== 'approved') {
         await updateMatrix.mutateAsync({
           id: matrixSubmission.id,
-          data: { status: 'pending_review', submittedDate: new Date().toISOString().slice(0, 10) },
+          data: { ratings: dialogRatings, status: 'pending_review', submittedDate: today, lastAssessment: today },
         });
       } else {
         await createMatrix.mutateAsync({
           userId: currentUser.id,
           status: 'pending_review',
-          ratings: ratings,
-          lastAssessment: new Date().toISOString().slice(0, 10),
-          submittedDate: new Date().toISOString().slice(0, 10),
+          ratings: dialogRatings,
+          lastAssessment: today,
+          submittedDate: today,
         });
       }
       setIsSubmitOpen(false);
@@ -318,6 +369,43 @@ export default function Training() {
         description: 'Failed to submit training matrix.',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleShareLink = async () => {
+    try {
+      let submissionId = matrixSubmission?.id;
+      if (!submissionId) {
+        const newSub = await createMatrix.mutateAsync({
+          userId: currentUser.id,
+          status: 'draft',
+          ratings: ratings,
+          lastAssessment: new Date().toISOString().slice(0, 10),
+        });
+        submissionId = newSub.id;
+      }
+      const result = await generateShareToken.mutateAsync(submissionId);
+      const url = `${window.location.origin}/training-matrix/shared/${result.token}`;
+      setShareUrl(url);
+      setCopied(false);
+      setIsShareOpen(true);
+    } catch (e) {
+      toast({
+        title: 'Error',
+        description: 'Failed to generate shareable link.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: 'Link copied', description: 'Shareable link copied to clipboard.' });
+    } catch {
+      toast({ title: 'Error', description: 'Failed to copy link.', variant: 'destructive' });
     }
   };
 
@@ -417,13 +505,24 @@ export default function Training() {
                   )}
 
                   <Button
-                    onClick={() => setIsSubmitOpen(true)}
+                    variant="outline"
+                    onClick={handleShareLink}
                     className="gap-2"
-                    disabled={matrixStatus === 'pending_review' || matrixStatus === 'approved'}
+                    disabled={generateShareToken.isPending || createMatrix.isPending}
+                    data-testid="button-share-matrix"
+                  >
+                    <Share2 className="h-4 w-4" />
+                    Share Link
+                  </Button>
+
+                  <Button
+                    onClick={openSelfAssessment}
+                    className="gap-2"
+                    disabled={matrixStatus === 'pending_review'}
                     data-testid="button-submit-matrix"
                   >
                     <Send className="h-4 w-4" />
-                    Submit training matrix
+                    {matrixStatus === 'approved' ? 'Start new self-assessment' : 'Submit training matrix'}
                   </Button>
                 </div>
               )}
@@ -443,79 +542,109 @@ export default function Training() {
         </Card>
 
         <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
-          <DialogContent className="max-w-3xl p-0 overflow-hidden" data-testid="dialog-submit-matrix">
-            <div className="relative">
-              <div className="px-6 py-5 border-b bg-gradient-to-b from-slate-50 to-white">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-display">Submit your training matrix</DialogTitle>
-                  <DialogDescription>
-                    Take a moment to confirm your ratings. When submitted, your line manager will review and sign off.
-                  </DialogDescription>
-                </DialogHeader>
-              </div>
-
-              <div className="px-6 py-5 space-y-5">
-                <div className="rounded-xl border bg-slate-50/60 p-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold" data-testid="text-submit-summary-title">What happens next</p>
-                      <p className="text-sm text-muted-foreground mt-1" data-testid="text-submit-summary-body">
-                        Your matrix will move to <span className="font-medium text-foreground">Pending review</span> and your line manager will be asked to sign it off.
-                      </p>
-                    </div>
-                    <Badge variant="secondary" className="bg-amber-100 text-amber-800 w-fit" data-testid="badge-pending-preview">
-                      Pending review
-                    </Badge>
+          <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col" data-testid="dialog-submit-matrix">
+            <div className="px-6 py-5 border-b bg-gradient-to-b from-slate-50 to-white shrink-0">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-display">Self-Assessment</DialogTitle>
+                <DialogDescription>
+                  Rate your confidence for each competency below. When you&apos;re happy, submit for your line manager to review.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4 flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium" data-testid="text-progress-count">{ratedCount} / {totalItems} items rated</span>
+                    <span className="text-xs text-muted-foreground">{totalItems > 0 ? Math.round((ratedCount / totalItems) * 100) : 0}%</span>
                   </div>
-                </div>
-
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <Card className="border-border/60">
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground">Matrix</p>
-                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-matrix-name">{isEngineeringUser ? 'Engineering' : 'Service Admin'}</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="border-border/60">
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground">Line manager</p>
-                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-line-manager">{myLineManager}</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="border-border/60">
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground">Last updated</p>
-                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-last-updated">
-                        {new Date().toLocaleDateString('en-GB')}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="rounded-xl border p-4">
-                  <p className="text-sm font-semibold" data-testid="text-submit-confirmation">Ready to submit?</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Make sure the ratings reflect your current confidence. You can&apos;t edit while it&apos;s waiting for sign-off.
-                  </p>
+                  <Progress value={totalItems > 0 ? (ratedCount / totalItems) * 100 : 0} className="h-2" data-testid="progress-rated" />
                 </div>
               </div>
-
-              <div className="px-6 py-4 border-t bg-white">
-                <DialogFooter className="sm:justify-between">
-                  <Button variant="ghost" onClick={() => setIsSubmitOpen(false)} data-testid="button-cancel-submit">
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleSubmit}
-                    className="gap-2"
-                    disabled={createMatrix.isPending || updateMatrix.isPending}
-                    data-testid="button-confirm-submit"
-                  >
-                    <Send className="h-4 w-4" />
-                    Submit for sign-off
-                  </Button>
-                </DialogFooter>
+              <div className="mt-3">
+                <CompetencyLegend />
               </div>
+            </div>
+
+            <ScrollArea className="flex-1 min-h-0">
+              <div className="px-6 py-4 space-y-3">
+                {categories.map((category: any) => {
+                  const isExpanded = dialogExpandedCategories.has(category.slug);
+                  const categoryRatedCount = category.items.filter((item: any) => dialogRatings[item.slug] !== undefined).length;
+                  return (
+                    <div key={category.slug} className="border rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => toggleDialogCategory(category.slug)}
+                        className="w-full flex items-center justify-between p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
+                        data-testid={`dialog-category-toggle-${category.slug}`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          <span className="font-medium text-sm">{category.name}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {categoryRatedCount}/{category.items.length}
+                          </Badge>
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="divide-y">
+                          {category.items.map((item: any) => {
+                            const currentRating = dialogRatings[item.slug];
+                            return (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between p-3 hover:bg-muted/10 gap-3"
+                                data-testid={`dialog-competency-row-${item.slug}`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium">{item.name}</p>
+                                  {item.description && (
+                                    <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {competencyLevels.map((level) => {
+                                    const isActive = currentRating === level.value;
+                                    return (
+                                      <button
+                                        key={level.value}
+                                        onClick={() => setRating(item.slug, level.value)}
+                                        className={`w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all ${
+                                          isActive
+                                            ? `${level.color} ring-2 ring-offset-1 ring-current scale-110`
+                                            : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
+                                        }`}
+                                        data-testid={`rating-btn-${item.slug}-${level.value}`}
+                                      >
+                                        {level.value}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+
+            <div className="px-6 py-4 border-t bg-white shrink-0">
+              <DialogFooter className="sm:justify-between">
+                <Button variant="ghost" onClick={() => setIsSubmitOpen(false)} data-testid="button-cancel-submit">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  className="gap-2"
+                  disabled={createMatrix.isPending || updateMatrix.isPending}
+                  data-testid="button-confirm-submit"
+                >
+                  <Send className="h-4 w-4" />
+                  Submit for sign-off
+                </Button>
+              </DialogFooter>
             </div>
           </DialogContent>
         </Dialog>
@@ -559,6 +688,41 @@ export default function Training() {
             </CardContent>
           </Card>
         </div>
+
+        <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
+          <DialogContent className="sm:max-w-md" data-testid="dialog-share-matrix">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Link className="h-5 w-5 text-primary" />
+                Shareable Link
+              </DialogTitle>
+              <DialogDescription>
+                Share this link with someone so they can fill in the training matrix without logging in.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={shareUrl}
+                className="text-sm"
+                data-testid="input-share-url"
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleCopyLink}
+                data-testid="button-copy-share-link"
+              >
+                {copied ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setIsShareOpen(false)} data-testid="button-close-share">
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

@@ -20,6 +20,7 @@ import AdminRoles from "@/pages/admin/Roles";
 import AdminResources from "@/pages/admin/Resources";
 import AdminCertificates from "@/pages/admin/Certificates";
 import Organisation from "@/pages/admin/Organisation";
+import SharedTrainingMatrix from "@/pages/SharedTrainingMatrix";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated } = useAuth();
@@ -34,6 +35,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 function Router() {
   return (
     <Switch>
+      <Route path="/training-matrix/shared/:token" component={SharedTrainingMatrix} />
       <Route path="/" component={Login} />
       <Route path="/dashboard">
         {() => <ProtectedRoute component={Dashboard} />}

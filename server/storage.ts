@@ -66,6 +66,9 @@ export interface IStorage {
   createJobRole(role: schema.InsertJobRole): Promise<schema.JobRole>;
   updateJobRole(id: number, data: Partial<schema.InsertJobRole>): Promise<schema.JobRole | undefined>;
   deleteJobRole(id: number): Promise<void>;
+
+  getTrainingMatrixByToken(token: string): Promise<schema.TrainingMatrixSubmission | undefined>;
+  generateShareToken(submissionId: number): Promise<string>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -336,6 +339,20 @@ export class DatabaseStorage implements IStorage {
 
   async deleteJobRole(id: number) {
     await db.delete(schema.jobRoles).where(eq(schema.jobRoles.id, id));
+  }
+
+  async getTrainingMatrixByToken(token: string) {
+    const [sub] = await db.select().from(schema.trainingMatrixSubmissions)
+      .where(eq(schema.trainingMatrixSubmissions.shareToken, token));
+    return sub;
+  }
+
+  async generateShareToken(submissionId: number) {
+    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+    await db.update(schema.trainingMatrixSubmissions)
+      .set({ shareToken: token })
+      .where(eq(schema.trainingMatrixSubmissions.id, submissionId));
+    return token;
   }
 }
 

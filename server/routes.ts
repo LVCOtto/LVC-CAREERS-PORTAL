@@ -157,6 +157,45 @@ export async function registerRoutes(
     res.json(submission);
   });
 
+  app.post("/api/training-matrix/:id/share", async (req, res) => {
+    const sub = await storage.getAllTrainingMatrixSubmissions();
+    const found = sub.find(s => s.id === Number(req.params.id));
+    if (!found) return res.status(404).json({ message: "Submission not found" });
+    if (found.shareToken) {
+      return res.json({ token: found.shareToken });
+    }
+    const token = await storage.generateShareToken(found.id);
+    res.json({ token });
+  });
+
+  app.get("/api/training-matrix/shared/:token", async (req, res) => {
+    const submission = await storage.getTrainingMatrixByToken(req.params.token);
+    if (!submission) return res.status(404).json({ message: "Not found" });
+    const user = await storage.getUser(submission.userId);
+    const isEngineering = (user?.department || '').toLowerCase().includes('engineering');
+    const departmentType = isEngineering ? 'engineering' : 'admin';
+    const categories = await storage.getCompetencyCategories(departmentType);
+    const items = await storage.getCompetencyItems();
+    const competencies = categories.map(cat => ({
+      ...cat,
+      items: items.filter(item => item.categoryId === cat.id),
+    }));
+    res.json({
+      submission,
+      competencies,
+      userName: user?.name || 'Unknown',
+      jobRole: user?.jobRole || '',
+      department: user?.department || '',
+    });
+  });
+
+  app.patch("/api/training-matrix/shared/:token", async (req, res) => {
+    const submission = await storage.getTrainingMatrixByToken(req.params.token);
+    if (!submission) return res.status(404).json({ message: "Not found" });
+    const updated = await storage.updateTrainingMatrixSubmission(submission.id, req.body);
+    res.json(updated);
+  });
+
   // ===== STANDARDS SURVEYS =====
   app.get("/api/standards-surveys", async (_req, res) => {
     const roles = await storage.getStandardsSurveyRoles();

@@ -47,6 +47,9 @@ export const api = {
     get: (userId: string) => apiFetch<any>(`/training-matrix/${userId}`),
     create: (data: any) => apiFetch<any>("/training-matrix", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/training-matrix/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    generateShareToken: (id: number) => apiFetch<{ token: string }>(`/training-matrix/${id}/share`, { method: "POST" }),
+    getShared: (token: string) => apiFetch<any>(`/training-matrix/shared/${token}`),
+    updateShared: (token: string, data: any) => apiFetch<any>(`/training-matrix/shared/${token}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   standardsSurveys: {
     list: () => apiFetch<any[]>("/standards-surveys"),

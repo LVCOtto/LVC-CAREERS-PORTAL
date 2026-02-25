@@ -93,6 +93,7 @@ export const trainingMatrixSubmissions = pgTable("training_matrix_submissions", 
   submittedDate: text("submitted_date"),
   approvedBy: varchar("approved_by", { length: 50 }),
   approvedDate: text("approved_date"),
+  shareToken: varchar("share_token", { length: 100 }).unique(),
 });
 
 export const insertTrainingMatrixSubmissionSchema = createInsertSchema(trainingMatrixSubmissions).omit({ id: true });

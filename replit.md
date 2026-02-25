@@ -51,12 +51,13 @@ Employee training management system for LVC (cleaning equipment company) support
 
 ## Key Features
 - **Induction tracking**: Section-by-section checklist with manager sign-off
-- **Training matrix**: Self-assessment with 0-4 rating scale, submit for review, manager approval
+- **Training matrix**: Interactive self-assessment with 0-4 rating scale via dialog, submit for review, manager approval
+- **Shareable training matrix**: Colleagues can generate a unique link (`/training-matrix/shared/:token`) for anyone to fill in their self-assessment without logging in
 - **Standards survey**: Role-specific task standards
 - **Certificates**: Definition + assignment system
 - **Career map**: Career nodes with progression paths
 - **CSV exports**: /api/export/users, /api/export/training-records, /api/export/certificates
-- **Admin pages**: Users, Templates, Roles, Resources, Certificates, Organisation
+- **Admin pages**: Full CRUD for Users, Templates (induction items, standards survey items), Job Roles, Resources, Certificates, Organisation
 
 ## Commands
 - `npm run dev` - Start dev server (port 5000)

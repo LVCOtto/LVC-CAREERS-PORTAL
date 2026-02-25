@@ -18,7 +18,6 @@ import {
   Target,
   CalendarPlus,
   Building2,
-  Filter,
   ArrowLeft,
   Send,
 } from 'lucide-react';
@@ -40,7 +39,6 @@ import {
 import { departments } from '@/lib/departmentData';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
   const level = competencyLevels[rating];
@@ -238,14 +236,14 @@ export function IndividualView({
 export default function Training() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [selectedDepartment, setSelectedDepartment] = useState('engineering');
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
 
   if (!currentUser) return null;
 
   const isColleague = currentUser.role === 'colleague';
 
-  const currentCategories = selectedDepartment === 'engineering' ? engineeringCategories : adminCategories;
+  const isEngineeringUser = (currentUser.department || '').toLowerCase().includes('engineering');
+  const currentCategories = isEngineeringUser ? engineeringCategories : adminCategories;
 
   const submittedForMe = submittedMatrices[currentUser.id];
 
@@ -261,14 +259,6 @@ export default function Training() {
   };
 
   const myLineManager = 'James Wilson (Operations Director)';
-
-  const departmentOptions = [
-    { value: 'engineering', label: 'Engineering', color: 'bg-blue-600' },
-    { value: 'admin', label: 'Service Administration', color: 'bg-amber-600' },
-    { value: 'warehouse', label: 'Warehouse & Logistics', color: 'bg-orange-600' },
-    { value: 'sales', label: 'Sales', color: 'bg-purple-600' },
-    { value: 'quality', label: 'Quality & Compliance', color: 'bg-red-600' },
-  ];
 
   return (
     <Layout>
@@ -324,25 +314,10 @@ export default function Training() {
           </Card>
         )}
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-              <SelectTrigger className="w-[220px]" data-testid="select-department">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {departmentOptions.map((dept) => (
-                  <SelectItem key={dept.value} value={dept.value}>
-                    <div className="flex items-center gap-2">
-                      <div className={`h-2 w-2 rounded-full ${dept.color}`} />
-                      {dept.label}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="flex items-center justify-between gap-3">
+          <Badge variant="secondary" className="bg-muted/40" data-testid="badge-matrix-department">
+            {(currentUser.department || 'Department')}
+          </Badge>
           <Badge variant="outline" className="gap-1 w-fit">
             <Calendar className="h-3 w-3" />
             Last updated: Jan 2026
@@ -429,7 +404,7 @@ export default function Training() {
                   <Card className="border-border/60">
                     <CardContent className="p-4">
                       <p className="text-xs text-muted-foreground">Matrix</p>
-                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-matrix-name">{selectedDepartment === 'engineering' ? 'Engineering' : 'Service Admin'}</p>
+                      <p className="text-sm font-semibold mt-1" data-testid="text-submit-matrix-name">{isEngineeringUser ? 'Engineering' : 'Service Admin'}</p>
                     </CardContent>
                   </Card>
                   <Card className="border-border/60">

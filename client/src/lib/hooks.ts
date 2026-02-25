@@ -180,3 +180,45 @@ export function useDeleteUser() {
     onSuccess: () => invalidate("users"),
   });
 }
+
+export function useCreateInductionTemplate() {
+  return useMutation({
+    mutationFn: (data: any) => api.inductionTemplates.create(data),
+    onSuccess: () => invalidate("induction-templates"),
+  });
+}
+
+export function useUpdateInductionTemplate() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.inductionTemplates.update(id, data),
+    onSuccess: () => invalidate("induction-templates"),
+  });
+}
+
+export function useDeleteInductionTemplate() {
+  return useMutation({
+    mutationFn: (id: number) => api.inductionTemplates.delete(id),
+    onSuccess: () => invalidate("induction-templates"),
+  });
+}
+
+export function useCreateStandardsSurveyItem() {
+  return useMutation({
+    mutationFn: (data: any) => api.standardsSurveys.createItem(data),
+    onSuccess: () => invalidate("standards-surveys"),
+  });
+}
+
+export function useUpdateStandardsSurveyItem() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.standardsSurveys.updateItem(id, data),
+    onSuccess: () => invalidate("standards-surveys"),
+  });
+}
+
+export function useDeleteStandardsSurveyItem() {
+  return useMutation({
+    mutationFn: (id: number) => api.standardsSurveys.deleteItem(id),
+    onSuccess: () => invalidate("standards-surveys"),
+  });
+}

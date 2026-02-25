@@ -49,9 +49,52 @@ export default function AdminUsers() {
   const [newDepartment, setNewDepartment] = useState('');
   const [newManagerId, setNewManagerId] = useState('');
 
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editRole, setEditRole] = useState('colleague');
+  const [editJobRole, setEditJobRole] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
+  const [editManagerId, setEditManagerId] = useState('');
+
   const { data: users = [], isLoading } = useUsers();
   const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
+
+  const openEditDialog = (user: any) => {
+    setEditingUser(user);
+    setEditName(user.name || '');
+    setEditEmail(user.email || '');
+    setEditRole(user.role || 'colleague');
+    setEditJobRole(user.jobRole || '');
+    setEditDepartment(user.department || '');
+    setEditManagerId(user.managerId || '');
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditUser = async () => {
+    if (!editingUser || !editName.trim() || !editEmail.trim()) return;
+    try {
+      await updateUser.mutateAsync({
+        id: editingUser.id,
+        data: {
+          name: editName,
+          email: editEmail,
+          role: editRole,
+          jobRole: editJobRole,
+          department: editDepartment,
+          managerId: editManagerId || null,
+        },
+      });
+      toast({ title: 'User updated', description: 'User details have been saved.' });
+      setIsEditDialogOpen(false);
+      setEditingUser(null);
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    }
+  };
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
@@ -306,7 +349,7 @@ export default function AdminUsers() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button variant="ghost" size="icon" data-testid={`button-edit-${user.id}`}>
+                            <Button variant="ghost" size="icon" data-testid={`button-edit-${user.id}`} onClick={() => openEditDialog(user)}>
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button
@@ -328,6 +371,80 @@ export default function AdminUsers() {
             </Card>
           </>
         )}
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>
+                Update user account details.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Full Name</Label>
+                <Input id="edit-name" placeholder="Enter full name" value={editName} onChange={e => setEditName(e.target.value)} data-testid="input-edit-user-name" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input id="edit-email" type="email" placeholder="Enter email address" value={editEmail} onChange={e => setEditEmail(e.target.value)} data-testid="input-edit-user-email" />
+              </div>
+              {editingUser && (
+                <div className="space-y-2">
+                  <Label>Username</Label>
+                  <Input value={editingUser.username || ''} disabled className="bg-muted" data-testid="input-edit-user-username" />
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">Role</Label>
+                <Select value={editRole} onValueChange={setEditRole}>
+                  <SelectTrigger data-testid="select-edit-user-role">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="colleague">Colleague</SelectItem>
+                    <SelectItem value="manager">Line Manager</SelectItem>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-jobRole">Job Role</Label>
+                <Input id="edit-jobRole" placeholder="Enter job role" value={editJobRole} onChange={e => setEditJobRole(e.target.value)} data-testid="input-edit-job-role" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-department">Department</Label>
+                <Input id="edit-department" placeholder="Enter department" value={editDepartment} onChange={e => setEditDepartment(e.target.value)} data-testid="input-edit-department" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-manager">Line Manager</Label>
+                <Select value={editManagerId} onValueChange={setEditManagerId}>
+                  <SelectTrigger data-testid="select-edit-manager">
+                    <SelectValue placeholder="Select manager (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {users
+                      .filter((u: any) => (u.role === 'manager' || u.role === 'admin') && u.id !== editingUser?.id)
+                      .map((manager: any) => (
+                        <SelectItem key={manager.id} value={manager.id}>
+                          {manager.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditUser} data-testid="button-save-edit-user" disabled={updateUser.isPending}>
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

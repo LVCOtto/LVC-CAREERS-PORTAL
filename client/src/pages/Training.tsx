@@ -40,6 +40,7 @@ import {
 import { departments } from '@/lib/departmentData';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
   const level = competencyLevels[rating];

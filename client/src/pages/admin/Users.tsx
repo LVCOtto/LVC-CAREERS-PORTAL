@@ -238,12 +238,12 @@ export default function AdminUsers() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="manager">Line Manager</Label>
-                  <Select value={newManagerId} onValueChange={setNewManagerId}>
+                  <Select value={newManagerId || "__none__"} onValueChange={v => setNewManagerId(v === "__none__" ? "" : v)}>
                     <SelectTrigger data-testid="select-manager">
                       <SelectValue placeholder="Select manager (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {users
                         .filter((u: any) => u.role === 'manager' || u.role === 'admin')
                         .map((manager: any) => (
@@ -418,12 +418,12 @@ export default function AdminUsers() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-manager">Line Manager</Label>
-                <Select value={editManagerId} onValueChange={setEditManagerId}>
+                <Select value={editManagerId || "__none__"} onValueChange={v => setEditManagerId(v === "__none__" ? "" : v)}>
                   <SelectTrigger data-testid="select-edit-manager">
                     <SelectValue placeholder="Select manager (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {users
                       .filter((u: any) => (u.role === 'manager' || u.role === 'admin') && u.id !== editingUser?.id)
                       .map((manager: any) => (

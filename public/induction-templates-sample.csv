@@ -1,0 +1,34 @@
+section,title,description,requiresEvidence,sortOrder
+"1. Pre-Start Setup","Contract issued and signed","Employment contract and job description issued and signed",true,1
+"1. Pre-Start Setup","Right to Work and payroll setup","Right to Work check, NI number, bank details, emergency contact collected and payroll confirmed",true,2
+"1. Pre-Start Setup","IT & systems access configured","LVC email, Protean login, CRM access set up",false,3
+"1. Pre-Start Setup","Equipment issued","Phone/laptop/tablet, uniform, PPE, ID badge issued as required for role",false,4
+"1. Pre-Start Setup","Line manager and buddy assigned","Line manager confirmed and buddy/mentor allocated",false,5
+"2. Day 1 – Welcome","Welcome from line manager","Introductions to team members and initial role overview",false,6
+"2. Day 1 – Welcome","Site tour completed","Tour of offices, workshop, warehouse and all facilities",false,7
+"2. Day 1 – Welcome","LVC company overview","LVC history, what we do (sales, hire, service, spares, training), key customer sectors, service-led approach",false,8
+"2. Day 1 – Welcome","Working hours and breaks explained","Working hours, break times and scheduling expectations confirmed",false,9
+"3. Health, Safety & Compliance","Health & Safety policy briefing","H&S policy explained, fire exits, alarms and muster points shown",true,10
+"3. Health, Safety & Compliance","First aiders and accident reporting","First aiders identified, accident and near-miss reporting process explained",false,11
+"3. Health, Safety & Compliance","Manual handling training","Manual handling training completed",true,12
+"3. Health, Safety & Compliance","PPE and COSHH awareness","PPE expectations and COSHH awareness (chemicals, detergents) explained",false,13
+"3. Health, Safety & Compliance","Role-specific safety (if applicable)","Lone working policy, driving policy, vehicle checks, NHS site expectations",false,14
+"4. Systems & Processes","Protean system overview","Asset numbers, CEAL, job sheets, service reports, parts fitted and reporting accuracy",false,15
+"4. Systems & Processes","CRM and admin systems training","CRM overview, customer records, logging calls/visits/follow-ups",false,16
+"4. Systems & Processes","Expenses and timesheets","Expenses process and timesheet submission explained",false,17
+"5. Role-Specific Induction","Role responsibilities explained","What 'good' looks like at LVC, first 30-60-90 day expectations discussed",false,18
+"5. Role-Specific Induction","KPIs and performance measures","Key performance indicators and success measures for the role",false,19
+"5. Role-Specific Induction","Department processes","How your department interacts with others, escalation routes, documentation expectations",false,20
+"6. Product & Market Knowledge","Key manufacturers and product categories","Overview of key partners, scrubbers, sweepers, pressure washers, steam equipment etc.",false,21
+"6. Product & Market Knowledge","Sales, hire and service models","Understanding the differences between sales, hire and service offerings",false,22
+"6. Product & Market Knowledge","LVC differentiators","Typical customer challenges, our solutions, and how we differ from competitors",false,23
+"7. Practical Training & Shadowing","Shadow experienced team member","Observe customer interactions and day-to-day work",false,24
+"7. Practical Training & Shadowing","Equipment demonstrations observed","Attend equipment demonstrations and workshop/site visits",false,25
+"7. Practical Training & Shadowing","Ride-along completed (if applicable)","Ride-along with sales/service staff to observe customer visits",false,26
+"8. Culture & Ways of Working","LVC values understood","LVC values in practice, teamwork, ownership and accountability",false,27
+"8. Culture & Ways of Working","Continuous improvement mindset","Marginal gains philosophy, customer-first thinking, professionalism on sites",false,28
+"9. Probation & Development","Probation period explained","Probation terms, review dates set, feedback process explained",false,29
+"9. Probation & Development","Training plan agreed","Initial training plan and development goals documented",true,30
+"10. Check-Ins & Reviews","End of Week 1 check-in","Informal check-in completed, questions answered, training gaps identified",false,31
+"10. Check-Ins & Reviews","End of Month 1 review","Performance feedback, role understanding confirmed, culture fit check",true,32
+"10. Check-Ins & Reviews","Probation review meeting","Formal review of probation period progress and next steps agreed",true,33

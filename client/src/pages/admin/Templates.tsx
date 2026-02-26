@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,6 +68,7 @@ import { api } from '@/lib/api';
 export default function AdminTemplates() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: inductionItems = [], isLoading: loadingInduction } = useInductionTemplates();
   const { data: sectionSettings = [] } = useInductionSectionSettings();
@@ -192,7 +194,7 @@ export default function AdminTemplates() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates }),
       });
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ["induction-templates"] });
     } catch {
       toast({ title: 'Failed to reorder sections', variant: 'destructive' });
     }
@@ -220,7 +222,7 @@ export default function AdminTemplates() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ updates }),
       });
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ["induction-templates"] });
     } catch {
       toast({ title: 'Failed to reorder items', variant: 'destructive' });
     }
@@ -619,7 +621,8 @@ export default function AdminTemplates() {
                                             body: JSON.stringify({ oldName: section, newName: newSectionName.trim() }),
                                           }).then(() => {
                                             toast({ title: 'Section renamed' });
-                                            window.location.reload();
+                                            queryClient.invalidateQueries({ queryKey: ["induction-templates"] });
+                                            queryClient.invalidateQueries({ queryKey: ["induction-section-settings"] });
                                           });
                                         }
                                         setEditingSectionName(null);
@@ -642,7 +645,8 @@ export default function AdminTemplates() {
                                           body: JSON.stringify({ oldName: section, newName: newSectionName.trim() }),
                                         }).then(() => {
                                           toast({ title: 'Section renamed' });
-                                          window.location.reload();
+                                          queryClient.invalidateQueries({ queryKey: ["induction-templates"] });
+                                          queryClient.invalidateQueries({ queryKey: ["induction-section-settings"] });
                                         });
                                       }
                                       setEditingSectionName(null);
@@ -1529,7 +1533,7 @@ export default function AdminTemplates() {
           description="Upload a CSV to bulk-create induction checklist items. Columns: section, title, description, requiresEvidence, sortOrder"
           expectedColumns={['section', 'title', 'description', 'requiresEvidence', 'sortOrder']}
           onImport={(rows) => api.importCsv('induction-templates', rows)}
-          onComplete={() => window.location.reload()}
+          onComplete={() => queryClient.invalidateQueries({ queryKey: ["induction-templates"] })}
         />
 
         <CsvImportDialog
@@ -1539,7 +1543,7 @@ export default function AdminTemplates() {
           description="Upload a CSV to bulk-create skill categories and items. Categories are auto-created if they don't exist."
           expectedColumns={['category_name', 'category_department_type', 'category_sort_order', 'item_name', 'item_description', 'item_sort_order']}
           onImport={(rows) => api.importCsv('competencies', rows)}
-          onComplete={() => window.location.reload()}
+          onComplete={() => queryClient.invalidateQueries({ queryKey: ["competencies"] })}
         />
 
         <CsvImportDialog
@@ -1549,7 +1553,7 @@ export default function AdminTemplates() {
           description="Upload a CSV to bulk-create survey items. Survey roles are auto-created if they don't exist."
           expectedColumns={['roleTitle', 'roleSlug', 'itemText', 'isFeedback', 'sortOrder']}
           onImport={(rows) => api.importCsv('standards-surveys', rows)}
-          onComplete={() => window.location.reload()}
+          onComplete={() => queryClient.invalidateQueries({ queryKey: ["standards-surveys"] })}
         />
       </div>
     </Layout>

@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Upload, FileText, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Upload, FileText, AlertCircle, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface CsvImportDialogProps {
@@ -131,7 +131,9 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
           </div>
 
           <div
-            className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary/50 transition-colors"
+            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+              fileName ? 'border-primary/50 bg-primary/5' : 'hover:border-primary/50'
+            }`}
             onClick={() => fileRef.current?.click()}
           >
             <input
@@ -143,37 +145,63 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
               data-testid="input-csv-file"
             />
             {fileName ? (
-              <div className="flex items-center justify-center gap-2">
-                <FileText className="h-5 w-5 text-primary" />
-                <span className="text-sm font-medium">{fileName}</span>
-                <Badge variant="secondary">{parsedRows.length} rows</Badge>
+              <div className="space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium">{fileName}</span>
+                  <Badge variant="secondary">{parsedRows.length} rows</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">Click to choose a different file</p>
               </div>
             ) : (
               <div>
                 <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Click to select a CSV file</p>
+                <p className="text-sm font-medium">Click to select a CSV file</p>
+                <p className="text-xs text-muted-foreground mt-1">or drag and drop your file here</p>
               </div>
             )}
           </div>
 
           {parsedRows.length > 0 && !result && (
-            <div className="bg-muted/30 rounded-lg p-3">
-              <p className="text-sm font-medium mb-1">Preview (first 3 rows):</p>
-              <div className="text-xs text-muted-foreground space-y-1 overflow-x-auto">
-                {parsedRows.slice(0, 3).map((row, i) => (
-                  <div key={i} className="whitespace-nowrap">
-                    {Object.entries(row).map(([k, v]) => `${k}: ${v}`).join(' | ')}
-                  </div>
-                ))}
-                {parsedRows.length > 3 && (
-                  <div className="text-muted-foreground/70">...and {parsedRows.length - 3} more rows</div>
-                )}
+            <>
+              <div className="bg-muted/30 rounded-lg p-3">
+                <p className="text-sm font-medium mb-1">Preview (first 3 rows):</p>
+                <div className="text-xs text-muted-foreground space-y-1 overflow-x-auto">
+                  {parsedRows.slice(0, 3).map((row, i) => (
+                    <div key={i} className="whitespace-nowrap">
+                      {Object.entries(row).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+                    </div>
+                  ))}
+                  {parsedRows.length > 3 && (
+                    <div className="text-muted-foreground/70">...and {parsedRows.length - 3} more rows</div>
+                  )}
+                </div>
               </div>
-            </div>
+
+              <Button
+                onClick={handleImport}
+                disabled={importing}
+                className="w-full gap-2"
+                size="lg"
+                data-testid="button-import-confirm"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRight className="h-4 w-4" />
+                    Import {parsedRows.length} rows
+                  </>
+                )}
+              </Button>
+            </>
           )}
 
           {result && (
-            <div className={`rounded-lg p-4 ${result.errors.length > 0 ? 'bg-amber-50 border border-amber-200' : 'bg-emerald-50 border border-emerald-200'}`}>
+            <div className={`rounded-lg p-4 ${result.errors.length > 0 ? 'bg-amber-50 dark:bg-amber-950/20 border border-amber-200' : 'bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200'}`}>
               <div className="flex items-center gap-2 mb-2">
                 {result.errors.length > 0 ? (
                   <AlertCircle className="h-4 w-4 text-amber-600" />
@@ -185,7 +213,7 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
                 </span>
               </div>
               {result.errors.length > 0 && (
-                <div className="text-xs text-amber-700 space-y-0.5 max-h-32 overflow-y-auto">
+                <div className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5 max-h-32 overflow-y-auto">
                   {result.errors.map((err, i) => <div key={i}>{err}</div>)}
                 </div>
               )}
@@ -194,14 +222,9 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button variant="outline" onClick={handleClose} className="w-full sm:w-auto">
             {result ? 'Close' : 'Cancel'}
           </Button>
-          {!result && (
-            <Button onClick={handleImport} disabled={parsedRows.length === 0 || importing} data-testid="button-import-confirm">
-              {importing ? 'Importing...' : `Import ${parsedRows.length} rows`}
-            </Button>
-          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -86,6 +86,11 @@ export interface IStorage {
   getPortalSettings(): Promise<schema.PortalSetting[]>;
   upsertPortalSetting(key: string, value: string, category: string): Promise<schema.PortalSetting>;
   batchUpsertPortalSettings(settings: { key: string; value: string; category: string }[]): Promise<void>;
+
+  getDepartments(): Promise<schema.Department[]>;
+  createDepartment(data: schema.InsertDepartment): Promise<schema.Department>;
+  updateDepartment(id: number, data: Partial<schema.InsertDepartment>): Promise<schema.Department | undefined>;
+  deleteDepartment(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -473,6 +478,27 @@ export class DatabaseStorage implements IStorage {
     for (const s of settings) {
       await this.upsertPortalSetting(s.key, s.value, s.category);
     }
+  }
+
+  async getDepartments() {
+    return db.select().from(schema.departmentsTable).orderBy(schema.departmentsTable.sortOrder);
+  }
+
+  async createDepartment(data: schema.InsertDepartment) {
+    const [created] = await db.insert(schema.departmentsTable).values(data).returning();
+    return created;
+  }
+
+  async updateDepartment(id: number, data: Partial<schema.InsertDepartment>) {
+    const [updated] = await db.update(schema.departmentsTable)
+      .set(data)
+      .where(eq(schema.departmentsTable.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteDepartment(id: number) {
+    await db.delete(schema.departmentsTable).where(eq(schema.departmentsTable.id, id));
   }
 }
 

@@ -448,6 +448,46 @@ export async function registerRoutes(
     return res.json(null);
   });
 
+  // ===== DEPARTMENTS =====
+  app.get("/api/departments", async (_req, res) => {
+    const departments = await storage.getDepartments();
+    res.json(departments);
+  });
+
+  app.post("/api/departments", async (req, res) => {
+    try {
+      const dept = await storage.createDepartment(req.body);
+      res.status(201).json(dept);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/departments/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const updated = await storage.updateDepartment(id, req.body);
+    if (!updated) return res.status(404).json({ message: "Department not found" });
+    res.json(updated);
+  });
+
+  app.delete("/api/departments/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const users = await storage.getAllUsers();
+    const depts = await storage.getDepartments();
+    const dept = depts.find(d => d.id === id);
+    if (!dept) return res.status(404).json({ message: "Department not found" });
+    const usersInDept = users.filter(u => u.department === dept.name);
+    if (usersInDept.length > 0) {
+      return res.status(400).json({ message: `Cannot delete: ${usersInDept.length} user(s) are assigned to this department` });
+    }
+    const childDepts = depts.filter(d => d.parentId === id);
+    if (childDepts.length > 0) {
+      return res.status(400).json({ message: `Cannot delete: this department has ${childDepts.length} sub-department(s)` });
+    }
+    await storage.deleteDepartment(id);
+    res.status(204).end();
+  });
+
   // ===== PORTAL SETTINGS =====
   app.get("/api/portal-settings", async (_req, res) => {
     const settings = await storage.getPortalSettings();

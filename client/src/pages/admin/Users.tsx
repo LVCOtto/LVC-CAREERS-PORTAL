@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Search, UserPlus, Edit, Trash2, Shield, Users as UsersIcon, User as UserIcon, Download, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/lib/hooks';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useDepartments } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -67,6 +67,7 @@ export default function AdminUsers() {
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   const { data: users = [], isLoading } = useUsers();
+  const { data: departmentsList } = useDepartments();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
@@ -258,7 +259,17 @@ export default function AdminUsers() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="department">Department</Label>
-                  <Input id="department" placeholder="Enter department" value={newDepartment} onChange={e => setNewDepartment(e.target.value)} data-testid="input-department" />
+                  <Select value={newDepartment || "__none__"} onValueChange={v => setNewDepartment(v === "__none__" ? "" : v)}>
+                    <SelectTrigger data-testid="input-department">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Select department</SelectItem>
+                      {(departmentsList || []).map((d: any) => (
+                        <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="startDate">Start Date</Label>
@@ -454,7 +465,17 @@ export default function AdminUsers() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-department">Department</Label>
-                <Input id="edit-department" placeholder="Enter department" value={editDepartment} onChange={e => setEditDepartment(e.target.value)} data-testid="input-edit-department" />
+                <Select value={editDepartment || "__none__"} onValueChange={v => setEditDepartment(v === "__none__" ? "" : v)}>
+                  <SelectTrigger data-testid="input-edit-department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Select department</SelectItem>
+                    {(departmentsList || []).map((d: any) => (
+                      <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-startDate">Start Date</Label>

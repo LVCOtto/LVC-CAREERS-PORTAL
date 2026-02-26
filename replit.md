@@ -46,6 +46,7 @@ Employee training management system for LVC (cleaning equipment company) support
 - `career_nodes` - Career path structure
 - `training_records` - Compliance training records
 - `job_roles` - Job role definitions
+- `departments` - Organisation departments with name (unique), parentId (self-referencing hierarchy), color (Tailwind class), sortOrder
 - `portal_settings` - Key-value settings for portal customisation (branding, navigation labels, page visibility, wording, rating labels). Categories: branding, navigation, pages, wording, ratings
 
 ## Mock Users (for login)
@@ -78,7 +79,8 @@ The architect role is a non-employee user type for customising the portal. Archi
 - **Standards survey**: Role-specific task standards
 - **Certificates**: Definition + assignment system
 - **Career map**: Career nodes with progression paths. Career Map page pulls real data from database (competency scores from training matrix, certificates from user certificates, development focus from career node requirements, milestones from career_milestones table). No hardcoded/mock data — new users see proper empty states.
-- **Organisation page**: Hierarchical department tree using parentId relationships from departmentData.ts, department detail views with team structure and reporting lines, org chart driven by managerId
+- **Departments**: Database-driven department management (departments table with name, parentId hierarchy, color, sortOrder). Admins can add/edit/rename/delete departments from the Organisation page's "Manage Departments" tab. Department dropdown in User Management replaces free-text input. Deletion prevented if users assigned or child departments exist.
+- **Organisation page**: Hierarchical department tree using parentId relationships from database departments, department detail views with team structure and reporting lines, org chart driven by managerId
 - **CSV import/export**: Full import and export support across all admin areas
 - **Admin pages**: Full CRUD for Users, Templates (induction items, training matrix competencies, standards survey items), Job Roles, Resources, Certificates, Organisation
 - **Architect Studio**: Portal customisation for branding, navigation, pages, wording, and rating scale

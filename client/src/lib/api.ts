@@ -107,6 +107,12 @@ export const api = {
     setCategories: (id: number, categoryIds: number[]) =>
       apiFetch<{ success: boolean }>(`/job-roles/${id}/categories`, { method: "PUT", body: JSON.stringify({ categoryIds }) }),
   },
+  departments: {
+    list: () => apiFetch<any[]>("/departments"),
+    create: (data: any) => apiFetch<any>("/departments", { method: "POST", body: JSON.stringify(data) }),
+    update: (id: number, data: any) => apiFetch<any>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: number) => apiFetch<void>(`/departments/${id}`, { method: "DELETE" }),
+  },
   competenciesForRole: {
     get: (jobRole: string) => apiFetch<any[] | null>(`/competencies-for-role?jobRole=${encodeURIComponent(jobRole)}`),
   },

@@ -238,3 +238,15 @@ export const portalSettings = pgTable("portal_settings", {
 export const insertPortalSettingSchema = createInsertSchema(portalSettings).omit({ id: true });
 export type InsertPortalSetting = z.infer<typeof insertPortalSettingSchema>;
 export type PortalSetting = typeof portalSettings.$inferSelect;
+
+export const departmentsTable = pgTable("departments", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 200 }).notNull().unique(),
+  parentId: integer("parent_id"),
+  color: varchar("color", { length: 100 }).notNull().default("bg-gray-500"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertDepartmentSchema = createInsertSchema(departmentsTable).omit({ id: true });
+export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
+export type Department = typeof departmentsTable.$inferSelect;

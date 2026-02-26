@@ -5,28 +5,65 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Building2,
   Users,
   Briefcase,
   ChevronRight,
   ChevronDown,
-  User,
   Network,
   Search,
   ArrowLeft,
+  Plus,
+  Edit,
+  Trash2,
+  Settings,
 } from 'lucide-react';
-import { useUsers } from '@/lib/hooks';
+import { useUsers, useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
-import { departments as deptConfig } from '@/lib/departmentData';
+import { useToast } from '@/hooks/use-toast';
 
-function OrgChartNode({ user, allUsers, level = 0 }: { user: any; allUsers: any[]; level?: number }) {
+const COLOR_PRESETS = [
+  { value: 'bg-slate-600', label: 'Slate' },
+  { value: 'bg-gray-600', label: 'Gray' },
+  { value: 'bg-red-600', label: 'Red' },
+  { value: 'bg-orange-600', label: 'Orange' },
+  { value: 'bg-amber-600', label: 'Amber' },
+  { value: 'bg-yellow-600', label: 'Yellow' },
+  { value: 'bg-emerald-600', label: 'Emerald' },
+  { value: 'bg-teal-600', label: 'Teal' },
+  { value: 'bg-cyan-600', label: 'Cyan' },
+  { value: 'bg-sky-600', label: 'Sky' },
+  { value: 'bg-blue-600', label: 'Blue' },
+  { value: 'bg-indigo-600', label: 'Indigo' },
+  { value: 'bg-purple-600', label: 'Purple' },
+  { value: 'bg-pink-600', label: 'Pink' },
+  { value: 'bg-rose-600', label: 'Rose' },
+];
+
+function OrgChartNode({ user, allUsers, departments, level = 0 }: { user: any; allUsers: any[]; departments: any[]; level?: number }) {
   const [expanded, setExpanded] = useState(level < 2);
   const directReports = allUsers.filter((u: any) => u.managerId === user.id);
   const hasReports = directReports.length > 0;
 
-  const deptDef = deptConfig.find(d => d.name === user.department);
+  const deptDef = departments.find((d: any) => d.name === user.department);
   const deptColor = deptDef?.color || 'bg-gray-500';
 
   return (
@@ -66,7 +103,7 @@ function OrgChartNode({ user, allUsers, level = 0 }: { user: any; allUsers: any[
       {expanded && hasReports && (
         <div className="ml-8 mt-2 space-y-2 border-l-2 border-muted pl-4">
           {directReports.map((report: any) => (
-            <OrgChartNode key={report.id} user={report} allUsers={allUsers} level={level + 1} />
+            <OrgChartNode key={report.id} user={report} allUsers={allUsers} departments={departments} level={level + 1} />
           ))}
         </div>
       )}
@@ -75,38 +112,41 @@ function OrgChartNode({ user, allUsers, level = 0 }: { user: any; allUsers: any[
 }
 
 interface DeptTreeNode {
-  id: string;
+  id: number;
   name: string;
   color: string;
-  parentId?: string;
+  parentId: number | null;
+  sortOrder: number;
   children: DeptTreeNode[];
   members: any[];
 }
 
-function buildDeptTree(allUsers: any[]): DeptTreeNode[] {
-  const uniqueDeptNames = Array.from(new Set(allUsers.map((u: any) => u.department).filter(Boolean)));
-
-  const nodes: DeptTreeNode[] = deptConfig.map(dc => ({
-    id: dc.id,
-    name: dc.name,
-    color: dc.color,
-    parentId: dc.parentId,
+function buildDeptTree(departments: any[], allUsers: any[]): DeptTreeNode[] {
+  const nodes: DeptTreeNode[] = departments.map((d: any) => ({
+    id: d.id,
+    name: d.name,
+    color: d.color || 'bg-gray-500',
+    parentId: d.parentId,
+    sortOrder: d.sortOrder || 0,
     children: [],
-    members: allUsers.filter((u: any) => u.department === dc.name),
+    members: allUsers.filter((u: any) => u.department === d.name),
   }));
 
-  const unknownDepts = uniqueDeptNames.filter(name => !deptConfig.find(dc => dc.name === name));
-  unknownDepts.forEach(name => {
+  const unknownDeptNames = Array.from(new Set(allUsers.map((u: any) => u.department).filter(Boolean)))
+    .filter(name => !departments.find((d: any) => d.name === name));
+  unknownDeptNames.forEach((name, idx) => {
     nodes.push({
-      id: `dept-custom-${name}`,
-      name,
+      id: -(idx + 1),
+      name: name as string,
       color: 'bg-gray-500',
+      parentId: null,
+      sortOrder: 999,
       children: [],
       members: allUsers.filter((u: any) => u.department === name),
     });
   });
 
-  const nodeMap = new Map<string, DeptTreeNode>();
+  const nodeMap = new Map<number, DeptTreeNode>();
   nodes.forEach(n => nodeMap.set(n.id, n));
 
   const roots: DeptTreeNode[] = [];
@@ -117,6 +157,12 @@ function buildDeptTree(allUsers: any[]): DeptTreeNode[] {
       roots.push(node);
     }
   });
+
+  const sortNodes = (list: DeptTreeNode[]) => {
+    list.sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    list.forEach(n => sortNodes(n.children));
+  };
+  sortNodes(roots);
 
   return roots;
 }
@@ -130,8 +176,6 @@ function DeptTreeItem({ node, level = 0, onSelect }: { node: DeptTreeNode; level
   const hasChildren = node.children.length > 0;
   const totalMembers = getTotalMembers(node);
   const directMembers = node.members.length;
-
-  if (totalMembers === 0 && !hasChildren) return null;
 
   return (
     <div>
@@ -341,28 +385,274 @@ function MemberTree({ user, allDeptMembers, allUsers, level = 0 }: { user: any; 
   );
 }
 
+function DepartmentManagement({ departments, users }: { departments: any[]; users: any[] }) {
+  const { toast } = useToast();
+  const createDept = useCreateDepartment();
+  const updateDept = useUpdateDepartment();
+  const deleteDept = useDeleteDepartment();
+
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingDept, setEditingDept] = useState<any>(null);
+
+  const [formName, setFormName] = useState('');
+  const [formColor, setFormColor] = useState('bg-gray-600');
+  const [formParentId, setFormParentId] = useState<string>('__none__');
+  const [formSortOrder, setFormSortOrder] = useState('0');
+
+  const resetForm = () => {
+    setFormName('');
+    setFormColor('bg-gray-600');
+    setFormParentId('__none__');
+    setFormSortOrder('0');
+  };
+
+  const openEdit = (dept: any) => {
+    setEditingDept(dept);
+    setFormName(dept.name);
+    setFormColor(dept.color || 'bg-gray-600');
+    setFormParentId(dept.parentId ? String(dept.parentId) : '__none__');
+    setFormSortOrder(String(dept.sortOrder || 0));
+    setIsEditOpen(true);
+  };
+
+  const handleCreate = async () => {
+    if (!formName.trim()) return;
+    try {
+      await createDept.mutateAsync({
+        name: formName.trim(),
+        color: formColor,
+        parentId: formParentId === '__none__' ? null : parseInt(formParentId),
+        sortOrder: parseInt(formSortOrder) || 0,
+      });
+      toast({ title: 'Department created' });
+      setIsAddOpen(false);
+      resetForm();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingDept || !formName.trim()) return;
+    try {
+      await updateDept.mutateAsync({
+        id: editingDept.id,
+        name: formName.trim(),
+        color: formColor,
+        parentId: formParentId === '__none__' ? null : parseInt(formParentId),
+        sortOrder: parseInt(formSortOrder) || 0,
+      });
+      toast({ title: 'Department updated' });
+      setIsEditOpen(false);
+      setEditingDept(null);
+      resetForm();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = async (dept: any) => {
+    const assignedUsers = users.filter((u: any) => u.department === dept.name);
+    const childDepts = departments.filter((d: any) => d.parentId === dept.id);
+    if (assignedUsers.length > 0) {
+      toast({ title: 'Cannot delete', description: `${assignedUsers.length} user(s) are assigned to this department. Reassign them first.`, variant: 'destructive' });
+      return;
+    }
+    if (childDepts.length > 0) {
+      toast({ title: 'Cannot delete', description: `This department has ${childDepts.length} sub-department(s). Remove or reassign them first.`, variant: 'destructive' });
+      return;
+    }
+    if (!confirm(`Delete "${dept.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteDept.mutateAsync(dept.id);
+      toast({ title: 'Department deleted' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
+  const getParentName = (parentId: number | null) => {
+    if (!parentId) return null;
+    const parent = departments.find((d: any) => d.id === parentId);
+    return parent?.name || null;
+  };
+
+  const getAvailableParents = (excludeId?: number) => {
+    return departments.filter((d: any) => d.id !== excludeId);
+  };
+
+  const sortedDepts = [...departments].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name));
+
+  const formFields = (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Department Name</Label>
+        <Input
+          value={formName}
+          onChange={e => setFormName(e.target.value)}
+          placeholder="e.g. Engineering"
+          data-testid="input-dept-name"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Colour</Label>
+        <div className="flex flex-wrap gap-2">
+          {COLOR_PRESETS.map(c => (
+            <button
+              key={c.value}
+              type="button"
+              className={`h-8 w-8 rounded-lg ${c.value} transition-all ${formColor === c.value ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'opacity-70 hover:opacity-100'}`}
+              onClick={() => setFormColor(c.value)}
+              title={c.label}
+              data-testid={`color-${c.value}`}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Parent Department</Label>
+        <Select value={formParentId} onValueChange={setFormParentId}>
+          <SelectTrigger data-testid="select-dept-parent">
+            <SelectValue placeholder="None (top level)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None (top level)</SelectItem>
+            {getAvailableParents(editingDept?.id).map((d: any) => (
+              <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Sort Order</Label>
+        <Input
+          type="number"
+          value={formSortOrder}
+          onChange={e => setFormSortOrder(e.target.value)}
+          placeholder="0"
+          data-testid="input-dept-sort"
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary" />
+              Manage Departments
+            </CardTitle>
+            <CardDescription>
+              Add, edit, rename, and delete departments. Changes apply across the system.
+            </CardDescription>
+          </div>
+          <Button onClick={() => { resetForm(); setIsAddOpen(true); }} className="gap-2" data-testid="button-add-department">
+            <Plus className="h-4 w-4" />
+            Add Department
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {sortedDepts.map((dept: any) => {
+            const assignedCount = users.filter((u: any) => u.department === dept.name).length;
+            const parentName = getParentName(dept.parentId);
+            return (
+              <div key={dept.id} className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50" data-testid={`dept-manage-${dept.id}`}>
+                <div className={`h-10 w-10 rounded-lg ${dept.color || 'bg-gray-500'} flex items-center justify-center flex-shrink-0`}>
+                  <Building2 className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium">{dept.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {parentName ? `Under ${parentName}` : 'Top level'}
+                    {' · '}{assignedCount} user{assignedCount !== 1 ? 's' : ''}
+                    {dept.sortOrder > 0 && ` · Order: ${dept.sortOrder}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(dept)} data-testid={`button-edit-dept-${dept.id}`}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(dept)} data-testid={`button-delete-dept-${dept.id}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {sortedDepts.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Building2 className="h-10 w-10 mx-auto mb-3 opacity-50" />
+              <p>No departments yet. Add your first department to get started.</p>
+            </div>
+          )}
+        </div>
+      </CardContent>
+
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Department</DialogTitle>
+            <DialogDescription>Create a new department in the organisation.</DialogDescription>
+          </DialogHeader>
+          {formFields}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={!formName.trim() || createDept.isPending} data-testid="button-save-dept">
+              {createDept.isPending ? 'Creating...' : 'Create'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Department</DialogTitle>
+            <DialogDescription>Update department details.</DialogDescription>
+          </DialogHeader>
+          {formFields}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdate} disabled={!formName.trim() || updateDept.isPending} data-testid="button-update-dept">
+              {updateDept.isPending ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
 export default function Organisation() {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('chart');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState<DeptTreeNode | null>(null);
 
-  const { data: users = [], isLoading } = useUsers();
+  const { data: users = [], isLoading: usersLoading } = useUsers();
+  const { data: departments = [], isLoading: deptsLoading } = useDepartments();
 
   if (!currentUser) return null;
 
+  const isLoading = usersLoading || deptsLoading;
   const rootUsers = users.filter((u: any) => !u.managerId);
 
   const filteredUsers = searchQuery
     ? users.filter((u: any) =>
-        u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.jobRole.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        u.department.toLowerCase().includes(searchQuery.toLowerCase())
+        u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.jobRole?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.department?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : [];
 
-  const deptTree = buildDeptTree(users);
-  const departments = Array.from(new Set(users.map((u: any) => u.department).filter(Boolean)));
+  const deptTree = buildDeptTree(departments, users);
+  const uniqueDepts = Array.from(new Set(users.map((u: any) => u.department).filter(Boolean)));
 
   return (
     <Layout>
@@ -400,7 +690,7 @@ export default function Organisation() {
                 <CardContent>
                   <div className="space-y-2">
                     {filteredUsers.map((u: any) => {
-                      const deptDef = deptConfig.find(d => d.name === u.department);
+                      const deptDef = departments.find((d: any) => d.name === u.department);
                       const deptColor = deptDef?.color || 'bg-gray-500';
                       const manager = users.find((m: any) => m.id === u.managerId);
                       return (
@@ -496,6 +786,12 @@ export default function Organisation() {
                     <Building2 className="h-4 w-4" />
                     Departments
                   </TabsTrigger>
+                  {(currentUser.role === 'admin') && (
+                    <TabsTrigger value="manage" className="gap-2" data-testid="tab-manage-departments">
+                      <Settings className="h-4 w-4" />
+                      Manage Departments
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </div>
 
@@ -514,7 +810,7 @@ export default function Organisation() {
                     <div className="space-y-3">
                       {rootUsers.length > 0 ? (
                         rootUsers.map((user: any) => (
-                          <OrgChartNode key={user.id} user={user} allUsers={users} />
+                          <OrgChartNode key={user.id} user={user} allUsers={users} departments={departments} />
                         ))
                       ) : (
                         <div className="text-center py-8 text-muted-foreground">
@@ -554,7 +850,7 @@ export default function Organisation() {
                         ) : (
                           <div className="text-center py-8 text-muted-foreground">
                             <Building2 className="h-10 w-10 mx-auto mb-3 opacity-50" />
-                            <p>No departments found. Add users with department assignments.</p>
+                            <p>No departments found. Add departments in the Manage tab.</p>
                           </div>
                         )}
                       </div>
@@ -562,6 +858,12 @@ export default function Organisation() {
                   </Card>
                 )}
               </TabsContent>
+
+              {(currentUser.role === 'admin') && (
+                <TabsContent value="manage">
+                  <DepartmentManagement departments={departments} users={users} />
+                </TabsContent>
+              )}
             </Tabs>
           </>
         )}

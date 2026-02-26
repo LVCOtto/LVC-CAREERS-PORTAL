@@ -347,3 +347,28 @@ export function useDeleteStandardsSurveyItem() {
     onSuccess: () => invalidate("standards-surveys"),
   });
 }
+
+export function useDepartments() {
+  return useQuery({ queryKey: ["departments"], queryFn: api.departments.list });
+}
+
+export function useCreateDepartment() {
+  return useMutation({
+    mutationFn: (data: any) => api.departments.create(data),
+    onSuccess: () => invalidate("departments"),
+  });
+}
+
+export function useUpdateDepartment() {
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: number; [key: string]: any }) => api.departments.update(id, data),
+    onSuccess: () => invalidate("departments"),
+  });
+}
+
+export function useDeleteDepartment() {
+  return useMutation({
+    mutationFn: (id: number) => api.departments.delete(id),
+    onSuccess: () => invalidate("departments"),
+  });
+}

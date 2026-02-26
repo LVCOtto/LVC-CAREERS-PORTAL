@@ -419,6 +419,40 @@ async function seed() {
   }
   console.log("Standards surveys seeded");
 
+  const deptData = [
+    { name: 'Directors', color: 'bg-slate-600', sortOrder: 0 },
+    { name: 'Operations', color: 'bg-emerald-600', sortOrder: 1 },
+    { name: 'Engineering', color: 'bg-blue-600', sortOrder: 2 },
+    { name: 'Service Coordination', color: 'bg-amber-600', sortOrder: 3 },
+    { name: 'Warehouse & Logistics', color: 'bg-orange-600', sortOrder: 4 },
+    { name: 'Hire Department', color: 'bg-teal-600', sortOrder: 5 },
+    { name: 'Workshop', color: 'bg-sky-600', sortOrder: 6 },
+    { name: 'Sales & Product Support', color: 'bg-purple-600', sortOrder: 7 },
+    { name: 'Accounts', color: 'bg-cyan-600', sortOrder: 8 },
+    { name: 'H&S / HR / Quality', color: 'bg-red-600', sortOrder: 9 },
+    { name: 'IT & Procurement', color: 'bg-indigo-600', sortOrder: 10 },
+    { name: 'Human Resources', color: 'bg-pink-600', sortOrder: 11 },
+  ];
+  const insertedDepts: Record<string, number> = {};
+  for (const d of deptData) {
+    const [row] = await db.insert(schema.departmentsTable).values(d).returning();
+    insertedDepts[d.name] = row.id;
+  }
+  const deptParents: Record<string, string> = {
+    'Operations': 'Directors', 'Engineering': 'Operations', 'Service Coordination': 'Operations',
+    'Warehouse & Logistics': 'Operations', 'Hire Department': 'Operations', 'Workshop': 'Operations',
+    'Sales & Product Support': 'Directors', 'Accounts': 'Directors', 'H&S / HR / Quality': 'Directors',
+    'IT & Procurement': 'Directors', 'Human Resources': 'Directors',
+  };
+  for (const [child, parent] of Object.entries(deptParents)) {
+    if (insertedDepts[child] && insertedDepts[parent]) {
+      await db.update(schema.departmentsTable)
+        .set({ parentId: insertedDepts[parent] })
+        .where(eq(schema.departmentsTable.id, insertedDepts[child]));
+    }
+  }
+  console.log("Departments seeded");
+
   console.log("Seed complete!");
 }
 

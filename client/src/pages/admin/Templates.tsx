@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   useInductionTemplates,
   useCompetencies,
@@ -40,6 +41,14 @@ import {
   useCreateStandardsSurveyItem,
   useUpdateStandardsSurveyItem,
   useDeleteStandardsSurveyItem,
+  useCreateCompetencyCategory,
+  useUpdateCompetencyCategory,
+  useDeleteCompetencyCategory,
+  useCreateCompetencyItem,
+  useUpdateCompetencyItem,
+  useDeleteCompetencyItem,
+  useCreateStandardsSurveyRole,
+  useDeleteStandardsSurveyRole,
 } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
@@ -59,6 +68,16 @@ export default function AdminTemplates() {
   const createSurveyItem = useCreateStandardsSurveyItem();
   const updateSurveyItem = useUpdateStandardsSurveyItem();
   const deleteSurveyItem = useDeleteStandardsSurveyItem();
+
+  const createCategory = useCreateCompetencyCategory();
+  const updateCategory = useUpdateCompetencyCategory();
+  const deleteCategory = useDeleteCompetencyCategory();
+  const createSkillItem = useCreateCompetencyItem();
+  const updateSkillItem = useUpdateCompetencyItem();
+  const deleteSkillItem = useDeleteCompetencyItem();
+
+  const createSurveyRole = useCreateStandardsSurveyRole();
+  const deleteSurveyRole = useDeleteStandardsSurveyRole();
 
   const [surveySearch, setSurveySearch] = useState('');
   const [editingSurvey, setEditingSurvey] = useState<any | null>(null);
@@ -86,6 +105,24 @@ export default function AdminTemplates() {
   const [importInductionOpen, setImportInductionOpen] = useState(false);
   const [importCompetenciesOpen, setImportCompetenciesOpen] = useState(false);
   const [importStandardsOpen, setImportStandardsOpen] = useState(false);
+
+  const [categoryDialog, setCategoryDialog] = useState<{
+    open: boolean;
+    mode: 'add' | 'edit';
+    category?: any;
+  }>({ open: false, mode: 'add' });
+  const [categoryForm, setCategoryForm] = useState({ name: '', departmentType: 'all', sortOrder: 0 });
+
+  const [skillItemDialog, setSkillItemDialog] = useState<{
+    open: boolean;
+    mode: 'add' | 'edit';
+    item?: any;
+    categoryId?: number;
+  }>({ open: false, mode: 'add' });
+  const [skillItemForm, setSkillItemForm] = useState({ name: '', description: '', sortOrder: 0 });
+
+  const [surveyRoleDialog, setSurveyRoleDialog] = useState(false);
+  const [surveyRoleForm, setSurveyRoleForm] = useState({ roleTitle: '', roleSlug: '' });
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
@@ -225,6 +262,131 @@ export default function AdminTemplates() {
     }
   };
 
+  const openAddCategory = () => {
+    setCategoryForm({ name: '', departmentType: 'all', sortOrder: competencies.length });
+    setCategoryDialog({ open: true, mode: 'add' });
+  };
+
+  const openEditCategory = (cat: any) => {
+    setCategoryForm({ name: cat.name, departmentType: cat.departmentType || 'all', sortOrder: cat.sortOrder || 0 });
+    setCategoryDialog({ open: true, mode: 'edit', category: cat });
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast({ title: 'Missing name', description: 'Please enter a category name.', variant: 'destructive' });
+      return;
+    }
+    try {
+      if (categoryDialog.mode === 'edit' && categoryDialog.category) {
+        await updateCategory.mutateAsync({
+          id: categoryDialog.category.id,
+          data: { name: categoryForm.name, departmentType: categoryForm.departmentType, sortOrder: categoryForm.sortOrder },
+        });
+        toast({ title: 'Updated', description: 'Skill category updated.' });
+      } else {
+        const slug = categoryForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        await createCategory.mutateAsync({
+          slug: `${slug}-${Date.now().toString(36)}`,
+          name: categoryForm.name,
+          departmentType: categoryForm.departmentType,
+          sortOrder: categoryForm.sortOrder,
+        });
+        toast({ title: 'Created', description: 'Skill category created.' });
+      }
+      setCategoryDialog({ open: false, mode: 'add' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to save category.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteCategory = async (cat: any) => {
+    if (!confirm(`Delete "${cat.name}" and all its items? This cannot be undone.`)) return;
+    try {
+      await deleteCategory.mutateAsync(cat.id);
+      toast({ title: 'Deleted', description: `"${cat.name}" has been deleted.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to delete category.', variant: 'destructive' });
+    }
+  };
+
+  const openAddSkillItem = (categoryId: number) => {
+    const cat = competencies.find((c: any) => c.id === categoryId);
+    const maxSort = cat?.items?.length || 0;
+    setSkillItemForm({ name: '', description: '', sortOrder: maxSort + 1 });
+    setSkillItemDialog({ open: true, mode: 'add', categoryId });
+  };
+
+  const openEditSkillItem = (item: any) => {
+    setSkillItemForm({ name: item.name, description: item.description || '', sortOrder: item.sortOrder || 0 });
+    setSkillItemDialog({ open: true, mode: 'edit', item });
+  };
+
+  const handleSaveSkillItem = async () => {
+    if (!skillItemForm.name.trim()) {
+      toast({ title: 'Missing name', description: 'Please enter a skill name.', variant: 'destructive' });
+      return;
+    }
+    try {
+      if (skillItemDialog.mode === 'edit' && skillItemDialog.item) {
+        await updateSkillItem.mutateAsync({
+          id: skillItemDialog.item.id,
+          data: { name: skillItemForm.name, description: skillItemForm.description, sortOrder: skillItemForm.sortOrder },
+        });
+        toast({ title: 'Updated', description: 'Skill item updated.' });
+      } else {
+        const slug = skillItemForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        await createSkillItem.mutateAsync({
+          categoryId: skillItemDialog.categoryId,
+          slug: `${slug}-${Date.now().toString(36)}`,
+          name: skillItemForm.name,
+          description: skillItemForm.description,
+          sortOrder: skillItemForm.sortOrder,
+        });
+        toast({ title: 'Created', description: 'Skill item added.' });
+      }
+      setSkillItemDialog({ open: false, mode: 'add' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to save item.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteSkillItem = async (item: any) => {
+    if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+    try {
+      await deleteSkillItem.mutateAsync(item.id);
+      toast({ title: 'Deleted', description: `"${item.name}" has been deleted.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to delete item.', variant: 'destructive' });
+    }
+  };
+
+  const handleCreateSurveyRole = async () => {
+    if (!surveyRoleForm.roleTitle.trim()) {
+      toast({ title: 'Missing title', description: 'Please enter a role title.', variant: 'destructive' });
+      return;
+    }
+    const slug = surveyRoleForm.roleSlug.trim() || surveyRoleForm.roleTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    try {
+      await createSurveyRole.mutateAsync({ roleTitle: surveyRoleForm.roleTitle.trim(), roleSlug: slug });
+      toast({ title: 'Created', description: 'Survey template created. You can now add items to it.' });
+      setSurveyRoleDialog(false);
+      setSurveyRoleForm({ roleTitle: '', roleSlug: '' });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to create survey.', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteSurveyRole = async (survey: any) => {
+    if (!confirm(`Delete the "${survey.roleTitle}" survey and all its items? This cannot be undone.`)) return;
+    try {
+      await deleteSurveyRole.mutateAsync(survey.id);
+      toast({ title: 'Deleted', description: `"${survey.roleTitle}" survey deleted.` });
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to delete survey.', variant: 'destructive' });
+    }
+  };
+
   const filteredSurveys = standardsSurveys.filter((s: any) =>
     s.roleTitle.toLowerCase().includes(surveySearch.toLowerCase())
   );
@@ -235,7 +397,7 @@ export default function AdminTemplates() {
         <div>
           <h1 className="font-display text-3xl font-bold text-foreground">Templates</h1>
           <p className="text-muted-foreground mt-1">
-            Manage induction checklists and training matrix templates
+            Manage induction checklists, training matrix, and standards survey templates
           </p>
         </div>
 
@@ -391,9 +553,9 @@ export default function AdminTemplates() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold">Training Matrix Templates</h2>
+                  <h2 className="text-xl font-semibold">Training Matrix Skills</h2>
                   <p className="text-sm text-muted-foreground">
-                    Define training requirements for each job role
+                    Define skill categories and items for the training matrix
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -405,47 +567,88 @@ export default function AdminTemplates() {
                     <Upload className="h-4 w-4" />
                     Import
                   </Button>
+                  <Button onClick={openAddCategory} data-testid="button-add-skill-category">
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Category
+                  </Button>
                 </div>
               </div>
 
               {loadingCompetencies ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
-              ) : (
+              ) : competencies.length === 0 ? (
                 <Card className="border-border/50">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <GraduationCap className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">Training Matrix Competencies</CardTitle>
-                        <CardDescription>All Departments</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid md:grid-cols-2 gap-4">
-                      {competencies.map((category: any) => (
-                        <div key={category.id} className="p-4 rounded-lg bg-muted/50">
-                          <div className="flex items-center justify-between mb-3">
-                            <h4 className="font-medium">{category.name}</h4>
-                            <Badge variant="secondary">{(category.items || []).length} items</Badge>
-                          </div>
-                          <div className="space-y-2">
-                            {(category.items || []).map((item: any) => (
-                              <div
-                                key={item.id}
-                                className="flex items-center justify-between p-2 rounded bg-background"
-                              >
-                                <span className="text-sm">{item.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                  <CardContent className="py-12 text-center">
+                    <GraduationCap className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                    <p className="font-medium">No skill categories yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">Click "New Category" to create your first skill category, or import from CSV.</p>
                   </CardContent>
                 </Card>
+              ) : (
+                <div className="space-y-4">
+                  {competencies.map((category: any) => (
+                    <Card key={category.id} className="border-border/50" data-testid={`skill-category-${category.id}`}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <GraduationCap className="w-5 h-5 text-primary" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{category.name}</CardTitle>
+                              <CardDescription>
+                                {category.departmentType === 'all' ? 'All departments' : category.departmentType} · {(category.items || []).length} skills
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditCategory(category)} data-testid={`button-edit-category-${category.id}`}>
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(category)} data-testid={`button-delete-category-${category.id}`}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-2">
+                          {(category.items || []).map((item: any) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                            >
+                              <div>
+                                <span className="text-sm font-medium">{item.name}</span>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground">{item.description}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditSkillItem(item)} data-testid={`button-edit-skill-${item.id}`}>
+                                  <Edit className="w-3 h-3" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteSkillItem(item)} data-testid={`button-delete-skill-${item.id}`}>
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full mt-2"
+                            onClick={() => openAddSkillItem(category.id)}
+                            data-testid={`button-add-skill-item-${category.id}`}
+                          >
+                            <Plus className="w-4 h-4 mr-1" />
+                            Add Skill
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               )}
             </div>
           </TabsContent>
@@ -456,7 +659,7 @@ export default function AdminTemplates() {
                 <div>
                   <h2 className="text-xl font-semibold">Standards Survey Templates</h2>
                   <p className="text-sm text-muted-foreground">
-                    Link and maintain the standards survey for each job role
+                    Create and manage standards surveys for each job role
                   </p>
                 </div>
 
@@ -468,6 +671,10 @@ export default function AdminTemplates() {
                   <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportStandardsOpen(true)} data-testid="button-import-standards">
                     <Upload className="h-4 w-4" />
                     Import
+                  </Button>
+                  <Button onClick={() => setSurveyRoleDialog(true)} data-testid="button-add-survey-role">
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Survey
                   </Button>
                   <div className="relative">
                     <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
@@ -518,15 +725,26 @@ export default function AdminTemplates() {
                                 <Edit className="w-4 h-4 mr-1" />
                                 Edit
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteSurveyRole(survey)}
+                                data-testid={`button-delete-standards-${survey.id}`}
+                              >
+                                <Trash2 className="w-4 h-4 mr-1" />
+                                Delete
+                              </Button>
                             </div>
                           </div>
                         </CardHeader>
 
                         <CardContent>
                           <div className="rounded-lg border bg-muted/20 p-4">
-                            <p className="text-sm font-medium" data-testid={`text-standards-preview-title-${survey.id}`}>Preview</p>
-                            {(survey.items || []).length > 0 && (
-                              <div className="mt-3 grid sm:grid-cols-2 gap-2">
+                            {taskCount === 0 ? (
+                              <p className="text-sm text-muted-foreground text-center py-2">No items yet. Click Edit to add items.</p>
+                            ) : (
+                              <div className="space-y-2">
                                 {(survey.items || []).slice(0, 4).map((item: any) => (
                                   <div key={item.id} className="p-2 rounded-md bg-background border text-sm" data-testid={`row-standards-item-${survey.id}-${item.id}`}>
                                     {item.text}
@@ -549,8 +767,8 @@ export default function AdminTemplates() {
                     <Card className="border-border/50">
                       <CardContent className="py-12 text-center">
                         <ClipboardList className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                        <p className="font-medium">No job roles match that search</p>
-                        <p className="text-sm text-muted-foreground mt-1">Try a different keyword.</p>
+                        <p className="font-medium">{surveySearch ? 'No job roles match that search' : 'No survey templates yet'}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{surveySearch ? 'Try a different keyword.' : 'Click "New Survey" to create your first survey template.'}</p>
                       </CardContent>
                     </Card>
                   )}
@@ -727,6 +945,144 @@ export default function AdminTemplates() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={categoryDialog.open} onOpenChange={(open) => !open && setCategoryDialog({ open: false, mode: 'add' })}>
+          <DialogContent data-testid="dialog-skill-category">
+            <DialogHeader>
+              <DialogTitle>
+                {categoryDialog.mode === 'edit' ? 'Edit Skill Category' : 'New Skill Category'}
+              </DialogTitle>
+              <DialogDescription>
+                {categoryDialog.mode === 'edit' ? 'Update this skill category.' : 'Create a new category to group related skills.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="cat-name">Category Name</Label>
+                <Input
+                  id="cat-name"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({ ...categoryForm, name: e.target.value })}
+                  placeholder="e.g. Equipment Knowledge"
+                  data-testid="input-category-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="cat-dept">Department Type</Label>
+                <Select value={categoryForm.departmentType} onValueChange={(v) => setCategoryForm({ ...categoryForm, departmentType: v })}>
+                  <SelectTrigger data-testid="select-category-dept">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Departments</SelectItem>
+                    <SelectItem value="engineering">Engineering</SelectItem>
+                    <SelectItem value="admin">Admin / Office</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCategoryDialog({ open: false, mode: 'add' })} data-testid="button-cancel-category">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveCategory}
+                disabled={createCategory.isPending || updateCategory.isPending}
+                data-testid="button-save-category"
+              >
+                {categoryDialog.mode === 'edit' ? 'Save Changes' : 'Create Category'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={skillItemDialog.open} onOpenChange={(open) => !open && setSkillItemDialog({ open: false, mode: 'add' })}>
+          <DialogContent data-testid="dialog-skill-item">
+            <DialogHeader>
+              <DialogTitle>
+                {skillItemDialog.mode === 'edit' ? 'Edit Skill' : 'Add Skill'}
+              </DialogTitle>
+              <DialogDescription>
+                {skillItemDialog.mode === 'edit' ? 'Update this skill item.' : 'Add a new skill to this category.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="skill-name">Skill Name</Label>
+                <Input
+                  id="skill-name"
+                  value={skillItemForm.name}
+                  onChange={(e) => setSkillItemForm({ ...skillItemForm, name: e.target.value })}
+                  placeholder="e.g. Scrubber Dryer Operation"
+                  data-testid="input-skill-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="skill-desc">Description (optional)</Label>
+                <Input
+                  id="skill-desc"
+                  value={skillItemForm.description}
+                  onChange={(e) => setSkillItemForm({ ...skillItemForm, description: e.target.value })}
+                  placeholder="Brief description of what this skill covers"
+                  data-testid="input-skill-description"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSkillItemDialog({ open: false, mode: 'add' })} data-testid="button-cancel-skill-item">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveSkillItem}
+                disabled={createSkillItem.isPending || updateSkillItem.isPending}
+                data-testid="button-save-skill-item"
+              >
+                {skillItemDialog.mode === 'edit' ? 'Save Changes' : 'Add Skill'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={surveyRoleDialog} onOpenChange={setSurveyRoleDialog}>
+          <DialogContent data-testid="dialog-survey-role">
+            <DialogHeader>
+              <DialogTitle>New Standards Survey</DialogTitle>
+              <DialogDescription>
+                Create a new standards survey template for a job role. You can add items after creating it.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="survey-role-title">Role Title</Label>
+                <Input
+                  id="survey-role-title"
+                  value={surveyRoleForm.roleTitle}
+                  onChange={(e) => setSurveyRoleForm({ ...surveyRoleForm, roleTitle: e.target.value })}
+                  placeholder="e.g. Service Engineer"
+                  data-testid="input-survey-role-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="survey-role-slug">Slug (optional, auto-generated if empty)</Label>
+                <Input
+                  id="survey-role-slug"
+                  value={surveyRoleForm.roleSlug}
+                  onChange={(e) => setSurveyRoleForm({ ...surveyRoleForm, roleSlug: e.target.value })}
+                  placeholder="e.g. service-engineer"
+                  data-testid="input-survey-role-slug"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSurveyRoleDialog(false)} data-testid="button-cancel-survey-role">
+                Cancel
+              </Button>
+              <Button onClick={handleCreateSurveyRole} disabled={createSurveyRole.isPending} data-testid="button-save-survey-role">
+                Create Survey
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <CsvImportDialog
           open={importInductionOpen}
           onOpenChange={setImportInductionOpen}
@@ -740,8 +1096,8 @@ export default function AdminTemplates() {
         <CsvImportDialog
           open={importCompetenciesOpen}
           onOpenChange={setImportCompetenciesOpen}
-          title="Import Training Matrix Competencies"
-          description="Upload a CSV to bulk-create competency categories and items. Categories are auto-created if they don't exist."
+          title="Import Training Matrix Skills"
+          description="Upload a CSV to bulk-create skill categories and items. Categories are auto-created if they don't exist."
           expectedColumns={['category_name', 'category_department_type', 'category_sort_order', 'item_name', 'item_description', 'item_sort_order']}
           onImport={(rows) => api.importCsv('competencies', rows)}
           onComplete={() => window.location.reload()}

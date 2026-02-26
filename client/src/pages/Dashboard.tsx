@@ -182,7 +182,7 @@ function ColleagueDashboard({ user }: { user: User }) {
                       <Target className="h-6 w-6 text-purple-600" />
                     </div>
                     <div>
-                      <h3 className="font-semibold">Competency & Skills</h3>
+                      <h3 className="font-semibold">Skills & Development</h3>
                       <p className="text-sm text-muted-foreground">View your training matrix and skill levels</p>
                     </div>
                   </div>

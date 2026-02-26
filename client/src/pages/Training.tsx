@@ -34,7 +34,7 @@ const competencyLevels = [
   { value: 0, label: 'No Experience', description: 'Has no experience, or does not understand', color: 'bg-gray-200 text-gray-600' },
   { value: 1, label: 'Needs Training', description: 'Has some experience but not confident, more training required', color: 'bg-red-100 text-red-700' },
   { value: 2, label: 'Developing', description: 'Has experience and is reasonably confident but occasional support required', color: 'bg-amber-100 text-amber-700' },
-  { value: 3, label: 'Competent', description: 'Is highly confident and does not require support', color: 'bg-emerald-100 text-emerald-700' },
+  { value: 3, label: 'Confident', description: 'Is highly confident and does not require support', color: 'bg-emerald-100 text-emerald-700' },
   { value: 4, label: 'Expert/Trainer', description: 'Thorough knowledge, willing and able to train others', color: 'bg-blue-100 text-blue-700' },
 ];
 
@@ -415,7 +415,7 @@ export default function Training() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold">Training Matrix</h1>
-            <p className="text-muted-foreground mt-1">Competency assessments and skill development tracking</p>
+            <p className="text-muted-foreground mt-1">Skills & development tracking</p>
           </div>
           <div className="flex items-center gap-3">
             <TooltipProvider>
@@ -547,7 +547,7 @@ export default function Training() {
               <DialogHeader>
                 <DialogTitle className="text-xl font-display">Self-Assessment</DialogTitle>
                 <DialogDescription>
-                  Rate your confidence for each competency below. When you&apos;re happy, submit for your line manager to review.
+                  Rate your confidence for each skill area below. When you&apos;re happy, submit for your line manager to review.
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-4 flex items-center gap-4">

@@ -114,7 +114,7 @@ export const engineerRoleDefinition: RoleDefinition = {
         {
           id: 'r11',
           title: 'Skills Development',
-          description: 'Actively work to improve competency levels as identified in your Training Matrix.',
+          description: 'Actively work to improve your skill levels as identified in your Training Matrix.',
           procedures: ['Review matrix quarterly', 'Request training for gaps', 'Seek mentoring from senior engineers'],
         },
       ],

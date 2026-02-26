@@ -41,6 +41,12 @@ export const api = {
   },
   competencies: {
     list: (departmentType?: string) => apiFetch<any[]>(`/competencies${departmentType ? `?departmentType=${departmentType}` : ""}`),
+    createCategory: (data: any) => apiFetch<any>("/competency-categories", { method: "POST", body: JSON.stringify(data) }),
+    updateCategory: (id: number, data: any) => apiFetch<any>(`/competency-categories/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    deleteCategory: (id: number) => apiFetch<void>(`/competency-categories/${id}`, { method: "DELETE" }),
+    createItem: (data: any) => apiFetch<any>("/competency-items", { method: "POST", body: JSON.stringify(data) }),
+    updateItem: (id: number, data: any) => apiFetch<any>(`/competency-items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    deleteItem: (id: number) => apiFetch<void>(`/competency-items/${id}`, { method: "DELETE" }),
   },
   trainingMatrix: {
     list: () => apiFetch<any[]>("/training-matrix"),
@@ -55,6 +61,7 @@ export const api = {
     list: () => apiFetch<any[]>("/standards-surveys"),
     get: (roleId: string) => apiFetch<any>(`/standards-surveys/${roleId}`),
     createRole: (data: any) => apiFetch<any>("/standards-surveys/roles", { method: "POST", body: JSON.stringify(data) }),
+    deleteRole: (id: number) => apiFetch<void>(`/standards-surveys/roles/${id}`, { method: "DELETE" }),
     createItem: (data: any) => apiFetch<any>("/standards-surveys/items", { method: "POST", body: JSON.stringify(data) }),
     updateItem: (id: number, data: any) => apiFetch<any>(`/standards-surveys/items/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     deleteItem: (id: number) => apiFetch<void>(`/standards-surveys/items/${id}`, { method: "DELETE" }),

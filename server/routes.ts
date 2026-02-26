@@ -143,6 +143,38 @@ export async function registerRoutes(
     res.json(result);
   });
 
+  app.post("/api/competency-categories", async (req, res) => {
+    const cat = await storage.createCompetencyCategory(req.body);
+    res.status(201).json(cat);
+  });
+
+  app.patch("/api/competency-categories/:id", async (req, res) => {
+    const cat = await storage.updateCompetencyCategory(Number(req.params.id), req.body);
+    if (!cat) return res.status(404).json({ message: "Not found" });
+    res.json(cat);
+  });
+
+  app.delete("/api/competency-categories/:id", async (req, res) => {
+    await storage.deleteCompetencyCategory(Number(req.params.id));
+    res.status(204).send();
+  });
+
+  app.post("/api/competency-items", async (req, res) => {
+    const item = await storage.createCompetencyItem(req.body);
+    res.status(201).json(item);
+  });
+
+  app.patch("/api/competency-items/:id", async (req, res) => {
+    const item = await storage.updateCompetencyItem(Number(req.params.id), req.body);
+    if (!item) return res.status(404).json({ message: "Not found" });
+    res.json(item);
+  });
+
+  app.delete("/api/competency-items/:id", async (req, res) => {
+    await storage.deleteCompetencyItem(Number(req.params.id));
+    res.status(204).send();
+  });
+
   // ===== TRAINING MATRIX SUBMISSIONS =====
   app.get("/api/training-matrix", async (_req, res) => {
     const submissions = await storage.getAllTrainingMatrixSubmissions();
@@ -227,6 +259,11 @@ export async function registerRoutes(
   app.post("/api/standards-surveys/roles", async (req, res) => {
     const role = await storage.createStandardsSurveyRole(req.body);
     res.status(201).json(role);
+  });
+
+  app.delete("/api/standards-surveys/roles/:id", async (req, res) => {
+    await storage.deleteStandardsSurveyRole(Number(req.params.id));
+    res.status(204).send();
   });
 
   app.post("/api/standards-surveys/items", async (req, res) => {

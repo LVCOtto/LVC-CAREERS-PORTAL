@@ -26,7 +26,11 @@ export interface IStorage {
   getCompetencyItems(categoryId?: number): Promise<schema.CompetencyItem[]>;
   getAllCompetencyItemsWithCategories(): Promise<{ categories: (schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] }>;
   createCompetencyCategory(cat: schema.InsertCompetencyCategory): Promise<schema.CompetencyCategory>;
+  updateCompetencyCategory(id: number, data: Partial<schema.InsertCompetencyCategory>): Promise<schema.CompetencyCategory | undefined>;
+  deleteCompetencyCategory(id: number): Promise<void>;
   createCompetencyItem(item: schema.InsertCompetencyItem): Promise<schema.CompetencyItem>;
+  updateCompetencyItem(id: number, data: Partial<schema.InsertCompetencyItem>): Promise<schema.CompetencyItem | undefined>;
+  deleteCompetencyItem(id: number): Promise<void>;
 
   getTrainingMatrixSubmission(userId: string): Promise<schema.TrainingMatrixSubmission | undefined>;
   getAllTrainingMatrixSubmissions(): Promise<schema.TrainingMatrixSubmission[]>;
@@ -36,6 +40,7 @@ export interface IStorage {
   getStandardsSurveyRoles(): Promise<schema.StandardsSurveyRole[]>;
   getStandardsSurveyItems(surveyRoleId: number): Promise<schema.StandardsSurveyItem[]>;
   createStandardsSurveyRole(role: schema.InsertStandardsSurveyRole): Promise<schema.StandardsSurveyRole>;
+  deleteStandardsSurveyRole(id: number): Promise<void>;
   createStandardsSurveyItem(item: schema.InsertStandardsSurveyItem): Promise<schema.StandardsSurveyItem>;
   updateStandardsSurveyItem(id: number, data: Partial<schema.InsertStandardsSurveyItem>): Promise<schema.StandardsSurveyItem | undefined>;
   deleteStandardsSurveyItem(id: number): Promise<void>;
@@ -182,9 +187,28 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateCompetencyCategory(id: number, data: Partial<schema.InsertCompetencyCategory>) {
+    const [updated] = await db.update(schema.competencyCategories).set(data).where(eq(schema.competencyCategories.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCompetencyCategory(id: number) {
+    await db.delete(schema.competencyItems).where(eq(schema.competencyItems.categoryId, id));
+    await db.delete(schema.competencyCategories).where(eq(schema.competencyCategories.id, id));
+  }
+
   async createCompetencyItem(item: schema.InsertCompetencyItem) {
     const [created] = await db.insert(schema.competencyItems).values(item).returning();
     return created;
+  }
+
+  async updateCompetencyItem(id: number, data: Partial<schema.InsertCompetencyItem>) {
+    const [updated] = await db.update(schema.competencyItems).set(data).where(eq(schema.competencyItems.id, id)).returning();
+    return updated;
+  }
+
+  async deleteCompetencyItem(id: number) {
+    await db.delete(schema.competencyItems).where(eq(schema.competencyItems.id, id));
   }
 
   async getAllCompetencyItemsWithCategories() {
@@ -231,6 +255,11 @@ export class DatabaseStorage implements IStorage {
   async createStandardsSurveyRole(role: schema.InsertStandardsSurveyRole) {
     const [created] = await db.insert(schema.standardsSurveyRoles).values(role).returning();
     return created;
+  }
+
+  async deleteStandardsSurveyRole(id: number) {
+    await db.delete(schema.standardsSurveyItems).where(eq(schema.standardsSurveyItems.surveyRoleId, id));
+    await db.delete(schema.standardsSurveyRoles).where(eq(schema.standardsSurveyRoles.id, id));
   }
 
   async createStandardsSurveyItem(item: schema.InsertStandardsSurveyItem) {

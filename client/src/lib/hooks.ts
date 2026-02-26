@@ -32,6 +32,48 @@ export function useCompetencies(departmentType?: string) {
   return useQuery({ queryKey: ["competencies", departmentType], queryFn: () => api.competencies.list(departmentType) });
 }
 
+export function useCreateCompetencyCategory() {
+  return useMutation({
+    mutationFn: (data: any) => api.competencies.createCategory(data),
+    onSuccess: () => invalidate("competencies"),
+  });
+}
+
+export function useUpdateCompetencyCategory() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.competencies.updateCategory(id, data),
+    onSuccess: () => invalidate("competencies"),
+  });
+}
+
+export function useDeleteCompetencyCategory() {
+  return useMutation({
+    mutationFn: (id: number) => api.competencies.deleteCategory(id),
+    onSuccess: () => invalidate("competencies"),
+  });
+}
+
+export function useCreateCompetencyItem() {
+  return useMutation({
+    mutationFn: (data: any) => api.competencies.createItem(data),
+    onSuccess: () => invalidate("competencies"),
+  });
+}
+
+export function useUpdateCompetencyItem() {
+  return useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.competencies.updateItem(id, data),
+    onSuccess: () => invalidate("competencies"),
+  });
+}
+
+export function useDeleteCompetencyItem() {
+  return useMutation({
+    mutationFn: (id: number) => api.competencies.deleteItem(id),
+    onSuccess: () => invalidate("competencies"),
+  });
+}
+
 export function useTrainingMatrixSubmissions() {
   return useQuery({ queryKey: ["training-matrix"], queryFn: api.trainingMatrix.list });
 }
@@ -60,6 +102,20 @@ export function useStandardsSurveys() {
 
 export function useStandardsSurvey(roleId: string) {
   return useQuery({ queryKey: ["standards-surveys", roleId], queryFn: () => api.standardsSurveys.get(roleId), enabled: !!roleId });
+}
+
+export function useCreateStandardsSurveyRole() {
+  return useMutation({
+    mutationFn: (data: any) => api.standardsSurveys.createRole(data),
+    onSuccess: () => invalidate("standards-surveys"),
+  });
+}
+
+export function useDeleteStandardsSurveyRole() {
+  return useMutation({
+    mutationFn: (id: number) => api.standardsSurveys.deleteRole(id),
+    onSuccess: () => invalidate("standards-surveys"),
+  });
 }
 
 export function useResources() {

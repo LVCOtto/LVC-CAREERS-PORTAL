@@ -146,7 +146,7 @@ export default function CareerMap() {
                                 </h4>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="p-3 bg-slate-50 rounded-lg border border-slate-100" data-testid="metric-competency">
-                                        <p className="text-xs text-muted-foreground mb-1">Competency</p>
+                                        <p className="text-xs text-muted-foreground mb-1">Skills</p>
                                         {competencyScore !== null ? (
                                           <>
                                             <div className="flex items-end gap-2">

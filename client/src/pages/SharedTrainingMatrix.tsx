@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useRoute } from 'wouter';
+import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,15 +19,34 @@ import { Toaster } from '@/components/ui/toaster';
 import { useSharedTrainingMatrix, useUpdateSharedTrainingMatrix } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 
-const competencyLevels = [
-  { value: 0, label: 'No Experience', description: 'Has no experience, or does not understand', color: 'bg-gray-200 text-gray-600' },
-  { value: 1, label: 'Needs Training', description: 'Has some experience but not confident, more training required', color: 'bg-red-100 text-red-700' },
-  { value: 2, label: 'Developing', description: 'Has experience and is reasonably confident but occasional support required', color: 'bg-amber-100 text-amber-700' },
-  { value: 3, label: 'Confident', description: 'Is highly confident and does not require support', color: 'bg-emerald-100 text-emerald-700' },
-  { value: 4, label: 'Expert/Trainer', description: 'Thorough knowledge, willing and able to train others', color: 'bg-blue-100 text-blue-700' },
+const competencyColors = [
+  'bg-gray-200 text-gray-600',
+  'bg-red-100 text-red-700',
+  'bg-amber-100 text-amber-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-blue-100 text-blue-700',
 ];
 
+const competencyDescriptions = [
+  'Has no experience, or does not understand',
+  'Has some experience but not confident, more training required',
+  'Has experience and is reasonably confident but occasional support required',
+  'Is highly confident and does not require support',
+  'Thorough knowledge, willing and able to train others',
+];
+
+function useCompetencyLevels() {
+  const { getSetting } = usePortalSettings();
+  return [0, 1, 2, 3, 4].map(i => ({
+    value: i,
+    label: getSetting(`rating.${i}`),
+    description: competencyDescriptions[i],
+    color: competencyColors[i],
+  }));
+}
+
 export default function SharedTrainingMatrix() {
+  const competencyLevels = useCompetencyLevels();
   const [, params] = useRoute('/training-matrix/shared/:token');
   const token = params?.token || '';
   const { toast } = useToast();

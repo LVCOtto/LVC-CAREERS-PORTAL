@@ -1,7 +1,7 @@
 # LVC Career Portal - Training & Development Management System
 
 ## Overview
-Employee training management system for LVC (cleaning equipment company) supporting three roles: **colleague**, **manager**, and **admin**. Covers induction tracking, training matrix/competency assessments, career journey visualization, certificates, standards surveys, and resources.
+Employee training management system for LVC (cleaning equipment company) supporting four roles: **colleague**, **manager**, **admin**, and **architect**. Covers induction tracking, training matrix/competency assessments, career journey visualization, certificates, standards surveys, resources, and portal customisation via Architect Studio.
 
 ## Architecture
 - **Frontend**: React + TypeScript + Vite, wouter routing, shadcn/ui, Tailwind CSS
@@ -20,14 +20,16 @@ Employee training management system for LVC (cleaning equipment company) support
 - `shared/schema.ts` - Drizzle schema definitions + Zod insert schemas
 
 ### Frontend
-- `client/src/App.tsx` - Router and providers
-- `client/src/lib/authContext.tsx` - Auth context (login as colleague/manager/admin)
+- `client/src/App.tsx` - Router and providers (AuthProvider, PortalSettingsProvider)
+- `client/src/lib/authContext.tsx` - Auth context (login as colleague/manager/admin/architect)
+- `client/src/lib/portalSettingsContext.tsx` - Portal settings context — fetches settings from API, provides `getSetting(key, defaultValue)` to all components
 - `client/src/lib/hooks.ts` - React Query hooks for all API endpoints
 - `client/src/lib/api.ts` - API client wrapper
 - `client/src/pages/` - All page components
+- `client/src/pages/ArchitectStudio.tsx` - Architect Studio for portal customisation
 
 ### Database Tables
-- `users` - Colleagues, managers, admins (varchar IDs like 'colleague-1'). Includes `requiresInduction` boolean flag — when false, Induction page/nav is hidden for that user
+- `users` - Colleagues, managers, admins, architects (varchar IDs like 'colleague-1'). Includes `requiresInduction` boolean flag — when false, Induction page/nav is hidden for that user
 - `induction_template_items` - Template checklist items
 - `induction_instances` - Per-user induction instances
 - `induction_item_completions` - Completion tracking per item
@@ -44,11 +46,30 @@ Employee training management system for LVC (cleaning equipment company) support
 - `career_nodes` - Career path structure
 - `training_records` - Compliance training records
 - `job_roles` - Job role definitions
+- `portal_settings` - Key-value settings for portal customisation (branding, navigation labels, page visibility, wording, rating labels). Categories: branding, navigation, pages, wording, ratings
 
 ## Mock Users (for login)
 - `colleague1` / `colleague` - Michael Chen (Engineer)
 - `manager1` / `manager` - James Wilson (Operations Manager)
 - `admin` / `admin` - Sarah Mitchell (HR Director)
+- `architect` / `architect` - Portal Architect (Portal customisation role)
+
+## Architect Role
+The architect role is a non-employee user type for customising the portal. Architects:
+- See ONLY the "Portal Studio" link in the sidebar (no My Career, Company, Team, or Admin sections)
+- Are automatically redirected to Architect Studio when logging in (/dashboard redirects to /architect-studio)
+- Can customise: portal title, login headings, sidebar title, primary colour (HSL), navigation labels, page visibility toggles, page headings/descriptions, self-assessment instructions, and rating scale labels (0-4)
+- Settings are stored in `portal_settings` table and read via `PortalSettingsContext`
+- Changes take effect portal-wide after saving (other users see updated labels/text on refresh)
+
+### Portal Settings Keys
+- `portal.title`, `portal.loginHeading`, `portal.loginSubheading`, `portal.sidebarTitle`
+- `branding.primaryColor` (HSL format, e.g. "222 47% 20%")
+- `nav.dashboard`, `nav.induction`, `nav.training`, `nav.career`, `nav.playbook`, `nav.milestones`, `nav.resources`, `nav.organisation`, `nav.team`
+- `pages.induction.visible`, `pages.career.visible`, `pages.playbook.visible`, `pages.milestones.visible`, `pages.resources.visible`, `pages.organisation.visible`
+- `page.training.heading`, `page.training.description`, `page.training.assessmentInstructions`
+- `page.dashboard.welcomePrefix`, `page.induction.heading`, `page.induction.description`
+- `rating.0` through `rating.4`
 
 ## Key Features
 - **Induction tracking**: Section-by-section checklist with manager sign-off
@@ -58,17 +79,9 @@ Employee training management system for LVC (cleaning equipment company) support
 - **Certificates**: Definition + assignment system
 - **Career map**: Career nodes with progression paths. Career Map page pulls real data from database (competency scores from training matrix, certificates from user certificates, development focus from career node requirements, milestones from career_milestones table). No hardcoded/mock data — new users see proper empty states.
 - **Organisation page**: Hierarchical department tree using parentId relationships from departmentData.ts, department detail views with team structure and reporting lines, org chart driven by managerId
-- **CSV import/export**: Full import and export support across all admin areas:
-  - Users: /api/export/users, /api/import/users
-  - Job Roles: /api/export/job-roles, /api/import/job-roles
-  - Training Records: /api/export/training-records
-  - Certificates: /api/export/certificates
-  - Competencies (Training Matrix): /api/export/competencies, /api/import/competencies
-  - Induction Templates: /api/export/induction-templates, /api/import/induction-templates
-  - Certificate Definitions: /api/export/certificate-definitions, /api/import/certificate-definitions
-  - Resources: /api/export/resources, /api/import/resources
-  - Standards Surveys: /api/export/standards-surveys, /api/import/standards-surveys
+- **CSV import/export**: Full import and export support across all admin areas
 - **Admin pages**: Full CRUD for Users, Templates (induction items, training matrix competencies, standards survey items), Job Roles, Resources, Certificates, Organisation
+- **Architect Studio**: Portal customisation for branding, navigation, pages, wording, and rating scale
 
 ## Commands
 - `npm run dev` - Start dev server (port 5000)

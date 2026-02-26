@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/authContext';
+import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import lvcLogo from '@assets/image-1_1767968047751.png';
 
 export default function Login() {
   const { login } = useAuth();
+  const { getSetting } = usePortalSettings();
   const [, setLocation] = useLocation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -40,10 +42,10 @@ export default function Login() {
         <div className="text-center mb-10">
           <img src={lvcLogo} alt="LVC UK" className="h-20 w-auto mx-auto mb-6" />
           <h1 className="font-display text-4xl font-bold text-white mb-3">
-            Career Portal
+            {getSetting('portal.loginHeading')}
           </h1>
           <p className="text-lg text-white/70">
-            Training & Development Management System
+            {getSetting('portal.loginSubheading')}
           </p>
         </div>
 

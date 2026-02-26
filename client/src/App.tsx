@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/lib/authContext";
+import { PortalSettingsProvider, usePortalSettings } from "@/lib/portalSettingsContext";
 import NotFound from "@/pages/not-found";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
@@ -21,6 +22,8 @@ import AdminResources from "@/pages/admin/Resources";
 import AdminCertificates from "@/pages/admin/Certificates";
 import Organisation from "@/pages/admin/Organisation";
 import SharedTrainingMatrix from "@/pages/SharedTrainingMatrix";
+import ArchitectStudio from "@/pages/ArchitectStudio";
+import { useEffect } from "react";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { isAuthenticated } = useAuth();
@@ -30,6 +33,23 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   }
   
   return <Component />;
+}
+
+function PrimaryColorApplier() {
+  const { getSetting } = usePortalSettings();
+  const primaryColor = getSetting('branding.primaryColor');
+
+  useEffect(() => {
+    if (primaryColor && primaryColor !== '222 47% 20%') {
+      document.documentElement.style.setProperty('--primary', primaryColor);
+      document.documentElement.style.setProperty('--sidebar-primary', primaryColor);
+    } else {
+      document.documentElement.style.removeProperty('--primary');
+      document.documentElement.style.removeProperty('--sidebar-primary');
+    }
+  }, [primaryColor]);
+
+  return null;
 }
 
 function Router() {
@@ -79,6 +99,9 @@ function Router() {
       <Route path="/organisation">
         {() => <ProtectedRoute component={Organisation} />}
       </Route>
+      <Route path="/architect-studio">
+        {() => <ProtectedRoute component={ArchitectStudio} />}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );
@@ -87,12 +110,15 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </AuthProvider>
+      <PortalSettingsProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <PrimaryColorApplier />
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
+      </PortalSettingsProvider>
     </QueryClientProvider>
   );
 }

@@ -448,6 +448,25 @@ export async function registerRoutes(
     return res.json(null);
   });
 
+  // ===== PORTAL SETTINGS =====
+  app.get("/api/portal-settings", async (_req, res) => {
+    const settings = await storage.getPortalSettings();
+    const result: Record<string, string> = {};
+    for (const s of settings) {
+      result[s.key] = s.value;
+    }
+    res.json(result);
+  });
+
+  app.put("/api/portal-settings", async (req, res) => {
+    const { settings } = req.body;
+    if (!Array.isArray(settings)) {
+      return res.status(400).json({ message: "settings must be an array of {key, value, category}" });
+    }
+    await storage.batchUpsertPortalSettings(settings);
+    res.json({ success: true });
+  });
+
   // ===== EXPORT (CSV) =====
   app.get("/api/export/:type", async (req, res) => {
     const { type } = req.params;

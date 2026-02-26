@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useAuth, User } from '@/lib/authContext';
+import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,16 +31,34 @@ import { Input } from '@/components/ui/input';
 import { useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 
-const competencyLevels = [
-  { value: 0, label: 'No Experience', description: 'Has no experience, or does not understand', color: 'bg-gray-200 text-gray-600' },
-  { value: 1, label: 'Needs Training', description: 'Has some experience but not confident, more training required', color: 'bg-red-100 text-red-700' },
-  { value: 2, label: 'Developing', description: 'Has experience and is reasonably confident but occasional support required', color: 'bg-amber-100 text-amber-700' },
-  { value: 3, label: 'Confident', description: 'Is highly confident and does not require support', color: 'bg-emerald-100 text-emerald-700' },
-  { value: 4, label: 'Expert/Trainer', description: 'Thorough knowledge, willing and able to train others', color: 'bg-blue-100 text-blue-700' },
+const competencyColors = [
+  'bg-gray-200 text-gray-600',
+  'bg-red-100 text-red-700',
+  'bg-amber-100 text-amber-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-blue-100 text-blue-700',
 ];
 
+const competencyDescriptions = [
+  'Has no experience, or does not understand',
+  'Has some experience but not confident, more training required',
+  'Has experience and is reasonably confident but occasional support required',
+  'Is highly confident and does not require support',
+  'Thorough knowledge, willing and able to train others',
+];
+
+function useCompetencyLevels() {
+  const { getSetting } = usePortalSettings();
+  return [0, 1, 2, 3, 4].map(i => ({
+    value: i,
+    label: getSetting(`rating.${i}`),
+    description: competencyDescriptions[i],
+    color: competencyColors[i],
+  }));
+}
+
 function getCompetencyColor(rating: number): string {
-  return competencyLevels[rating]?.color || competencyLevels[0].color;
+  return competencyColors[rating] || competencyColors[0];
 }
 
 function calculateCategoryAverage(ratings: Record<string, number>, category: any): number {
@@ -60,6 +79,7 @@ function calculateOverallAverage(ratings: Record<string, number>, categories: an
 }
 
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
+  const competencyLevels = useCompetencyLevels();
   const level = competencyLevels[rating] || competencyLevels[0];
 
   return (
@@ -82,6 +102,7 @@ function RatingCell({ rating, compact = false }: { rating: number; compact?: boo
 }
 
 function CompetencyLegend() {
+  const competencyLevels = useCompetencyLevels();
   return (
     <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-lg border">
       {competencyLevels.map((level) => (
@@ -264,6 +285,8 @@ export function IndividualView({
 
 export default function Training() {
   const { currentUser } = useAuth();
+  const { getSetting } = usePortalSettings();
+  const competencyLevels = useCompetencyLevels();
   const { toast } = useToast();
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [dialogRatings, setDialogRatings] = useState<Record<string, number>>({});
@@ -417,8 +440,8 @@ export default function Training() {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-display font-bold">Training Matrix</h1>
-            <p className="text-muted-foreground mt-1">Skills & development tracking</p>
+            <h1 className="text-3xl font-display font-bold">{getSetting('page.training.heading')}</h1>
+            <p className="text-muted-foreground mt-1">{getSetting('page.training.description')}</p>
           </div>
           <div className="flex items-center gap-3">
             <TooltipProvider>
@@ -550,7 +573,7 @@ export default function Training() {
               <DialogHeader>
                 <DialogTitle className="text-xl font-display">Self-Assessment</DialogTitle>
                 <DialogDescription>
-                  Rate your confidence for each skill area below. When you&apos;re happy, submit for your line manager to review.
+                  {getSetting('page.training.assessmentInstructions')}
                 </DialogDescription>
               </DialogHeader>
               <div className="mt-4 flex items-center gap-4">

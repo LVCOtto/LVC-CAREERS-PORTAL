@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/lib/authContext';
+import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -27,6 +28,7 @@ import {
   FileText,
   BadgeCheck,
   Map,
+  Paintbrush,
 } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
@@ -36,9 +38,11 @@ interface LayoutProps {
 
 interface NavItem {
   href: string;
-  label: string;
+  labelKey: string;
+  defaultLabel: string;
   icon: ReactNode;
-  roles: ('colleague' | 'manager' | 'admin')[];
+  roles: ('colleague' | 'manager' | 'admin' | 'architect')[];
+  visibilityKey?: string;
 }
 
 interface NavGroup {
@@ -52,39 +56,49 @@ const navGroups: NavGroup[] = [
     items: [
       {
         href: '/dashboard',
-        label: 'Dashboard',
+        labelKey: 'nav.dashboard',
+        defaultLabel: 'Dashboard',
         icon: <LayoutDashboard className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
       },
       {
         href: '/induction',
-        label: 'Induction',
+        labelKey: 'nav.induction',
+        defaultLabel: 'Induction',
         icon: <ClipboardCheck className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
+        visibilityKey: 'pages.induction.visible',
       },
       {
         href: '/training',
-        label: 'Training Matrix',
+        labelKey: 'nav.training',
+        defaultLabel: 'Training Matrix',
         icon: <GraduationCap className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
       },
       {
         href: '/career-map',
-        label: 'Career Roadmap',
+        labelKey: 'nav.career',
+        defaultLabel: 'Career Roadmap',
         icon: <Map className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
+        visibilityKey: 'pages.career.visible',
       },
       {
         href: '/role-playbook',
-        label: 'Role Playbook',
+        labelKey: 'nav.playbook',
+        defaultLabel: 'Role Playbook',
         icon: <FileText className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
+        visibilityKey: 'pages.playbook.visible',
       },
       {
         href: '/milestones',
-        label: 'Career Milestones',
+        labelKey: 'nav.milestones',
+        defaultLabel: 'Achievements',
         icon: <Award className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
+        visibilityKey: 'pages.milestones.visible',
       },
     ]
   },
@@ -93,15 +107,19 @@ const navGroups: NavGroup[] = [
     items: [
       {
         href: '/resources',
-        label: 'Resources',
+        labelKey: 'nav.resources',
+        defaultLabel: 'Resources',
         icon: <FolderOpen className="w-5 h-5" />,
         roles: ['colleague', 'manager', 'admin'],
+        visibilityKey: 'pages.resources.visible',
       },
       {
         href: '/organisation',
-        label: 'Organisation',
+        labelKey: 'nav.organisation',
+        defaultLabel: 'Organisation',
         icon: <Network className="w-5 h-5" />,
         roles: ['manager', 'admin'],
+        visibilityKey: 'pages.organisation.visible',
       },
     ]
   },
@@ -110,7 +128,8 @@ const navGroups: NavGroup[] = [
     items: [
       {
         href: '/team',
-        label: 'My Team',
+        labelKey: 'nav.team',
+        defaultLabel: 'My Team',
         icon: <Users className="w-5 h-5" />,
         roles: ['manager', 'admin'],
       },
@@ -121,33 +140,50 @@ const navGroups: NavGroup[] = [
     items: [
       {
         href: '/admin/users',
-        label: 'User Management',
+        labelKey: '',
+        defaultLabel: 'User Management',
         icon: <Users className="w-5 h-5" />,
         roles: ['admin'],
       },
       {
         href: '/admin/templates',
-        label: 'Templates',
+        labelKey: '',
+        defaultLabel: 'Templates',
         icon: <Settings className="w-5 h-5" />,
         roles: ['admin'],
       },
       {
         href: '/admin/roles',
-        label: 'Job Roles',
+        labelKey: '',
+        defaultLabel: 'Job Roles',
         icon: <Briefcase className="w-5 h-5" />,
         roles: ['admin'],
       },
       {
         href: '/admin/resources',
-        label: 'Resource Manager',
+        labelKey: '',
+        defaultLabel: 'Resource Manager',
         icon: <FolderOpen className="w-5 h-5" />,
         roles: ['admin'],
       },
       {
         href: '/admin/certificates',
-        label: 'Certificates',
+        labelKey: '',
+        defaultLabel: 'Certificates',
         icon: <BadgeCheck className="w-5 h-5" />,
         roles: ['admin'],
+      },
+    ]
+  },
+  {
+    title: "Architect",
+    items: [
+      {
+        href: '/architect-studio',
+        labelKey: '',
+        defaultLabel: 'Portal Studio',
+        icon: <Paintbrush className="w-5 h-5" />,
+        roles: ['architect'],
       },
     ]
   }
@@ -155,6 +191,7 @@ const navGroups: NavGroup[] = [
 
 export function Layout({ children }: LayoutProps) {
   const { currentUser, logout } = useAuth();
+  const { getSetting } = usePortalSettings();
   const [location] = useLocation();
 
   if (!currentUser) {
@@ -175,10 +212,14 @@ export function Layout({ children }: LayoutProps) {
         return 'bg-primary/20 text-primary';
       case 'manager':
         return 'bg-accent/20 text-accent';
+      case 'architect':
+        return 'bg-purple-100 text-purple-700';
       default:
         return 'bg-muted text-muted-foreground';
     }
   };
+
+  const sidebarTitle = getSetting('portal.sidebarTitle', 'Career Portal');
 
   return (
     <div className="flex h-screen bg-background">
@@ -188,16 +229,17 @@ export function Layout({ children }: LayoutProps) {
             <img src={lvcLogo} alt="LVC UK" className="h-12 w-auto" />
           </div>
           <p className="text-sm text-sidebar-foreground/60">
-            Career Portal
+            {sidebarTitle}
           </p>
         </div>
 
         <ScrollArea className="flex-1 py-4">
           <nav className="px-3 space-y-6">
-            {navGroups.map((group, groupIndex) => {
+            {navGroups.map((group) => {
               const filteredItems = group.items.filter(item => {
                 if (!item.roles.includes(currentUser.role)) return false;
                 if (item.href === '/induction' && currentUser.requiresInduction === false) return false;
+                if (item.visibilityKey && getSetting(item.visibilityKey) === 'false') return false;
                 return true;
               });
 
@@ -209,22 +251,25 @@ export function Layout({ children }: LayoutProps) {
                     {group.title}
                   </h3>
                   <div className="space-y-1">
-                    {filteredItems.map(item => (
-                      <Link key={item.href} href={item.href}>
-                        <div
-                          data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
-                          className={cn(
-                            'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer',
-                            location === item.href
-                              ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                              : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
-                          )}
-                        >
-                          {item.icon}
-                          {item.label}
-                        </div>
-                      </Link>
-                    ))}
+                    {filteredItems.map(item => {
+                      const label = item.labelKey ? getSetting(item.labelKey, item.defaultLabel) : item.defaultLabel;
+                      return (
+                        <Link key={item.href} href={item.href}>
+                          <div
+                            data-testid={`nav-${item.defaultLabel.toLowerCase().replace(/\s+/g, '-')}`}
+                            className={cn(
+                              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer',
+                              location === item.href || (item.href === '/team' && location.startsWith('/team'))
+                                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                                : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                            )}
+                          >
+                            {item.icon}
+                            {label}
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               );

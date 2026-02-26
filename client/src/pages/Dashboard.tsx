@@ -1,11 +1,12 @@
 import { useAuth, User } from '@/lib/authContext';
+import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { Layout } from '@/components/Layout';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Link } from 'wouter';
+import { Link, Redirect } from 'wouter';
 import { Spinner } from '@/components/ui/spinner';
 import {
   useInduction,
@@ -37,6 +38,7 @@ import {
 } from 'lucide-react';
 
 function ColleagueDashboard({ user }: { user: User }) {
+  const { getSetting } = usePortalSettings();
   const { data: inductionData, isLoading: inductionLoading } = useInduction(user.id);
   const { data: trainingRecords = [], isLoading: trainingLoading } = useTrainingRecords(user.id);
   const { data: userCertificates = [], isLoading: certsLoading } = useUserCertificates(user.id);
@@ -78,7 +80,7 @@ function ColleagueDashboard({ user }: { user: User }) {
         <div className="relative z-10">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-white/70 mb-1">Welcome back</p>
+              <p className="text-white/70 mb-1">{getSetting('page.dashboard.welcomePrefix')}</p>
               <h1 className="font-display text-4xl font-bold mb-2">
                 {user.name.split(' ')[0]}
               </h1>
@@ -538,6 +540,10 @@ export default function Dashboard() {
   const { currentUser } = useAuth();
 
   if (!currentUser) return null;
+
+  if (currentUser.role === 'architect') {
+    return <Redirect to="/architect-studio" />;
+  }
 
   return (
     <Layout>

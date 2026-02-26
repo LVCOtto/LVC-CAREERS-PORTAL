@@ -82,6 +82,10 @@ export interface IStorage {
   getJobRoleCategories(jobRoleId: number): Promise<schema.JobRoleCategory[]>;
   setJobRoleCategories(jobRoleId: number, categoryIds: number[]): Promise<void>;
   getCompetencyCategoriesForJobRole(jobRoleTitle: string): Promise<(schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] | null>;
+
+  getPortalSettings(): Promise<schema.PortalSetting[]>;
+  upsertPortalSetting(key: string, value: string, category: string): Promise<schema.PortalSetting>;
+  batchUpsertPortalSettings(settings: { key: string; value: string; category: string }[]): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -443,6 +447,32 @@ export class DatabaseStorage implements IStorage {
       ...cat,
       items: items.filter(item => item.categoryId === cat.id),
     }));
+  }
+
+  async getPortalSettings() {
+    return db.select().from(schema.portalSettings);
+  }
+
+  async upsertPortalSetting(key: string, value: string, category: string) {
+    const existing = await db.select().from(schema.portalSettings)
+      .where(eq(schema.portalSettings.key, key));
+    if (existing.length > 0) {
+      const [updated] = await db.update(schema.portalSettings)
+        .set({ value, category })
+        .where(eq(schema.portalSettings.key, key))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(schema.portalSettings)
+      .values({ key, value, category })
+      .returning();
+    return created;
+  }
+
+  async batchUpsertPortalSettings(settings: { key: string; value: string; category: string }[]) {
+    for (const s of settings) {
+      await this.upsertPortalSetting(s.key, s.value, s.category);
+    }
   }
 }
 

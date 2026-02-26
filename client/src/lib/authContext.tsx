@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
 import { api } from './api';
 
-export type UserRole = 'colleague' | 'manager' | 'admin';
+export type UserRole = 'colleague' | 'manager' | 'admin' | 'architect';
 
 export interface User {
   id: string;

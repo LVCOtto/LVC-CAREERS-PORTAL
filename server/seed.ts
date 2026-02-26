@@ -21,6 +21,7 @@ async function seed() {
     { id: "colleague-4", username: "colleague4", password: "colleague", name: "Lisa Martinez", email: "lisa.martinez@lvc.com", role: "colleague", jobRole: "Operations Coordinator", department: "Operations", managerId: "manager-1", startDate: "2023-05-20" },
     { id: "colleague-5", username: "colleague5", password: "colleague", name: "Tom Harris", email: "tom.harris@lvc.com", role: "colleague", jobRole: "Engineer", department: "Engineering", managerId: "manager-2", startDate: "2024-01-08" },
     { id: "colleague-6", username: "colleague6", password: "colleague", name: "Rachel Green", email: "rachel.green@lvc.com", role: "colleague", jobRole: "Operations Coordinator", department: "Operations", managerId: "manager-1", startDate: "2024-12-02" },
+    { id: "architect-1", username: "architect", password: "architect", name: "Portal Architect", email: "architect@lvc.com", role: "architect", jobRole: "Portal Architect", department: "IT", startDate: "2024-01-01", requiresInduction: false },
   ]);
   console.log("Users seeded");
 

@@ -227,3 +227,14 @@ export const jobRoleCategories = pgTable("job_role_categories", {
 export const insertJobRoleCategorySchema = createInsertSchema(jobRoleCategories).omit({ id: true });
 export type InsertJobRoleCategory = z.infer<typeof insertJobRoleCategorySchema>;
 export type JobRoleCategory = typeof jobRoleCategories.$inferSelect;
+
+export const portalSettings = pgTable("portal_settings", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 200 }).notNull().unique(),
+  value: text("value").notNull(),
+  category: text("category").notNull(),
+});
+
+export const insertPortalSettingSchema = createInsertSchema(portalSettings).omit({ id: true });
+export type InsertPortalSetting = z.infer<typeof insertPortalSettingSchema>;
+export type PortalSetting = typeof portalSettings.$inferSelect;

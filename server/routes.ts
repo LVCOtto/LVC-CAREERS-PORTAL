@@ -115,6 +115,40 @@ export async function registerRoutes(
   });
 
   // ===== INDUCTION INSTANCES =====
+  app.get("/api/induction/shared/:token", async (req, res) => {
+    const instance = await storage.getInductionByShareToken(req.params.token);
+    if (!instance) return res.status(404).json({ message: "Not found" });
+
+    const user = await storage.getUser(instance.userId);
+    let templateItems = await storage.getInductionTemplateItems();
+    const completions = await storage.getInductionCompletions(instance.id);
+
+    if (user?.jobRole) {
+      const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
+      if (allowedSections) {
+        templateItems = templateItems.filter(item => allowedSections.includes(item.section));
+      }
+    }
+
+    const items = templateItems.map((tmpl) => {
+      const completion = completions.find((c) => c.templateItemId === tmpl.id);
+      return {
+        ...tmpl,
+        completed: completion?.completed ?? false,
+        completedDate: completion?.completedDate ?? null,
+        signedOffBy: completion?.signedOffBy ?? null,
+        signedOffDate: completion?.signedOffDate ?? null,
+        assignedTo: completion?.assignedTo ?? null,
+      };
+    });
+
+    res.json({
+      instance,
+      items,
+      user: user ? { name: user.name, jobRole: user.jobRole, department: user.department } : null,
+    });
+  });
+
   app.get("/api/induction/:userId", async (req, res) => {
     let instance = await storage.getInductionInstance(req.params.userId);
     if (!instance) {
@@ -174,6 +208,23 @@ export async function registerRoutes(
     });
 
     res.json(completion);
+  });
+
+  app.post("/api/induction/:userId/share", async (req, res) => {
+    let instance = await storage.getInductionInstance(req.params.userId);
+    if (!instance) {
+      instance = await storage.createInductionInstance({
+        userId: req.params.userId,
+        templateName: "Standard Induction",
+        status: "not_started",
+        createdDate: new Date().toISOString().split("T")[0],
+      });
+    }
+    if (instance.shareToken) {
+      return res.json({ token: instance.shareToken });
+    }
+    const token = await storage.generateInductionShareToken(instance.id);
+    res.json({ token });
   });
 
   // ===== COMPETENCIES (Training Matrix Template) =====

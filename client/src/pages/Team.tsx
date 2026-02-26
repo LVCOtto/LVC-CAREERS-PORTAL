@@ -45,6 +45,9 @@ import {
   GraduationCap,
   Loader2,
   Undo2,
+  Share2,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 
 const sectionColors = [
@@ -133,6 +136,60 @@ function AssignToInput({ item, completeItem, toast }: { item: any; completeItem:
         if (e.key === 'Escape') { setValue(item.assignedTo || ''); setEditing(false); }
       }}
     />
+  );
+}
+
+function InductionShareBar({ memberId, toast }: { memberId: string; toast: any }) {
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const generateLink = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/induction/${memberId}/share`, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to generate share link');
+      const { token } = await res.json();
+      const link = `${window.location.origin}/induction/shared/${token}`;
+      setShareLink(link);
+    } catch {
+      toast({ title: 'Error', description: 'Could not generate share link', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (shareLink) {
+      navigator.clipboard.writeText(shareLink);
+      toast({ title: 'Link copied', description: 'The share link has been copied to your clipboard.' });
+    }
+  };
+
+  return (
+    <div className="mb-4 flex items-center gap-3">
+      {!shareLink ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2"
+          onClick={generateLink}
+          disabled={loading}
+          data-testid="button-share-induction"
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+          Share Induction Progress
+        </Button>
+      ) : (
+        <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2 flex-1 max-w-xl">
+          <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
+          <code className="text-xs text-muted-foreground truncate flex-1">{shareLink}</code>
+          <Button variant="ghost" size="sm" className="gap-1 shrink-0" onClick={copyLink} data-testid="button-copy-share-link">
+            <Copy className="w-3.5 h-3.5" />
+            Copy
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -542,6 +599,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
           </TabsList>
 
           <TabsContent value="induction" className="mt-6">
+            <InductionShareBar memberId={memberId} toast={toast} />
             <InductionSectionView
               items={items}
               completeItem={completeItem}

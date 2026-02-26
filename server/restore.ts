@@ -293,6 +293,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         templateName: r.templateName,
         status: r.status,
         createdDate: r.createdDate,
+        shareToken: r.shareToken || null,
       }).onConflictDoNothing();
     }
     return rows.length;

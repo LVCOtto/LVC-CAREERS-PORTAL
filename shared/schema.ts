@@ -40,6 +40,7 @@ export const inductionInstances = pgTable("induction_instances", {
   templateName: text("template_name").notNull().default("Standard Induction"),
   status: text("status").notNull().default("not_started"),
   createdDate: text("created_date").notNull(),
+  shareToken: varchar("share_token", { length: 100 }).unique(),
 });
 
 export const insertInductionInstanceSchema = createInsertSchema(inductionInstances).omit({ id: true });

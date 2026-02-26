@@ -22,6 +22,7 @@ import AdminResources from "@/pages/admin/Resources";
 import AdminCertificates from "@/pages/admin/Certificates";
 import Organisation from "@/pages/admin/Organisation";
 import SharedTrainingMatrix from "@/pages/SharedTrainingMatrix";
+import SharedInduction from "@/pages/SharedInduction";
 import ArchitectStudio from "@/pages/ArchitectStudio";
 import { useEffect } from "react";
 
@@ -56,6 +57,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/training-matrix/shared/:token" component={SharedTrainingMatrix} />
+      <Route path="/induction/shared/:token" component={SharedInduction} />
       <Route path="/" component={Login} />
       <Route path="/dashboard">
         {() => <ProtectedRoute component={Dashboard} />}

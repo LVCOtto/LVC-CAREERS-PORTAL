@@ -79,6 +79,9 @@ export interface IStorage {
   getTrainingMatrixByToken(token: string): Promise<schema.TrainingMatrixSubmission | undefined>;
   generateShareToken(submissionId: number): Promise<string>;
 
+  generateInductionShareToken(instanceId: number): Promise<string>;
+  getInductionByShareToken(token: string): Promise<schema.InductionInstance | undefined>;
+
   getJobRoleCategories(jobRoleId: number): Promise<schema.JobRoleCategory[]>;
   setJobRoleCategories(jobRoleId: number, categoryIds: number[]): Promise<void>;
   getCompetencyCategoriesForJobRole(jobRoleTitle: string): Promise<(schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] | null>;
@@ -424,6 +427,20 @@ export class DatabaseStorage implements IStorage {
       .set({ shareToken: token })
       .where(eq(schema.trainingMatrixSubmissions.id, submissionId));
     return token;
+  }
+
+  async generateInductionShareToken(instanceId: number) {
+    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+    await db.update(schema.inductionInstances)
+      .set({ shareToken: token })
+      .where(eq(schema.inductionInstances.id, instanceId));
+    return token;
+  }
+
+  async getInductionByShareToken(token: string) {
+    const [instance] = await db.select().from(schema.inductionInstances)
+      .where(eq(schema.inductionInstances.shareToken, token));
+    return instance;
   }
 
   async getJobRoleCategories(jobRoleId: number) {

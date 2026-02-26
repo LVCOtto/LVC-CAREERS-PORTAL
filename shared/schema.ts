@@ -228,6 +228,26 @@ export const insertJobRoleCategorySchema = createInsertSchema(jobRoleCategories)
 export type InsertJobRoleCategory = z.infer<typeof insertJobRoleCategorySchema>;
 export type JobRoleCategory = typeof jobRoleCategories.$inferSelect;
 
+export const jobRoleInductionSections = pgTable("job_role_induction_sections", {
+  id: serial("id").primaryKey(),
+  jobRoleId: integer("job_role_id").notNull(),
+  sectionName: text("section_name").notNull(),
+});
+
+export const insertJobRoleInductionSectionSchema = createInsertSchema(jobRoleInductionSections).omit({ id: true });
+export type InsertJobRoleInductionSection = z.infer<typeof insertJobRoleInductionSectionSchema>;
+export type JobRoleInductionSection = typeof jobRoleInductionSections.$inferSelect;
+
+export const inductionSectionSettings = pgTable("induction_section_settings", {
+  id: serial("id").primaryKey(),
+  sectionName: text("section_name").notNull().unique(),
+  isUniversal: boolean("is_universal").notNull().default(false),
+});
+
+export const insertInductionSectionSettingSchema = createInsertSchema(inductionSectionSettings).omit({ id: true });
+export type InsertInductionSectionSetting = z.infer<typeof insertInductionSectionSettingSchema>;
+export type InductionSectionSetting = typeof inductionSectionSettings.$inferSelect;
+
 export const portalSettings = pgTable("portal_settings", {
   id: serial("id").primaryKey(),
   key: varchar("key", { length: 200 }).notNull().unique(),

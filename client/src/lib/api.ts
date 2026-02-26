@@ -113,6 +113,16 @@ export const api = {
     update: (id: number, data: any) => apiFetch<any>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => apiFetch<void>(`/departments/${id}`, { method: "DELETE" }),
   },
+  inductionSectionSettings: {
+    list: () => apiFetch<any[]>("/induction-section-settings"),
+    upsert: (data: { sectionName: string; isUniversal: boolean }) =>
+      apiFetch<any>("/induction-section-settings", { method: "PUT", body: JSON.stringify(data) }),
+  },
+  jobRoleInductionSections: {
+    get: (roleId: number) => apiFetch<string[]>(`/job-roles/${roleId}/induction-sections`),
+    set: (roleId: number, sections: string[]) =>
+      apiFetch<{ success: boolean }>(`/job-roles/${roleId}/induction-sections`, { method: "PUT", body: JSON.stringify({ sections }) }),
+  },
   competenciesForRole: {
     get: (jobRole: string) => apiFetch<any[] | null>(`/competencies-for-role?jobRole=${encodeURIComponent(jobRole)}`),
   },

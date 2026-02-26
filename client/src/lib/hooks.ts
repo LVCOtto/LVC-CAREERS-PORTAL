@@ -348,6 +348,32 @@ export function useDeleteStandardsSurveyItem() {
   });
 }
 
+export function useInductionSectionSettings() {
+  return useQuery({ queryKey: ["induction-section-settings"], queryFn: api.inductionSectionSettings.list });
+}
+
+export function useUpsertInductionSectionSetting() {
+  return useMutation({
+    mutationFn: (data: { sectionName: string; isUniversal: boolean }) => api.inductionSectionSettings.upsert(data),
+    onSuccess: () => invalidate("induction-section-settings"),
+  });
+}
+
+export function useJobRoleInductionSections(roleId: number) {
+  return useQuery({
+    queryKey: ["job-role-induction-sections", roleId],
+    queryFn: () => api.jobRoleInductionSections.get(roleId),
+    enabled: !!roleId,
+  });
+}
+
+export function useSetJobRoleInductionSections() {
+  return useMutation({
+    mutationFn: ({ id, sections }: { id: number; sections: string[] }) => api.jobRoleInductionSections.set(id, sections),
+    onSuccess: () => invalidate("job-role-induction-sections"),
+  });
+}
+
 export function useDepartments() {
   return useQuery({ queryKey: ["departments"], queryFn: api.departments.list });
 }

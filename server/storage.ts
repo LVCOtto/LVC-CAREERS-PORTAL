@@ -91,6 +91,12 @@ export interface IStorage {
   createDepartment(data: schema.InsertDepartment): Promise<schema.Department>;
   updateDepartment(id: number, data: Partial<schema.InsertDepartment>): Promise<schema.Department | undefined>;
   deleteDepartment(id: number): Promise<void>;
+
+  getJobRoleInductionSections(jobRoleId: number): Promise<string[]>;
+  setJobRoleInductionSections(jobRoleId: number, sections: string[]): Promise<void>;
+  getInductionSectionSettings(): Promise<schema.InductionSectionSetting[]>;
+  upsertInductionSectionSetting(sectionName: string, isUniversal: boolean): Promise<schema.InductionSectionSetting>;
+  getInductionSectionsForUser(jobRoleTitle: string): Promise<string[] | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -499,6 +505,59 @@ export class DatabaseStorage implements IStorage {
 
   async deleteDepartment(id: number) {
     await db.delete(schema.departmentsTable).where(eq(schema.departmentsTable.id, id));
+  }
+
+  async getJobRoleInductionSections(jobRoleId: number): Promise<string[]> {
+    const rows = await db.select().from(schema.jobRoleInductionSections)
+      .where(eq(schema.jobRoleInductionSections.jobRoleId, jobRoleId));
+    return rows.map(r => r.sectionName);
+  }
+
+  async setJobRoleInductionSections(jobRoleId: number, sections: string[]): Promise<void> {
+    await db.delete(schema.jobRoleInductionSections)
+      .where(eq(schema.jobRoleInductionSections.jobRoleId, jobRoleId));
+    if (sections.length > 0) {
+      await db.insert(schema.jobRoleInductionSections)
+        .values(sections.map(s => ({ jobRoleId, sectionName: s })));
+    }
+  }
+
+  async getInductionSectionSettings(): Promise<schema.InductionSectionSetting[]> {
+    return db.select().from(schema.inductionSectionSettings);
+  }
+
+  async upsertInductionSectionSetting(sectionName: string, isUniversal: boolean): Promise<schema.InductionSectionSetting> {
+    const existing = await db.select().from(schema.inductionSectionSettings)
+      .where(eq(schema.inductionSectionSettings.sectionName, sectionName));
+    if (existing.length > 0) {
+      const [updated] = await db.update(schema.inductionSectionSettings)
+        .set({ isUniversal })
+        .where(eq(schema.inductionSectionSettings.sectionName, sectionName))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(schema.inductionSectionSettings)
+      .values({ sectionName, isUniversal })
+      .returning();
+    return created;
+  }
+
+  async getInductionSectionsForUser(jobRoleTitle: string): Promise<string[] | null> {
+    const role = await db.select().from(schema.jobRoles)
+      .where(eq(schema.jobRoles.title, jobRoleTitle));
+    if (role.length === 0) return null;
+
+    const universalSettings = await db.select().from(schema.inductionSectionSettings)
+      .where(eq(schema.inductionSectionSettings.isUniversal, true));
+    const universalSections = universalSettings.map(s => s.sectionName);
+
+    const roleAssignments = await db.select().from(schema.jobRoleInductionSections)
+      .where(eq(schema.jobRoleInductionSections.jobRoleId, role[0].id));
+    const roleSections = roleAssignments.map(r => r.sectionName);
+
+    const allSections = Array.from(new Set([...universalSections, ...roleSections]));
+    if (allSections.length === 0) return null;
+    return allSections;
   }
 }
 

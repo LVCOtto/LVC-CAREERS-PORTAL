@@ -49,7 +49,10 @@ import {
   useDeleteCompetencyItem,
   useCreateStandardsSurveyRole,
   useDeleteStandardsSurveyRole,
+  useInductionSectionSettings,
+  useUpsertInductionSectionSetting,
 } from '@/lib/hooks';
+import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api } from '@/lib/api';
@@ -59,6 +62,8 @@ export default function AdminTemplates() {
   const { toast } = useToast();
 
   const { data: inductionItems = [], isLoading: loadingInduction } = useInductionTemplates();
+  const { data: sectionSettings = [] } = useInductionSectionSettings();
+  const upsertSectionSetting = useUpsertInductionSectionSetting();
   const { data: competencies = [], isLoading: loadingCompetencies } = useCompetencies();
   const { data: standardsSurveys = [], isLoading: loadingStandards } = useStandardsSurveys();
 
@@ -472,14 +477,19 @@ export default function AdminTemplates() {
                   </CardHeader>
                   <CardContent>
                     <Accordion type="single" collapsible>
-                      {inductionSections.map((section) => (
+                      {inductionSections.map((section) => {
+                        const isUniversal = sectionSettings.find((s: any) => s.sectionName === section)?.isUniversal ?? false;
+                        return (
                         <AccordionItem key={section} value={section}>
                           <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 flex-1">
                               <span className="font-medium">{section}</span>
                               <Badge variant="secondary">
                                 {inductionItems.filter((i: any) => i.section === section).length} items
                               </Badge>
+                              {isUniversal && (
+                                <Badge className="bg-emerald-600 text-white text-xs">Universal</Badge>
+                              )}
                             </div>
                           </AccordionTrigger>
                           <AccordionContent>
@@ -538,10 +548,24 @@ export default function AdminTemplates() {
                                 <Plus className="w-4 h-4 mr-1" />
                                 Add Item
                               </Button>
+                              <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                                <div>
+                                  <p className="text-sm font-medium">Universal Section</p>
+                                  <p className="text-xs text-muted-foreground">Include this section for all job roles automatically</p>
+                                </div>
+                                <Switch
+                                  checked={isUniversal}
+                                  onCheckedChange={(checked) => {
+                                    upsertSectionSetting.mutate({ sectionName: section, isUniversal: !!checked });
+                                  }}
+                                  data-testid={`switch-universal-${section}`}
+                                />
+                              </div>
                             </div>
                           </AccordionContent>
                         </AccordionItem>
-                      ))}
+                      );
+                      })}
                     </Accordion>
                   </CardContent>
                 </Card>

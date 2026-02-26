@@ -9,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Briefcase, Plus, Edit, Users, Trash2, Download, Upload, GraduationCap, Check } from 'lucide-react';
+import { Briefcase, Plus, Edit, Users, Trash2, Download, Upload, GraduationCap, Check, ClipboardList } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories } from '@/lib/hooks';
+import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -41,6 +41,7 @@ export default function AdminRoles() {
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   const [skillsDialogRole, setSkillsDialogRole] = useState<any>(null);
+  const [inductionDialogRole, setInductionDialogRole] = useState<any>(null);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
@@ -174,6 +175,15 @@ export default function AdminRoles() {
                       >
                         <GraduationCap className="w-4 h-4 mr-1" />
                         Skills
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setInductionDialogRole(role)}
+                        data-testid={`button-manage-induction-${role.id}`}
+                      >
+                        <ClipboardList className="w-4 h-4 mr-1" />
+                        Induction
                       </Button>
                       <Button
                         variant="outline"
@@ -322,6 +332,13 @@ export default function AdminRoles() {
         />
       )}
 
+      {inductionDialogRole && (
+        <InductionSectionAssigner
+          role={inductionDialogRole}
+          onClose={() => setInductionDialogRole(null)}
+        />
+      )}
+
       <CsvImportDialog
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
@@ -454,6 +471,130 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
               </Button>
               <Button onClick={handleSave} disabled={setCategories.isPending} data-testid="button-save-role-skills">
                 {setCategories.isPending ? <Spinner className="w-4 h-4 mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InductionSectionAssigner({ role, onClose }: { role: any; onClose: () => void }) {
+  const { toast } = useToast();
+  const { data: templateItems = [], isLoading: templatesLoading } = useInductionTemplates();
+  const { data: sectionSettings = [], isLoading: settingsLoading } = useInductionSectionSettings();
+  const { data: assignedSections = [], isLoading: assignedLoading } = useJobRoleInductionSections(role.id);
+  const setSections = useSetJobRoleInductionSections();
+
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!assignedLoading && assignedSections && !initialized) {
+      setSelected(new Set(assignedSections));
+      setInitialized(true);
+    }
+  }, [assignedSections, assignedLoading, initialized]);
+
+  const sectionNames = Array.from(new Set(templateItems.map((t: any) => t.section)));
+  const universalSections = new Set(sectionSettings.filter((s: any) => s.isUniversal).map((s: any) => s.sectionName));
+
+  const toggle = (section: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) next.delete(section);
+      else next.add(section);
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    try {
+      await setSections.mutateAsync({ id: role.id, sections: Array.from(selected) });
+      toast({ title: 'Saved', description: `Induction sections updated for ${role.title}.` });
+      onClose();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to save.', variant: 'destructive' });
+    }
+  };
+
+  const isLoading = templatesLoading || settingsLoading || assignedLoading;
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg" data-testid="dialog-role-induction">
+        <DialogHeader>
+          <DialogTitle className="font-display flex items-center gap-2">
+            <ClipboardList className="w-5 h-5" />
+            Induction Sections — {role.title}
+          </DialogTitle>
+          <DialogDescription>
+            Select which induction sections apply to this role. Sections marked as "Universal" are automatically included for all roles.
+            If no sections are selected (and none are universal), the user will see all sections.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Spinner /></div>
+        ) : sectionNames.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-sm text-muted-foreground">No induction sections found. Create induction template items in the Templates page first.</p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-[400px] overflow-auto pr-1">
+            {sectionNames.map((section: string) => {
+              const items = templateItems.filter((t: any) => t.section === section);
+              const isUniversal = universalSections.has(section);
+              return (
+                <label
+                  key={section}
+                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${isUniversal ? 'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900' : ''}`}
+                  data-testid={`checkbox-role-induction-${section}`}
+                >
+                  <Checkbox
+                    checked={isUniversal || selected.has(section)}
+                    onCheckedChange={() => !isUniversal && toggle(section)}
+                    disabled={isUniversal}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{section}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {items.length} item{items.length !== 1 ? 's' : ''}
+                      </Badge>
+                      {isUniversal && (
+                        <Badge className="text-xs bg-emerald-600 text-white">Universal</Badge>
+                      )}
+                    </div>
+                    {items.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {items.slice(0, 3).map((i: any) => i.title).join(', ')}
+                        {items.length > 3 && ` +${items.length - 3} more`}
+                      </p>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        <DialogFooter>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-sm text-muted-foreground">
+              {selected.size === 0 && universalSections.size === 0
+                ? 'None selected (will show all sections)'
+                : `${selected.size + universalSections.size} section${(selected.size + universalSections.size) === 1 ? '' : 's'} active (${universalSections.size} universal)`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={onClose} data-testid="button-cancel-role-induction">
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={setSections.isPending} data-testid="button-save-role-induction">
+                {setSections.isPending ? <Spinner className="w-4 h-4 mr-2" /> : <Check className="w-4 h-4 mr-2" />}
                 Save
               </Button>
             </div>

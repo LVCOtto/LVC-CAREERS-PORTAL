@@ -90,8 +90,16 @@ export async function registerRoutes(
         createdDate: new Date().toISOString().split("T")[0],
       });
     }
-    const templateItems = await storage.getInductionTemplateItems();
+    let templateItems = await storage.getInductionTemplateItems();
     const completions = await storage.getInductionCompletions(instance.id);
+
+    const user = await storage.getUser(req.params.userId);
+    if (user?.jobRole) {
+      const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
+      if (allowedSections) {
+        templateItems = templateItems.filter(item => allowedSections.includes(item.section));
+      }
+    }
 
     const items = templateItems.map((tmpl) => {
       const completion = completions.find((c) => c.templateItemId === tmpl.id);
@@ -446,6 +454,33 @@ export async function registerRoutes(
       return res.json(result);
     }
     return res.json(null);
+  });
+
+  // ===== INDUCTION SECTION SETTINGS =====
+  app.get("/api/induction-section-settings", async (_req, res) => {
+    const settings = await storage.getInductionSectionSettings();
+    res.json(settings);
+  });
+
+  app.put("/api/induction-section-settings", async (req, res) => {
+    const { sectionName, isUniversal } = req.body;
+    if (!sectionName) return res.status(400).json({ message: "sectionName required" });
+    const setting = await storage.upsertInductionSectionSetting(sectionName, !!isUniversal);
+    res.json(setting);
+  });
+
+  app.get("/api/job-roles/:id/induction-sections", async (req, res) => {
+    const sections = await storage.getJobRoleInductionSections(Number(req.params.id));
+    res.json(sections);
+  });
+
+  app.put("/api/job-roles/:id/induction-sections", async (req, res) => {
+    const { sections } = req.body;
+    if (!Array.isArray(sections)) {
+      return res.status(400).json({ message: "sections must be an array of section names" });
+    }
+    await storage.setJobRoleInductionSections(Number(req.params.id), sections);
+    res.json({ success: true });
   });
 
   // ===== DEPARTMENTS =====

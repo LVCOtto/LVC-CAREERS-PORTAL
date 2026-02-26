@@ -46,6 +46,8 @@ Employee training management system for LVC (cleaning equipment company) support
 - `career_nodes` - Career path structure
 - `training_records` - Compliance training records
 - `job_roles` - Job role definitions
+- `job_role_induction_sections` - Join table linking job roles to induction section names (role-specific induction)
+- `induction_section_settings` - Per-section settings with isUniversal flag (universal sections appear for all roles)
 - `departments` - Organisation departments with name (unique), parentId (self-referencing hierarchy), color (Tailwind class), sortOrder
 - `portal_settings` - Key-value settings for portal customisation (branding, navigation labels, page visibility, wording, rating labels). Categories: branding, navigation, pages, wording, ratings
 
@@ -73,7 +75,7 @@ The architect role is a non-employee user type for customising the portal. Archi
 - `rating.0` through `rating.4`
 
 ## Key Features
-- **Induction tracking**: Section-by-section checklist with manager sign-off
+- **Induction tracking**: Section-by-section checklist with manager sign-off. Modular induction system — sections can be marked "Universal" (applies to all roles) or assigned per job role via the Job Roles page. If no sections are configured, users see all sections (backwards compatible). Uses `induction_section_settings` table (universal toggles) and `job_role_induction_sections` join table (role-specific assignments).
 - **Training matrix**: Interactive self-assessment with 0-4 rating scale via dialog, submit for review, manager approval. Supports role-specific skill assignments — admins can assign specific skill categories to each job role via the Job Roles page. Users see only skills relevant to their role; falls back to department-type filtering if no role-specific assignments exist.
 - **Shareable training matrix**: Colleagues can generate a unique link (`/training-matrix/shared/:token`) for anyone to fill in their self-assessment without logging in
 - **Standards survey**: Role-specific task standards

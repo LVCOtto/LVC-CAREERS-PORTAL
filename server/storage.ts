@@ -559,6 +559,19 @@ export class DatabaseStorage implements IStorage {
     if (allSections.length === 0) return null;
     return allSections;
   }
+  async renameInductionSection(oldName: string, newName: string): Promise<void> {
+    await db.update(schema.inductionTemplateItems)
+      .set({ section: newName })
+      .where(eq(schema.inductionTemplateItems.section, oldName));
+
+    await db.update(schema.inductionSectionSettings)
+      .set({ sectionName: newName })
+      .where(eq(schema.inductionSectionSettings.sectionName, oldName));
+
+    await db.update(schema.jobRoleInductionSections)
+      .set({ sectionName: newName })
+      .where(eq(schema.jobRoleInductionSections.sectionName, oldName));
+  }
 }
 
 export const storage = new DatabaseStorage();

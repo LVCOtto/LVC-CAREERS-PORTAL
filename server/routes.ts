@@ -84,6 +84,19 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.patch("/api/induction-sections/rename", async (req, res) => {
+    const { oldName, newName } = req.body;
+    if (!oldName || !newName) {
+      return res.status(400).json({ message: "oldName and newName are required" });
+    }
+    try {
+      await storage.renameInductionSection(oldName, newName);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Rename failed" });
+    }
+  });
+
   // ===== INDUCTION INSTANCES =====
   app.get("/api/induction/:userId", async (req, res) => {
     let instance = await storage.getInductionInstance(req.params.userId);

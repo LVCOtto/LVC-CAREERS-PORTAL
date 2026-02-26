@@ -115,6 +115,9 @@ export default function AdminTemplates() {
   const [importCompetenciesOpen, setImportCompetenciesOpen] = useState(false);
   const [importStandardsOpen, setImportStandardsOpen] = useState(false);
 
+  const [editingSectionName, setEditingSectionName] = useState<string | null>(null);
+  const [newSectionName, setNewSectionName] = useState('');
+
   const [backupExporting, setBackupExporting] = useState(false);
   const [backupRestoring, setBackupRestoring] = useState(false);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
@@ -497,7 +500,82 @@ export default function AdminTemplates() {
                         <AccordionItem key={section} value={section}>
                           <AccordionTrigger className="hover:no-underline">
                             <div className="flex items-center gap-3 flex-1">
-                              <span className="font-medium">{section}</span>
+                              {editingSectionName === section ? (
+                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <Input
+                                    value={newSectionName}
+                                    onChange={(e) => setNewSectionName(e.target.value)}
+                                    className="h-7 text-sm w-56"
+                                    autoFocus
+                                    data-testid={`input-rename-section-${section}`}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        if (newSectionName.trim() && newSectionName.trim() !== section) {
+                                          fetch('/api/induction-sections/rename', {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ oldName: section, newName: newSectionName.trim() }),
+                                          }).then(() => {
+                                            toast({ title: 'Section renamed' });
+                                            window.location.reload();
+                                          });
+                                        }
+                                        setEditingSectionName(null);
+                                      } else if (e.key === 'Escape') {
+                                        setEditingSectionName(null);
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    data-testid={`button-save-section-name-${section}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (newSectionName.trim() && newSectionName.trim() !== section) {
+                                        fetch('/api/induction-sections/rename', {
+                                          method: 'PATCH',
+                                          headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ oldName: section, newName: newSectionName.trim() }),
+                                        }).then(() => {
+                                          toast({ title: 'Section renamed' });
+                                          window.location.reload();
+                                        });
+                                      }
+                                      setEditingSectionName(null);
+                                    }}
+                                  >
+                                    <Check className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={(e) => { e.stopPropagation(); setEditingSectionName(null); }}
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <span className="font-medium">{section}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    data-testid={`button-rename-section-${section}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingSectionName(section);
+                                      setNewSectionName(section);
+                                    }}
+                                  >
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                </>
+                              )}
                               <Badge variant="secondary">
                                 {inductionItems.filter((i: any) => i.section === section).length} items
                               </Badge>

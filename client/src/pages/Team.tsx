@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth, User } from '@/lib/authContext';
 import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { useRoute, Link } from 'wouter';
@@ -7,6 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -19,7 +21,6 @@ import {
 } from '@/components/ui/table';
 import {
   useUser,
-  useUsers,
   useTeamMembers,
   useInduction,
   useCompleteInductionItem,
@@ -29,7 +30,6 @@ import {
   useStandardsSurvey,
   useUpdateTrainingMatrix,
 } from '@/lib/hooks';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { IndividualView } from '@/pages/Training';
 import {
   ArrowLeft,
@@ -45,8 +45,287 @@ import {
   GraduationCap,
   Loader2,
   Undo2,
-  UserPlus,
 } from 'lucide-react';
+
+const sectionColors = [
+  'bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-800',
+  'bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800',
+  'bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800',
+  'bg-purple-50 border-purple-200 dark:bg-purple-950/30 dark:border-purple-800',
+  'bg-rose-50 border-rose-200 dark:bg-rose-950/30 dark:border-rose-800',
+  'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/30 dark:border-cyan-800',
+  'bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-800',
+  'bg-indigo-50 border-indigo-200 dark:bg-indigo-950/30 dark:border-indigo-800',
+];
+
+const sectionBadgeColors = [
+  'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
+  'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
+  'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  'bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-200',
+  'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
+  'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200',
+];
+
+function AssignToInput({ item, completeItem, toast }: { item: any; completeItem: any; toast: any }) {
+  const [value, setValue] = useState(item.assignedTo || '');
+  const [editing, setEditing] = useState(false);
+
+  const save = () => {
+    const trimmed = value.trim();
+    const assignedTo = trimmed || null;
+    if (assignedTo !== (item.assignedTo || null)) {
+      completeItem.mutate({
+        templateItemId: item.id,
+        completed: item.completed,
+        completedDate: item.completedDate,
+        signedOffBy: item.signedOffBy,
+        signedOffDate: item.signedOffDate,
+        assignedTo,
+      });
+      toast({
+        title: assignedTo ? 'Person assigned' : 'Assignment removed',
+        description: assignedTo
+          ? `"${item.title}" assigned to ${assignedTo}`
+          : `Assignment removed from "${item.title}"`,
+      });
+    }
+    setEditing(false);
+  };
+
+  if (!editing && !item.assignedTo) {
+    return (
+      <button
+        className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+        data-testid={`button-assign-${item.id}`}
+        onClick={() => setEditing(true)}
+      >
+        + Assign
+      </button>
+    );
+  }
+
+  if (!editing && item.assignedTo) {
+    return (
+      <button
+        className="text-xs font-medium hover:underline transition-colors"
+        data-testid={`button-edit-assign-${item.id}`}
+        onClick={() => { setValue(item.assignedTo); setEditing(true); }}
+      >
+        {item.assignedTo}
+      </button>
+    );
+  }
+
+  return (
+    <Input
+      autoFocus
+      className="h-7 w-[140px] text-xs"
+      placeholder="Type a name..."
+      data-testid={`input-assign-${item.id}`}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onBlur={save}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') save();
+        if (e.key === 'Escape') { setValue(item.assignedTo || ''); setEditing(false); }
+      }}
+    />
+  );
+}
+
+function InductionSectionView({ items, completeItem, currentUser, memberId, toast }: {
+  items: any[];
+  completeItem: any;
+  currentUser: any;
+  memberId: string;
+  toast: any;
+}) {
+  const sections = Array.from(new Set(items.map((i: any) => i.section)));
+
+  return (
+    <div className="space-y-6">
+      {sections.map((section, sectionIndex) => {
+        const sectionItems = items.filter((i: any) => i.section === section);
+        const completedCount = sectionItems.filter((i: any) => i.completed).length;
+        const signedOffCount = sectionItems.filter((i: any) => i.signedOffBy).length;
+        const colorClass = sectionColors[sectionIndex % sectionColors.length];
+        const badgeClass = sectionBadgeColors[sectionIndex % sectionBadgeColors.length];
+
+        return (
+          <Card key={section} className={`border ${colorClass}`}>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${badgeClass}`}>
+                    {section}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {sectionItems.length} {sectionItems.length === 1 ? 'item' : 'items'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                    {completedCount}/{sectionItems.length} completed
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5 text-blue-500" />
+                    {signedOffCount}/{sectionItems.length} signed off
+                  </span>
+                </div>
+              </div>
+              <Progress
+                value={sectionItems.length > 0 ? (signedOffCount / sectionItems.length) * 100 : 0}
+                className="h-1.5 mt-2"
+              />
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Completed</TableHead>
+                    <TableHead>Signed Off</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sectionItems.map((item: any) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <p className="font-medium text-sm">{item.title}</p>
+                        {item.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <AssignToInput item={item} completeItem={completeItem} toast={toast} />
+                      </TableCell>
+                      <TableCell>
+                        {item.signedOffBy ? (
+                          <StatusBadge status="complete" />
+                        ) : item.completed ? (
+                          <StatusBadge status="awaiting_signoff" />
+                        ) : (
+                          <StatusBadge status="not_started" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {item.completedDate ? new Date(item.completedDate).toLocaleDateString() : '-'}
+                      </TableCell>
+                      <TableCell>
+                        {item.signedOffBy ? (
+                          <div>
+                            <p className="text-sm">{new Date(item.signedOffDate).toLocaleDateString()}</p>
+                            <p className="text-xs text-muted-foreground">by {item.signedOffBy}</p>
+                          </div>
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          {!item.completed && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="gap-1"
+                              data-testid={`button-complete-${item.id}`}
+                              onClick={() => {
+                                completeItem.mutate({
+                                  templateItemId: item.id,
+                                  completed: true,
+                                  completedDate: new Date().toISOString().slice(0, 10),
+                                  signedOffBy: null,
+                                  signedOffDate: null,
+                                  assignedTo: item.assignedTo,
+                                });
+                                toast({ title: 'Item marked complete', description: `"${item.title}" has been marked as complete.` });
+                              }}
+                            >
+                              <CheckCircle2 className="w-3 h-3" />
+                              Complete
+                            </Button>
+                          )}
+                          {item.completed && !item.signedOffBy && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="gap-1"
+                                data-testid={`button-signoff-${item.id}`}
+                                onClick={() => {
+                                  completeItem.mutate({
+                                    templateItemId: item.id,
+                                    completed: true,
+                                    completedDate: item.completedDate,
+                                    signedOffBy: currentUser?.name || 'Manager',
+                                    signedOffDate: new Date().toISOString().slice(0, 10),
+                                    assignedTo: item.assignedTo,
+                                  });
+                                  toast({ title: 'Item signed off', description: `"${item.title}" has been signed off.` });
+                                }}
+                              >
+                                Sign Off
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="gap-1 text-muted-foreground"
+                                data-testid={`button-undo-complete-${item.id}`}
+                                onClick={() => {
+                                  completeItem.mutate({
+                                    templateItemId: item.id,
+                                    completed: false,
+                                    completedDate: null,
+                                    signedOffBy: null,
+                                    signedOffDate: null,
+                                    assignedTo: item.assignedTo,
+                                  });
+                                  toast({ title: 'Completion undone', description: `"${item.title}" has been reset.` });
+                                }}
+                              >
+                                <Undo2 className="w-3 h-3" />
+                              </Button>
+                            </>
+                          )}
+                          {item.signedOffBy && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="gap-1 text-muted-foreground"
+                              data-testid={`button-undo-signoff-${item.id}`}
+                              onClick={() => {
+                                completeItem.mutate({
+                                  templateItemId: item.id,
+                                  completed: true,
+                                  completedDate: item.completedDate,
+                                  signedOffBy: null,
+                                  signedOffDate: null,
+                                  assignedTo: item.assignedTo,
+                                });
+                                toast({ title: 'Sign-off undone', description: `"${item.title}" sign-off has been removed.` });
+                              }}
+                            >
+                              <Undo2 className="w-3 h-3" />
+                              Undo
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
 
 function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { currentUser } = useAuth();
@@ -67,7 +346,6 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
     : '';
   const { data: standardsSurveyData } = useStandardsSurvey(roleSlug);
 
-  const { data: allUsers = [] } = useUsers();
   const completeItem = useCompleteInductionItem(memberId);
   const updateMatrix = useUpdateTrainingMatrix();
 
@@ -264,185 +542,13 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
           </TabsList>
 
           <TabsContent value="induction" className="mt-6">
-            <Card className="border-border/50">
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Section</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Assigned To</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Signed Off</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item: any) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <Badge variant="outline">{item.section}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <p className="font-medium text-sm">{item.title}</p>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={item.assignedTo || "__unassigned__"}
-                            onValueChange={(value) => {
-                              const assignedTo = value === "__unassigned__" ? null : value;
-                              completeItem.mutate({
-                                templateItemId: item.id,
-                                completed: item.completed,
-                                completedDate: item.completedDate,
-                                signedOffBy: item.signedOffBy,
-                                signedOffDate: item.signedOffDate,
-                                assignedTo,
-                              });
-                              toast({
-                                title: assignedTo ? 'Person assigned' : 'Assignment removed',
-                                description: assignedTo
-                                  ? `"${item.title}" assigned to ${assignedTo}`
-                                  : `Assignment removed from "${item.title}"`,
-                              });
-                            }}
-                          >
-                            <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`select-assign-${item.id}`}>
-                              <SelectValue placeholder="Assign..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__unassigned__">
-                                <span className="text-muted-foreground">Unassigned</span>
-                              </SelectItem>
-                              {allUsers
-                                .filter((u: any) => u.id !== memberId && u.role !== 'architect')
-                                .map((u: any) => (
-                                  <SelectItem key={u.id} value={u.name}>
-                                    {u.name}
-                                  </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {item.signedOffBy ? (
-                            <StatusBadge status="complete" />
-                          ) : item.completed ? (
-                            <StatusBadge status="awaiting_signoff" />
-                          ) : (
-                            <StatusBadge status="not_started" />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {item.completedDate ? new Date(item.completedDate).toLocaleDateString() : '-'}
-                        </TableCell>
-                        <TableCell>
-                          {item.signedOffBy ? (
-                            <div>
-                              <p className="text-sm">{new Date(item.signedOffDate).toLocaleDateString()}</p>
-                              <p className="text-xs text-muted-foreground">by {item.signedOffBy}</p>
-                            </div>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {!item.completed && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="gap-1"
-                                data-testid={`button-complete-${item.id}`}
-                                onClick={() => {
-                                  completeItem.mutate({
-                                    templateItemId: item.id,
-                                    completed: true,
-                                    completedDate: new Date().toISOString().slice(0, 10),
-                                    signedOffBy: null,
-                                    signedOffDate: null,
-                                    assignedTo: item.assignedTo,
-                                  });
-                                  toast({ title: 'Item marked complete', description: `"${item.title}" has been marked as complete.` });
-                                }}
-                              >
-                                <CheckCircle2 className="w-3 h-3" />
-                                Complete
-                              </Button>
-                            )}
-                            {item.completed && !item.signedOffBy && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  className="gap-1"
-                                  data-testid={`button-signoff-${item.id}`}
-                                  onClick={() => {
-                                    completeItem.mutate({
-                                      templateItemId: item.id,
-                                      completed: true,
-                                      completedDate: item.completedDate,
-                                      signedOffBy: currentUser?.name || 'Manager',
-                                      signedOffDate: new Date().toISOString().slice(0, 10),
-                                      assignedTo: item.assignedTo,
-                                    });
-                                    toast({ title: 'Item signed off', description: `"${item.title}" has been signed off.` });
-                                  }}
-                                >
-                                  Sign Off
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="gap-1 text-muted-foreground"
-                                  data-testid={`button-undo-complete-${item.id}`}
-                                  onClick={() => {
-                                    completeItem.mutate({
-                                      templateItemId: item.id,
-                                      completed: false,
-                                      completedDate: null,
-                                      signedOffBy: null,
-                                      signedOffDate: null,
-                                      assignedTo: item.assignedTo,
-                                    });
-                                    toast({ title: 'Completion undone', description: `"${item.title}" has been reset.` });
-                                  }}
-                                >
-                                  <Undo2 className="w-3 h-3" />
-                                </Button>
-                              </>
-                            )}
-                            {item.signedOffBy && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="gap-1 text-muted-foreground"
-                                data-testid={`button-undo-signoff-${item.id}`}
-                                onClick={() => {
-                                  completeItem.mutate({
-                                    templateItemId: item.id,
-                                    completed: true,
-                                    completedDate: item.completedDate,
-                                    signedOffBy: null,
-                                    signedOffDate: null,
-                                    assignedTo: item.assignedTo,
-                                  });
-                                  toast({ title: 'Sign-off undone', description: `"${item.title}" sign-off has been removed.` });
-                                }}
-                              >
-                                <Undo2 className="w-3 h-3" />
-                                Undo
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+            <InductionSectionView
+              items={items}
+              completeItem={completeItem}
+              currentUser={currentUser}
+              memberId={memberId}
+              toast={toast}
+            />
           </TabsContent>
 
           <TabsContent value="training" className="mt-6">

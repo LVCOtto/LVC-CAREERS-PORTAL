@@ -55,7 +55,8 @@ Employee training management system for LVC (cleaning equipment company) support
 - **Shareable training matrix**: Colleagues can generate a unique link (`/training-matrix/shared/:token`) for anyone to fill in their self-assessment without logging in
 - **Standards survey**: Role-specific task standards
 - **Certificates**: Definition + assignment system
-- **Career map**: Career nodes with progression paths
+- **Career map**: Career nodes with progression paths. Career Map page pulls real data from database (competency scores from training matrix, certificates from user certificates, development focus from career node requirements, milestones from career_milestones table). No hardcoded/mock data — new users see proper empty states.
+- **Organisation page**: Hierarchical department tree using parentId relationships from departmentData.ts, department detail views with team structure and reporting lines, org chart driven by managerId
 - **CSV import/export**: Full import and export support across all admin areas:
   - Users: /api/export/users, /api/import/users
   - Job Roles: /api/export/job-roles, /api/import/job-roles

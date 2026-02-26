@@ -54,6 +54,7 @@ export const inductionItemCompletions = pgTable("induction_item_completions", {
   completedDate: text("completed_date"),
   signedOffBy: varchar("signed_off_by", { length: 50 }),
   signedOffDate: text("signed_off_date"),
+  assignedTo: varchar("assigned_to", { length: 100 }),
 });
 
 export const insertInductionItemCompletionSchema = createInsertSchema(inductionItemCompletions).omit({ id: true });

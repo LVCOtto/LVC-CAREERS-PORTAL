@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/table';
 import {
   useUser,
+  useUsers,
   useTeamMembers,
   useInduction,
   useCompleteInductionItem,
@@ -28,6 +29,7 @@ import {
   useStandardsSurvey,
   useUpdateTrainingMatrix,
 } from '@/lib/hooks';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { IndividualView } from '@/pages/Training';
 import {
   ArrowLeft,
@@ -42,6 +44,8 @@ import {
   ClipboardCheck,
   GraduationCap,
   Loader2,
+  Undo2,
+  UserPlus,
 } from 'lucide-react';
 
 function TeamMemberProfile({ memberId }: { memberId: string }) {
@@ -63,6 +67,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
     : '';
   const { data: standardsSurveyData } = useStandardsSurvey(roleSlug);
 
+  const { data: allUsers = [] } = useUsers();
   const completeItem = useCompleteInductionItem(memberId);
   const updateMatrix = useUpdateTrainingMatrix();
 
@@ -266,6 +271,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     <TableRow>
                       <TableHead>Section</TableHead>
                       <TableHead>Item</TableHead>
+                      <TableHead>Assigned To</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Completed</TableHead>
                       <TableHead>Signed Off</TableHead>
@@ -278,7 +284,50 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                         <TableCell>
                           <Badge variant="outline">{item.section}</Badge>
                         </TableCell>
-                        <TableCell className="font-medium">{item.title}</TableCell>
+                        <TableCell>
+                          <p className="font-medium text-sm">{item.title}</p>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={item.assignedTo || "__unassigned__"}
+                            onValueChange={(value) => {
+                              const assignedTo = value === "__unassigned__" ? null : value;
+                              completeItem.mutate({
+                                templateItemId: item.id,
+                                completed: item.completed,
+                                completedDate: item.completedDate,
+                                signedOffBy: item.signedOffBy,
+                                signedOffDate: item.signedOffDate,
+                                assignedTo,
+                              });
+                              toast({
+                                title: assignedTo ? 'Person assigned' : 'Assignment removed',
+                                description: assignedTo
+                                  ? `"${item.title}" assigned to ${assignedTo}`
+                                  : `Assignment removed from "${item.title}"`,
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[160px] text-xs" data-testid={`select-assign-${item.id}`}>
+                              <SelectValue placeholder="Assign..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__unassigned__">
+                                <span className="text-muted-foreground">Unassigned</span>
+                              </SelectItem>
+                              {allUsers
+                                .filter((u: any) => u.id !== memberId && u.role !== 'architect')
+                                .map((u: any) => (
+                                  <SelectItem key={u.id} value={u.name}>
+                                    {u.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
                         <TableCell>
                           {item.signedOffBy ? (
                             <StatusBadge status="complete" />
@@ -292,27 +341,101 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                           {item.completedDate ? new Date(item.completedDate).toLocaleDateString() : '-'}
                         </TableCell>
                         <TableCell>
-                          {item.signedOffDate ? new Date(item.signedOffDate).toLocaleDateString() : '-'}
+                          {item.signedOffBy ? (
+                            <div>
+                              <p className="text-sm">{new Date(item.signedOffDate).toLocaleDateString()}</p>
+                              <p className="text-xs text-muted-foreground">by {item.signedOffBy}</p>
+                            </div>
+                          ) : '-'}
                         </TableCell>
                         <TableCell className="text-right">
-                          {item.completed && !item.signedOffBy && (
-                            <Button
-                              size="sm"
-                              data-testid={`button-signoff-${item.id}`}
-                              onClick={() => {
-                                completeItem.mutate({
-                                  templateItemId: item.id,
-                                  completed: true,
-                                  completedDate: item.completedDate,
-                                  signedOffBy: currentUser?.name || 'Manager',
-                                  signedOffDate: new Date().toISOString().slice(0, 10),
-                                });
-                                toast({ title: 'Item signed off', description: `"${item.title}" has been signed off.` });
-                              }}
-                            >
-                              Sign Off
-                            </Button>
-                          )}
+                          <div className="flex items-center justify-end gap-1">
+                            {!item.completed && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1"
+                                data-testid={`button-complete-${item.id}`}
+                                onClick={() => {
+                                  completeItem.mutate({
+                                    templateItemId: item.id,
+                                    completed: true,
+                                    completedDate: new Date().toISOString().slice(0, 10),
+                                    signedOffBy: null,
+                                    signedOffDate: null,
+                                    assignedTo: item.assignedTo,
+                                  });
+                                  toast({ title: 'Item marked complete', description: `"${item.title}" has been marked as complete.` });
+                                }}
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                Complete
+                              </Button>
+                            )}
+                            {item.completed && !item.signedOffBy && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="gap-1"
+                                  data-testid={`button-signoff-${item.id}`}
+                                  onClick={() => {
+                                    completeItem.mutate({
+                                      templateItemId: item.id,
+                                      completed: true,
+                                      completedDate: item.completedDate,
+                                      signedOffBy: currentUser?.name || 'Manager',
+                                      signedOffDate: new Date().toISOString().slice(0, 10),
+                                      assignedTo: item.assignedTo,
+                                    });
+                                    toast({ title: 'Item signed off', description: `"${item.title}" has been signed off.` });
+                                  }}
+                                >
+                                  Sign Off
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="gap-1 text-muted-foreground"
+                                  data-testid={`button-undo-complete-${item.id}`}
+                                  onClick={() => {
+                                    completeItem.mutate({
+                                      templateItemId: item.id,
+                                      completed: false,
+                                      completedDate: null,
+                                      signedOffBy: null,
+                                      signedOffDate: null,
+                                      assignedTo: item.assignedTo,
+                                    });
+                                    toast({ title: 'Completion undone', description: `"${item.title}" has been reset.` });
+                                  }}
+                                >
+                                  <Undo2 className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                            {item.signedOffBy && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="gap-1 text-muted-foreground"
+                                data-testid={`button-undo-signoff-${item.id}`}
+                                onClick={() => {
+                                  completeItem.mutate({
+                                    templateItemId: item.id,
+                                    completed: true,
+                                    completedDate: item.completedDate,
+                                    signedOffBy: null,
+                                    signedOffDate: null,
+                                    assignedTo: item.assignedTo,
+                                  });
+                                  toast({ title: 'Sign-off undone', description: `"${item.title}" sign-off has been removed.` });
+                                }}
+                              >
+                                <Undo2 className="w-3 h-3" />
+                                Undo
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}

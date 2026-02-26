@@ -370,6 +370,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         completedDate: r.completedDate || null,
         signedOffBy: r.signedOffBy || null,
         signedOffDate: r.signedOffDate || null,
+        assignedTo: r.assignedTo || null,
       }).onConflictDoNothing();
     }
     return rows.length;

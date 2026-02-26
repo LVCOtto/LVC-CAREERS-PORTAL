@@ -54,9 +54,9 @@ export async function exportFullBackup(res: Response) {
 
   const inductionCompletions = await db.select().from(schema.inductionItemCompletions);
   archive.append(toCsv(
-    ["id", "instanceId", "templateItemId", "completed", "completedDate", "signedOffBy", "signedOffDate"],
+    ["id", "instanceId", "templateItemId", "completed", "completedDate", "signedOffBy", "signedOffDate", "assignedTo"],
     inductionCompletions,
-    (c) => [String(c.id), String(c.instanceId), String(c.templateItemId), String(c.completed), c.completedDate || "", c.signedOffBy || "", c.signedOffDate || ""]
+    (c) => [String(c.id), String(c.instanceId), String(c.templateItemId), String(c.completed), c.completedDate || "", c.signedOffBy || "", c.signedOffDate || "", c.assignedTo || ""]
   ), { name: "induction-completions.csv" });
 
   const competencyCategories = await db.select().from(schema.competencyCategories);

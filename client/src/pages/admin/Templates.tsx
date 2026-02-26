@@ -24,6 +24,10 @@ import {
   X,
   Download,
   Upload,
+  Database,
+  AlertTriangle,
+  Loader2,
+  Archive,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -110,6 +114,12 @@ export default function AdminTemplates() {
   const [importInductionOpen, setImportInductionOpen] = useState(false);
   const [importCompetenciesOpen, setImportCompetenciesOpen] = useState(false);
   const [importStandardsOpen, setImportStandardsOpen] = useState(false);
+
+  const [backupExporting, setBackupExporting] = useState(false);
+  const [backupRestoring, setBackupRestoring] = useState(false);
+  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoreResult, setRestoreResult] = useState<{ success: boolean; summary: Record<string, number>; errors: string[] } | null>(null);
 
   const [categoryDialog, setCategoryDialog] = useState<{
     open: boolean;
@@ -419,6 +429,10 @@ export default function AdminTemplates() {
             <TabsTrigger value="standards" className="gap-2" data-testid="tab-standards-templates">
               <ClipboardList className="w-4 h-4" />
               Standards Survey
+            </TabsTrigger>
+            <TabsTrigger value="backup" className="gap-2" data-testid="tab-data-backup">
+              <Database className="w-4 h-4" />
+              Data Backup
             </TabsTrigger>
           </TabsList>
 
@@ -895,7 +909,208 @@ export default function AdminTemplates() {
               </Dialog>
             </div>
           </TabsContent>
+
+          <TabsContent value="backup">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold">Data Backup & Restore</h2>
+                <p className="text-sm text-muted-foreground">
+                  Export a complete system backup or restore from a previous backup file
+                </p>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Download className="w-5 h-5" />
+                      Export Full Backup
+                    </CardTitle>
+                    <CardDescription>
+                      Download a ZIP file containing all system data including users,
+                      training records, induction progress, skills, certificates,
+                      career data, surveys, resources, departments, and portal settings.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="rounded-lg bg-muted p-4 text-sm space-y-2">
+                        <p className="font-medium">Includes all data tables:</p>
+                        <div className="grid grid-cols-2 gap-1 text-muted-foreground text-xs">
+                          <span>Users & roles</span>
+                          <span>Induction templates & progress</span>
+                          <span>Skill categories & items</span>
+                          <span>Training matrix submissions</span>
+                          <span>Certificate definitions & records</span>
+                          <span>Training records</span>
+                          <span>Job roles & assignments</span>
+                          <span>Career nodes & milestones</span>
+                          <span>Standards surveys</span>
+                          <span>Resources</span>
+                          <span>Departments</span>
+                          <span>Portal settings</span>
+                        </div>
+                      </div>
+                      <Button
+                        className="w-full gap-2"
+                        data-testid="button-export-full-backup"
+                        disabled={backupExporting}
+                        onClick={async () => {
+                          setBackupExporting(true);
+                          try {
+                            window.open('/api/export/full-backup', '_blank');
+                            toast({ title: 'Backup export started', description: 'Your download should begin shortly.' });
+                          } catch {
+                            toast({ title: 'Export failed', variant: 'destructive' });
+                          } finally {
+                            setTimeout(() => setBackupExporting(false), 2000);
+                          }
+                        }}
+                      >
+                        {backupExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Archive className="w-4 h-4" />}
+                        {backupExporting ? 'Preparing backup...' : 'Download Full Backup'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Upload className="w-5 h-5" />
+                      Restore from Backup
+                    </CardTitle>
+                    <CardDescription>
+                      Upload a previously exported backup ZIP file to restore all system data.
+                      This will replace all existing data.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="rounded-lg border-2 border-dashed border-orange-300 bg-orange-50 dark:bg-orange-950/20 p-4">
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                          <div className="text-sm">
+                            <p className="font-medium text-orange-700 dark:text-orange-400">Warning: Destructive Action</p>
+                            <p className="text-orange-600 dark:text-orange-500 mt-1">
+                              Restoring from a backup will delete all current data and replace it with the backup contents.
+                              Make sure to export a backup first if you need to preserve current data.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="backup-file" className="text-sm font-medium">Select backup file (.zip)</Label>
+                        <Input
+                          id="backup-file"
+                          type="file"
+                          accept=".zip"
+                          className="mt-1"
+                          data-testid="input-backup-file"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setRestoreFile(file);
+                            setRestoreResult(null);
+                          }}
+                        />
+                      </div>
+                      <Button
+                        variant="destructive"
+                        className="w-full gap-2"
+                        data-testid="button-restore-backup"
+                        disabled={!restoreFile || backupRestoring}
+                        onClick={() => setRestoreConfirmOpen(true)}
+                      >
+                        <Upload className="w-4 h-4" />
+                        Restore from Backup
+                      </Button>
+
+                      {restoreResult && (
+                        <div className={`rounded-lg p-4 text-sm ${restoreResult.success ? 'bg-green-50 dark:bg-green-950/20 border border-green-200' : 'bg-red-50 dark:bg-red-950/20 border border-red-200'}`}>
+                          <p className="font-medium mb-2">{restoreResult.success ? 'Restore completed successfully' : 'Restore completed with errors'}</p>
+                          {Object.keys(restoreResult.summary).length > 0 && (
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-muted-foreground">Records imported:</p>
+                              {Object.entries(restoreResult.summary).map(([file, count]) => (
+                                <div key={file} className="flex justify-between text-xs">
+                                  <span>{file.replace('.csv', '')}</span>
+                                  <Badge variant="secondary" className="text-xs">{count}</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {restoreResult.errors.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-xs font-medium text-red-600">Errors:</p>
+                              {restoreResult.errors.map((err, i) => (
+                                <p key={i} className="text-xs text-red-500">{err}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
         </Tabs>
+
+        <Dialog open={restoreConfirmOpen} onOpenChange={setRestoreConfirmOpen}>
+          <DialogContent data-testid="dialog-restore-confirm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="w-5 h-5" />
+                Confirm Data Restore
+              </DialogTitle>
+              <DialogDescription>
+                This action will permanently delete all current data in the system and replace it with the contents of the backup file. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm">
+              <p className="font-medium">File: {restoreFile?.name}</p>
+              <p className="text-muted-foreground mt-1">Size: {restoreFile ? (restoreFile.size / 1024).toFixed(1) + ' KB' : ''}</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRestoreConfirmOpen(false)} data-testid="button-cancel-restore">
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={backupRestoring}
+                data-testid="button-confirm-restore"
+                onClick={async () => {
+                  if (!restoreFile) return;
+                  setBackupRestoring(true);
+                  setRestoreConfirmOpen(false);
+                  try {
+                    const formData = new FormData();
+                    formData.append('file', restoreFile);
+                    const response = await fetch('/api/import/full-backup', {
+                      method: 'POST',
+                      body: formData,
+                    });
+                    const result = await response.json();
+                    setRestoreResult(result);
+                    if (result.success) {
+                      toast({ title: 'Restore completed', description: 'All data has been restored from backup.' });
+                    } else {
+                      toast({ title: 'Restore completed with errors', description: 'Some data may not have been restored.', variant: 'destructive' });
+                    }
+                  } catch {
+                    toast({ title: 'Restore failed', description: 'An error occurred during restore.', variant: 'destructive' });
+                  } finally {
+                    setBackupRestoring(false);
+                  }
+                }}
+              >
+                {backupRestoring ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Yes, Replace All Data
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={inductionDialog.open} onOpenChange={(open) => !open && setInductionDialog({ open: false, mode: 'add' })}>
           <DialogContent data-testid="dialog-induction-item">

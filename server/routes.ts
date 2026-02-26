@@ -1,6 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import multer from "multer";
+import { exportFullBackup } from "./backup";
+import { importFullBackup } from "./restore";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 export async function registerRoutes(
   httpServer: Server,
@@ -540,6 +545,27 @@ export async function registerRoutes(
     }
     await storage.batchUpsertPortalSettings(settings);
     res.json({ success: true });
+  });
+
+  // ===== FULL BACKUP / RESTORE =====
+  app.get("/api/export/full-backup", async (_req, res) => {
+    try {
+      await exportFullBackup(res);
+    } catch (error) {
+      res.status(500).json({ message: "Full backup export failed" });
+    }
+  });
+
+  app.post("/api/import/full-backup", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+      const result = await importFullBackup(req.file.buffer);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Full backup restore failed" });
+    }
   });
 
   // ===== EXPORT (CSV) =====

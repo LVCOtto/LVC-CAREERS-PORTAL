@@ -84,6 +84,7 @@ The architect role is a non-employee user type for customising the portal. Archi
 - **Departments**: Database-driven department management (departments table with name, parentId hierarchy, color, sortOrder). Admins can add/edit/rename/delete departments from the Organisation page's "Manage Departments" tab. Department dropdown in User Management replaces free-text input. Deletion prevented if users assigned or child departments exist.
 - **Organisation page**: Hierarchical department tree using parentId relationships from database departments, department detail views with team structure and reporting lines, org chart driven by managerId
 - **CSV import/export**: Full import and export support across all admin areas
+- **Full backup/restore**: ZIP-based export of all 21 database tables as CSVs, with restore capability. Backend modules: `server/backup.ts` (export) and `server/restore.ts` (import). Routes: `GET /api/export/full-backup` and `POST /api/import/full-backup`. UI on Templates page "Data Backup" tab.
 - **Admin pages**: Full CRUD for Users, Templates (induction items, training matrix competencies, standards survey items), Job Roles, Resources, Certificates, Organisation
 - **Architect Studio**: Portal customisation for branding, navigation, pages, wording, and rating scale
 

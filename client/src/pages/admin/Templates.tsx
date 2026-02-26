@@ -22,6 +22,8 @@ import {
   Search,
   Check,
   X,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -40,6 +42,8 @@ import {
   useDeleteStandardsSurveyItem,
 } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
+import { CsvImportDialog } from '@/components/CsvImportDialog';
+import { api } from '@/lib/api';
 
 export default function AdminTemplates() {
   const { currentUser } = useAuth();
@@ -78,6 +82,10 @@ export default function AdminTemplates() {
   const [surveyItemText, setSurveyItemText] = useState('');
   const [addingSurveyItem, setAddingSurveyItem] = useState(false);
   const [newSurveyItemText, setNewSurveyItemText] = useState('');
+
+  const [importInductionOpen, setImportInductionOpen] = useState(false);
+  const [importCompetenciesOpen, setImportCompetenciesOpen] = useState(false);
+  const [importStandardsOpen, setImportStandardsOpen] = useState(false);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
@@ -256,13 +264,23 @@ export default function AdminTemplates() {
                     Define induction checklist items grouped by section
                   </p>
                 </div>
-                <Button
-                  onClick={() => openAddInductionItem('')}
-                  data-testid="button-add-induction-template"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Item
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => api.exportCsv('induction-templates')} data-testid="button-export-induction">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportInductionOpen(true)} data-testid="button-import-induction">
+                    <Upload className="h-4 w-4" />
+                    Import
+                  </Button>
+                  <Button
+                    onClick={() => openAddInductionItem('')}
+                    data-testid="button-add-induction-template"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Item
+                  </Button>
+                </div>
               </div>
 
               {loadingInduction ? (
@@ -378,6 +396,16 @@ export default function AdminTemplates() {
                     Define training requirements for each job role
                   </p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => api.exportCsv('competencies')} data-testid="button-export-competencies">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportCompetenciesOpen(true)} data-testid="button-import-competencies">
+                    <Upload className="h-4 w-4" />
+                    Import
+                  </Button>
+                </div>
               </div>
 
               {loadingCompetencies ? (
@@ -433,6 +461,14 @@ export default function AdminTemplates() {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => api.exportCsv('standards-surveys')} data-testid="button-export-standards">
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => setImportStandardsOpen(true)} data-testid="button-import-standards">
+                    <Upload className="h-4 w-4" />
+                    Import
+                  </Button>
                   <div className="relative">
                     <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                     <Input
@@ -690,6 +726,36 @@ export default function AdminTemplates() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CsvImportDialog
+          open={importInductionOpen}
+          onOpenChange={setImportInductionOpen}
+          title="Import Induction Items"
+          description="Upload a CSV to bulk-create induction checklist items. Columns: section, title, description, requiresEvidence, sortOrder"
+          expectedColumns={['section', 'title', 'description', 'requiresEvidence', 'sortOrder']}
+          onImport={(rows) => api.importCsv('induction-templates', rows)}
+          onComplete={() => window.location.reload()}
+        />
+
+        <CsvImportDialog
+          open={importCompetenciesOpen}
+          onOpenChange={setImportCompetenciesOpen}
+          title="Import Training Matrix Competencies"
+          description="Upload a CSV to bulk-create competency categories and items. Categories are auto-created if they don't exist."
+          expectedColumns={['category_name', 'category_department_type', 'category_sort_order', 'item_name', 'item_description', 'item_sort_order']}
+          onImport={(rows) => api.importCsv('competencies', rows)}
+          onComplete={() => window.location.reload()}
+        />
+
+        <CsvImportDialog
+          open={importStandardsOpen}
+          onOpenChange={setImportStandardsOpen}
+          title="Import Standards Survey Items"
+          description="Upload a CSV to bulk-create survey items. Survey roles are auto-created if they don't exist."
+          expectedColumns={['roleTitle', 'roleSlug', 'itemText', 'isFeedback', 'sortOrder']}
+          onImport={(rows) => api.importCsv('standards-surveys', rows)}
+          onComplete={() => window.location.reload()}
+        />
       </div>
     </Layout>
   );

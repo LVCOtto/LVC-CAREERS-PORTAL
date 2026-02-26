@@ -416,6 +416,49 @@ export async function registerRoutes(
           `${r.id},"${r.title}","${r.department}","${(r.summary || '').replace(/"/g, '""')}"`
         ).join("\n");
         filename = "job-roles.csv";
+      } else if (type === "competencies") {
+        const { categories } = await storage.getAllCompetencyItemsWithCategories();
+        csvContent = "category_name,category_department_type,category_sort_order,item_name,item_description,item_sort_order\n";
+        for (const cat of categories) {
+          for (const item of cat.items) {
+            csvContent += `"${cat.name}","${cat.departmentType}",${cat.sortOrder},"${item.name}","${(item.description || '').replace(/"/g, '""')}",${item.sortOrder}\n`;
+          }
+          if (cat.items.length === 0) {
+            csvContent += `"${cat.name}","${cat.departmentType}",${cat.sortOrder},"","",0\n`;
+          }
+        }
+        filename = "competencies.csv";
+      } else if (type === "induction-templates") {
+        const items = await storage.getInductionTemplateItems();
+        csvContent = "section,title,description,requiresEvidence,sortOrder\n";
+        csvContent += items.map(i =>
+          `"${i.section}","${i.title}","${(i.description || '').replace(/"/g, '""')}",${i.requiresEvidence},${i.sortOrder}`
+        ).join("\n");
+        filename = "induction-templates.csv";
+      } else if (type === "certificate-definitions") {
+        const defs = await storage.getCertificateDefinitions();
+        csvContent = "name,description,category,level,icon,provider,validityMonths\n";
+        csvContent += defs.map(d =>
+          `"${d.name}","${(d.description || '').replace(/"/g, '""')}","${d.category}","${d.level}","${d.icon}","${d.provider}",${d.validityMonths || ''}`
+        ).join("\n");
+        filename = "certificate-definitions.csv";
+      } else if (type === "resources") {
+        const resources = await storage.getResources();
+        csvContent = "title,description,category,url,icon\n";
+        csvContent += resources.map(r =>
+          `"${r.title}","${(r.description || '').replace(/"/g, '""')}","${r.category}","${r.url}","${r.icon}"`
+        ).join("\n");
+        filename = "resources.csv";
+      } else if (type === "standards-surveys") {
+        const roles = await storage.getStandardsSurveyRoles();
+        csvContent = "roleTitle,roleSlug,itemText,isFeedback,sortOrder\n";
+        for (const role of roles) {
+          const items = await storage.getStandardsSurveyItems(role.id);
+          for (const item of items) {
+            csvContent += `"${role.roleTitle}","${role.roleSlug}","${item.text.replace(/"/g, '""')}",${item.isFeedback},${item.sortOrder}\n`;
+          }
+        }
+        filename = "standards-surveys.csv";
       } else {
         return res.status(400).json({ message: "Unknown export type" });
       }
@@ -486,6 +529,156 @@ export async function registerRoutes(
             created++;
           } catch (e: any) {
             errors.push(`Row ${i + 1} (${row.title || 'unknown'}): ${e.message}`);
+            skipped++;
+          }
+        }
+      } else if (type === "competencies") {
+        const existingCats = await storage.getCompetencyCategories();
+        const catMap = new Map<string, number>();
+        for (const cat of existingCats) {
+          catMap.set(cat.name, cat.id);
+        }
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            const catName = row.category_name;
+            if (!catName) {
+              errors.push(`Row ${i + 1}: Missing category_name`);
+              skipped++;
+              continue;
+            }
+            let catId = catMap.get(catName);
+            if (!catId) {
+              const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+              const newCat = await storage.createCompetencyCategory({
+                slug: `${slug}-${Date.now().toString(36)}`,
+                name: catName,
+                departmentType: row.category_department_type || "all",
+                sortOrder: parseInt(row.category_sort_order) || 0,
+              });
+              catId = newCat.id;
+              catMap.set(catName, catId);
+            }
+            const itemName = row.item_name;
+            if (!itemName) continue;
+            const itemSlug = itemName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            await storage.createCompetencyItem({
+              categoryId: catId,
+              slug: `${itemSlug}-${Date.now().toString(36)}${i}`,
+              name: itemName,
+              description: row.item_description || "",
+              sortOrder: parseInt(row.item_sort_order) || 0,
+            });
+            created++;
+          } catch (e: any) {
+            errors.push(`Row ${i + 1}: ${e.message}`);
+            skipped++;
+          }
+        }
+      } else if (type === "induction-templates") {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            if (!row.section || !row.title) {
+              errors.push(`Row ${i + 1}: Missing required field (section or title)`);
+              skipped++;
+              continue;
+            }
+            const slug = row.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            await storage.createInductionTemplateItem({
+              slug: `${slug}-${Date.now().toString(36)}${i}`,
+              section: row.section,
+              title: row.title,
+              description: row.description || "",
+              requiresEvidence: row.requiresEvidence === "true" || row.requiresEvidence === "1",
+              sortOrder: parseInt(row.sortOrder) || 0,
+            });
+            created++;
+          } catch (e: any) {
+            errors.push(`Row ${i + 1} (${row.title || 'unknown'}): ${e.message}`);
+            skipped++;
+          }
+        }
+      } else if (type === "certificate-definitions") {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            if (!row.name) {
+              errors.push(`Row ${i + 1}: Missing required field (name)`);
+              skipped++;
+              continue;
+            }
+            await storage.createCertificateDefinition({
+              name: row.name,
+              description: row.description || "",
+              category: row.category || "Technical",
+              level: row.level || "Standard",
+              icon: row.icon || "Award",
+              provider: row.provider || "",
+              validityMonths: row.validityMonths ? parseInt(row.validityMonths) : null,
+            });
+            created++;
+          } catch (e: any) {
+            errors.push(`Row ${i + 1} (${row.name || 'unknown'}): ${e.message}`);
+            skipped++;
+          }
+        }
+      } else if (type === "resources") {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            if (!row.title) {
+              errors.push(`Row ${i + 1}: Missing required field (title)`);
+              skipped++;
+              continue;
+            }
+            await storage.createResource({
+              title: row.title,
+              description: row.description || "",
+              category: row.category || "General",
+              url: row.url || "",
+              icon: row.icon || "FileText",
+            });
+            created++;
+          } catch (e: any) {
+            errors.push(`Row ${i + 1} (${row.title || 'unknown'}): ${e.message}`);
+            skipped++;
+          }
+        }
+      } else if (type === "standards-surveys") {
+        const existingRoles = await storage.getStandardsSurveyRoles();
+        const roleMap = new Map<string, number>();
+        for (const role of existingRoles) {
+          roleMap.set(role.roleSlug, role.id);
+        }
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            const roleSlug = row.roleSlug;
+            const roleTitle = row.roleTitle;
+            if (!roleSlug || !row.itemText) {
+              errors.push(`Row ${i + 1}: Missing required field (roleSlug or itemText)`);
+              skipped++;
+              continue;
+            }
+            let roleId = roleMap.get(roleSlug);
+            if (!roleId) {
+              const newRole = await storage.createStandardsSurveyRole({
+                roleSlug,
+                roleTitle: roleTitle || roleSlug,
+              });
+              roleId = newRole.id;
+              roleMap.set(roleSlug, roleId);
+            }
+            await storage.createStandardsSurveyItem({
+              surveyRoleId: roleId,
+              text: row.itemText,
+              isFeedback: row.isFeedback === "true" || row.isFeedback === "1",
+              sortOrder: parseInt(row.sortOrder) || 0,
+            });
+            created++;
+          } catch (e: any) {
+            errors.push(`Row ${i + 1}: ${e.message}`);
             skipped++;
           }
         }

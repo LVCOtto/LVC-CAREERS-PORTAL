@@ -56,8 +56,17 @@ Employee training management system for LVC (cleaning equipment company) support
 - **Standards survey**: Role-specific task standards
 - **Certificates**: Definition + assignment system
 - **Career map**: Career nodes with progression paths
-- **CSV exports**: /api/export/users, /api/export/training-records, /api/export/certificates
-- **Admin pages**: Full CRUD for Users, Templates (induction items, standards survey items), Job Roles, Resources, Certificates, Organisation
+- **CSV import/export**: Full import and export support across all admin areas:
+  - Users: /api/export/users, /api/import/users
+  - Job Roles: /api/export/job-roles, /api/import/job-roles
+  - Training Records: /api/export/training-records
+  - Certificates: /api/export/certificates
+  - Competencies (Training Matrix): /api/export/competencies, /api/import/competencies
+  - Induction Templates: /api/export/induction-templates, /api/import/induction-templates
+  - Certificate Definitions: /api/export/certificate-definitions, /api/import/certificate-definitions
+  - Resources: /api/export/resources, /api/import/resources
+  - Standards Surveys: /api/export/standards-surveys, /api/import/standards-surveys
+- **Admin pages**: Full CRUD for Users, Templates (induction items, training matrix competencies, standards survey items), Job Roles, Resources, Certificates, Organisation
 
 ## Commands
 - `npm run dev` - Start dev server (port 5000)

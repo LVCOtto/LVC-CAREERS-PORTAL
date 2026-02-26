@@ -25,6 +25,8 @@ export interface IStorage {
   getCompetencyCategories(departmentType?: string): Promise<schema.CompetencyCategory[]>;
   getCompetencyItems(categoryId?: number): Promise<schema.CompetencyItem[]>;
   getAllCompetencyItemsWithCategories(): Promise<{ categories: (schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] }>;
+  createCompetencyCategory(cat: schema.InsertCompetencyCategory): Promise<schema.CompetencyCategory>;
+  createCompetencyItem(item: schema.InsertCompetencyItem): Promise<schema.CompetencyItem>;
 
   getTrainingMatrixSubmission(userId: string): Promise<schema.TrainingMatrixSubmission | undefined>;
   getAllTrainingMatrixSubmissions(): Promise<schema.TrainingMatrixSubmission[]>;
@@ -173,6 +175,16 @@ export class DatabaseStorage implements IStorage {
         .orderBy(schema.competencyItems.sortOrder);
     }
     return db.select().from(schema.competencyItems).orderBy(schema.competencyItems.sortOrder);
+  }
+
+  async createCompetencyCategory(cat: schema.InsertCompetencyCategory) {
+    const [created] = await db.insert(schema.competencyCategories).values(cat).returning();
+    return created;
+  }
+
+  async createCompetencyItem(item: schema.InsertCompetencyItem) {
+    const [created] = await db.insert(schema.competencyItems).values(item).returning();
+    return created;
   }
 
   async getAllCompetencyItemsWithCategories() {

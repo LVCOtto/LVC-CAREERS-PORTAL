@@ -38,8 +38,12 @@ import {
   GraduationCap,
   Network,
   Headphones,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { CsvImportDialog } from '@/components/CsvImportDialog';
+import { api } from '@/lib/api';
 
 interface Resource {
   id: number;
@@ -101,6 +105,7 @@ export default function AdminResources() {
   const [url, setUrl] = useState('');
   const [icon, setIcon] = useState('');
   const [type, setType] = useState<'link' | 'file'>('link');
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const filteredResources = resources.filter(
     r =>
@@ -194,10 +199,20 @@ export default function AdminResources() {
               Manage company documents, links, and resources
             </p>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="gap-2" data-testid="button-add-resource">
-            <Plus className="w-4 h-4" />
-            Add Resource
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => api.exportCsv('resources')} data-testid="button-export-resources">
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsImportOpen(true)} data-testid="button-import-resources">
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="gap-2" data-testid="button-add-resource">
+              <Plus className="w-4 h-4" />
+              Add Resource
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -370,6 +385,16 @@ export default function AdminResources() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <CsvImportDialog
+          open={isImportOpen}
+          onOpenChange={setIsImportOpen}
+          title="Import Resources"
+          description="Upload a CSV to bulk-create resources. Columns: title, description, category, url, icon"
+          expectedColumns={['title', 'description', 'category', 'url', 'icon']}
+          onImport={(rows) => api.importCsv('resources', rows)}
+          onComplete={() => window.location.reload()}
+        />
       </div>
     </Layout>
   );

@@ -42,9 +42,13 @@ import {
   Zap,
   BadgeCheck,
   Medal,
-  Star
+  Star,
+  Download,
+  Upload,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { CsvImportDialog } from '@/components/CsvImportDialog';
+import { api } from '@/lib/api';
 
 type CertificateCategory = 'Safety' | 'Technical' | 'Professional' | 'Compliance' | 'Leadership';
 type CertificateLevel = 'Bronze' | 'Silver' | 'Gold' | 'Platinum' | 'Standard';
@@ -99,6 +103,7 @@ export default function AdminCertificates() {
   const [icon, setIcon] = useState('award');
   const [provider, setProvider] = useState('');
   const [validityMonths, setValidityMonths] = useState<string>('');
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const filteredDefinitions = definitions.filter((d: any) =>
     d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -203,10 +208,20 @@ export default function AdminCertificates() {
               Configure certificate types, levels, and badges
             </p>
           </div>
-          <Button onClick={() => handleOpenDialog()} className="gap-2" data-testid="button-add-certificate">
-            <Plus className="w-4 h-4" />
-            Add Certificate Type
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => api.exportCsv('certificate-definitions')} data-testid="button-export-certificates">
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsImportOpen(true)} data-testid="button-import-certificates">
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button onClick={() => handleOpenDialog()} className="gap-2" data-testid="button-add-certificate">
+              <Plus className="w-4 h-4" />
+              Add Certificate Type
+            </Button>
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
@@ -344,6 +359,16 @@ export default function AdminCertificates() {
             </form>
           </DialogContent>
         </Dialog>
+
+        <CsvImportDialog
+          open={isImportOpen}
+          onOpenChange={setIsImportOpen}
+          title="Import Certificate Definitions"
+          description="Upload a CSV to bulk-create certificate types. Columns: name, description, category, level, icon, provider, validityMonths"
+          expectedColumns={['name', 'description', 'category', 'level', 'icon', 'provider', 'validityMonths']}
+          onImport={(rows) => api.importCsv('certificate-definitions', rows)}
+          onComplete={() => window.location.reload()}
+        />
       </div>
     </Layout>
   );

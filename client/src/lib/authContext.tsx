@@ -18,7 +18,7 @@ export interface User {
 interface AuthContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
-  loginAs: (role: UserRole) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -28,14 +28,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const loginAs = async (role: UserRole) => {
-    const usernameMap: Record<UserRole, { username: string; password: string }> = {
-      colleague: { username: 'colleague1', password: 'colleague' },
-      manager: { username: 'manager1', password: 'manager' },
-      admin: { username: 'admin', password: 'admin' },
-    };
-    const creds = usernameMap[role];
-    const user = await api.auth.login(creds.username, creds.password);
+  const login = async (username: string, password: string) => {
+    const user = await api.auth.login(username, password);
     setCurrentUser(user as User);
   };
 
@@ -48,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         currentUser,
         setCurrentUser,
-        loginAs,
+        login,
         logout,
         isAuthenticated: currentUser !== null,
       }}

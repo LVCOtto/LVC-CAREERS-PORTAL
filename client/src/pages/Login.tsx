@@ -1,50 +1,43 @@
-import { useAuth, UserRole } from '@/lib/authContext';
+import { useState } from 'react';
+import { useAuth } from '@/lib/authContext';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, Shield, User } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { LogIn } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
 export default function Login() {
-  const { loginAs } = useAuth();
+  const { login } = useAuth();
   const [, setLocation] = useLocation();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (role: UserRole) => {
-    await loginAs(role);
-    setLocation('/dashboard');
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter your username and password.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await login(username.trim(), password);
+      setLocation('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const roleCards = [
-    {
-      role: 'colleague' as UserRole,
-      title: 'Colleague',
-      description: 'View your induction progress, training records, and career milestones',
-      icon: <User className="w-8 h-8" />,
-      user: { name: 'Michael Chen', jobRole: 'Engineer' },
-      color: 'bg-blue-500',
-    },
-    {
-      role: 'manager' as UserRole,
-      title: 'Line Manager',
-      description: 'Manage your team, sign off training, and track team compliance',
-      icon: <Users className="w-8 h-8" />,
-      user: { name: 'James Wilson', jobRole: 'Operations Manager' },
-      color: 'bg-amber-500',
-    },
-    {
-      role: 'admin' as UserRole,
-      title: 'Administrator',
-      description: 'Full system access including templates, users, and all records',
-      icon: <Shield className="w-8 h-8" />,
-      user: { name: 'Sarah Mitchell', jobRole: 'HR Director' },
-      color: 'bg-primary',
-    },
-  ];
 
   return (
     <div className="min-h-screen lvc-gradient flex items-center justify-center p-8">
-      <div className="w-full max-w-4xl animate-fade-in">
-        <div className="text-center mb-12">
+      <div className="w-full max-w-md animate-fade-in">
+        <div className="text-center mb-10">
           <img src={lvcLogo} alt="LVC UK" className="h-20 w-auto mx-auto mb-6" />
           <h1 className="font-display text-4xl font-bold text-white mb-3">
             Career Portal
@@ -56,51 +49,58 @@ export default function Login() {
 
         <Card className="bg-card/95 backdrop-blur border-0 shadow-2xl">
           <CardHeader className="text-center pb-2">
-            <CardTitle className="font-display text-2xl">Welcome</CardTitle>
+            <CardTitle className="font-display text-2xl">Sign In</CardTitle>
             <CardDescription className="text-base">
-              Select a role to explore the portal demo
+              Enter your credentials to access the portal
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-8">
-            <div className="grid md:grid-cols-3 gap-6">
-              {roleCards.map((card, index) => (
-                <button
-                  key={card.role}
-                  data-testid={`button-login-${card.role}`}
-                  onClick={() => handleLogin(card.role)}
-                  className="group text-left animate-slide-up"
-                  style={{ animationDelay: `${index * 100}ms` }}
-                >
-                  <div className="h-full p-6 rounded-xl border-2 border-border bg-background hover:border-primary hover:shadow-lg transition-all duration-300 group-hover:-translate-y-1">
-                    <div
-                      className={`w-14 h-14 rounded-xl ${card.color} text-white flex items-center justify-center mb-4`}
-                    >
-                      {card.icon}
-                    </div>
-                    <h3 className="font-display text-lg font-semibold mb-2">
-                      {card.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                      {card.description}
-                    </p>
-                    {card.user && (
-                      <div className="pt-4 border-t border-border">
-                        <p className="text-sm font-medium">{card.user.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {card.user.jobRole}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+          <CardContent className="p-8 pt-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  placeholder="Enter your username"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  autoComplete="username"
+                  autoFocus
+                  data-testid="input-login-username"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  data-testid="input-login-password"
+                />
+              </div>
 
-            <div className="mt-8 pt-6 border-t border-border text-center">
-              <p className="text-sm text-muted-foreground">
-                This is a demonstration prototype.
-                <br />
-                All changes are persistent and securely stored.
+              {error && (
+                <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3" data-testid="text-login-error">
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full gap-2"
+                disabled={loading}
+                data-testid="button-login-submit"
+              >
+                <LogIn className="h-4 w-4" />
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+
+            <div className="mt-6 pt-5 border-t border-border text-center">
+              <p className="text-xs text-muted-foreground">
+                Contact your administrator if you need account access.
               </p>
             </div>
           </CardContent>

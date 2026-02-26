@@ -30,10 +30,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, UserPlus, Edit, Trash2, Shield, Users as UsersIcon, User as UserIcon } from 'lucide-react';
+import { Search, UserPlus, Edit, Trash2, Shield, Users as UsersIcon, User as UserIcon, Download, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
+import { CsvImportDialog } from '@/components/CsvImportDialog';
+import { api, invalidate } from '@/lib/api';
 
 export default function AdminUsers() {
   const { currentUser } = useAuth();
@@ -59,6 +61,7 @@ export default function AdminUsers() {
   const [editDepartment, setEditDepartment] = useState('');
   const [editManagerId, setEditManagerId] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   const { data: users = [], isLoading } = useUsers();
   const createUser = useCreateUser();
@@ -189,6 +192,15 @@ export default function AdminUsers() {
             <h1 className="font-display text-3xl font-bold text-foreground">User Management</h1>
             <p className="text-muted-foreground mt-1">Manage user accounts and permissions</p>
           </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => api.exportCsv('users')} data-testid="button-export-users">
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsImportOpen(true)} data-testid="button-import-users">
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button data-testid="button-add-user">
@@ -274,6 +286,7 @@ export default function AdminUsers() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {isLoading ? (
@@ -458,6 +471,16 @@ export default function AdminUsers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <CsvImportDialog
+          open={isImportOpen}
+          onOpenChange={setIsImportOpen}
+          title="Import Users"
+          description="Upload a CSV file to bulk-create user accounts. Existing usernames will be skipped."
+          expectedColumns={['name', 'email', 'username', 'password', 'role', 'jobRole', 'department', 'startDate']}
+          onImport={(rows) => api.importCsv('users', rows)}
+          onComplete={() => invalidate('users')}
+        />
       </div>
     </Layout>
   );

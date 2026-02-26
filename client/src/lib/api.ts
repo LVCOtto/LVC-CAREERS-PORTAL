@@ -100,6 +100,11 @@ export const api = {
   exportCsv: (type: string) => {
     window.open(`${BASE}/export/${type}`, "_blank");
   },
+  importCsv: (type: string, rows: any[]) =>
+    apiFetch<{ created: number; skipped: number; errors: string[] }>(`/import/${type}`, {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    }),
 };
 
 export function invalidate(...keys: string[]) {

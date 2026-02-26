@@ -409,6 +409,13 @@ export async function registerRoutes(
           return `${c.id},"${c.userId}","${def?.name || ''}","${def?.provider || ''}","${c.issueDate}","${c.expiryDate || ''}","${c.status}"`;
         }).join("\n");
         filename = "certificates.csv";
+      } else if (type === "job-roles") {
+        const roles = await storage.getJobRoles();
+        csvContent = "ID,Title,Department,Summary\n";
+        csvContent += roles.map(r =>
+          `${r.id},"${r.title}","${r.department}","${(r.summary || '').replace(/"/g, '""')}"`
+        ).join("\n");
+        filename = "job-roles.csv";
       } else {
         return res.status(400).json({ message: "Unknown export type" });
       }
@@ -418,6 +425,77 @@ export async function registerRoutes(
       res.send(csvContent);
     } catch (error) {
       res.status(500).json({ message: "Export failed" });
+    }
+  });
+
+  // ===== CSV IMPORT =====
+  app.post("/api/import/:type", async (req, res) => {
+    const { type } = req.params;
+    const { rows } = req.body;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: "No data rows provided" });
+    }
+    try {
+      let created = 0;
+      let skipped = 0;
+      const errors: string[] = [];
+
+      if (type === "users") {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            if (!row.name || !row.email || !row.username) {
+              errors.push(`Row ${i + 1}: Missing required field (name, email, or username)`);
+              skipped++;
+              continue;
+            }
+            const slug = row.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            await storage.createUser({
+              id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
+              username: row.username,
+              password: row.password || "password",
+              name: row.name,
+              email: row.email,
+              role: row.role || "colleague",
+              jobRole: row.jobRole || row.job_role || "",
+              department: row.department || "",
+              managerId: row.managerId || row.manager_id || null,
+              startDate: row.startDate || row.start_date || new Date().toISOString().split("T")[0],
+            });
+            created++;
+          } catch (e: any) {
+            errors.push(`Row ${i + 1} (${row.name || 'unknown'}): ${e.message}`);
+            skipped++;
+          }
+        }
+      } else if (type === "job-roles") {
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          try {
+            if (!row.title || !row.department) {
+              errors.push(`Row ${i + 1}: Missing required field (title or department)`);
+              skipped++;
+              continue;
+            }
+            await storage.createJobRole({
+              title: row.title,
+              department: row.department,
+              summary: row.summary || "",
+              responsibilities: row.responsibilities ? JSON.parse(row.responsibilities) : [],
+            });
+            created++;
+          } catch (e: any) {
+            errors.push(`Row ${i + 1} (${row.title || 'unknown'}): ${e.message}`);
+            skipped++;
+          }
+        }
+      } else {
+        return res.status(400).json({ message: "Unknown import type" });
+      }
+
+      res.json({ created, skipped, errors });
+    } catch (error) {
+      res.status(500).json({ message: "Import failed" });
     }
   });
 

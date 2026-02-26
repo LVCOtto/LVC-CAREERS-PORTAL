@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Briefcase, Plus, Edit, Users, Trash2 } from 'lucide-react';
+import { Briefcase, Plus, Edit, Users, Trash2, Download, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
+import { CsvImportDialog } from '@/components/CsvImportDialog';
+import { api, invalidate } from '@/lib/api';
 
 interface RoleFormData {
   title: string;
@@ -35,6 +37,7 @@ export default function AdminRoles() {
   const [editingRole, setEditingRole] = useState<any>(null);
   const [formData, setFormData] = useState<RoleFormData>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isImportOpen, setIsImportOpen] = useState(false);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
@@ -118,10 +121,20 @@ export default function AdminRoles() {
               Define job roles and their responsibilities
             </p>
           </div>
-          <Button data-testid="button-add-role" onClick={openCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Job Role
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => api.exportCsv('job-roles')} data-testid="button-export-roles">
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setIsImportOpen(true)} data-testid="button-import-roles">
+              <Upload className="h-4 w-4" />
+              Import
+            </Button>
+            <Button data-testid="button-add-role" onClick={openCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Job Role
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -289,6 +302,16 @@ export default function AdminRoles() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CsvImportDialog
+        open={isImportOpen}
+        onOpenChange={setIsImportOpen}
+        title="Import Job Roles"
+        description="Upload a CSV file to bulk-create job roles."
+        expectedColumns={['title', 'department', 'summary']}
+        onImport={(rows) => api.importCsv('job-roles', rows)}
+        onComplete={() => invalidate('job-roles')}
+      />
     </Layout>
   );
 }

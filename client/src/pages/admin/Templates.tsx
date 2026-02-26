@@ -28,6 +28,9 @@ import {
   AlertTriangle,
   Loader2,
   Archive,
+  ChevronUp,
+  ChevronDown,
+  GripVertical,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
@@ -149,6 +152,79 @@ export default function AdminTemplates() {
   const inductionSections: string[] = Array.from(
     new Set(inductionItems.map((item: any) => item.section))
   );
+
+  const getSectionMinSort = (section: string) => {
+    const items = inductionItems.filter((i: any) => i.section === section);
+    if (items.length === 0) return 0;
+    return Math.min(...items.map((i: any) => i.sortOrder || 0));
+  };
+
+  const sortedInductionSections = [...inductionSections].sort(
+    (a, b) => getSectionMinSort(a) - getSectionMinSort(b)
+  );
+
+  const moveSection = async (sectionIndex: number, direction: 'up' | 'down') => {
+    const swapIndex = direction === 'up' ? sectionIndex - 1 : sectionIndex + 1;
+    if (swapIndex < 0 || swapIndex >= sortedInductionSections.length) return;
+
+    const sectionA = sortedInductionSections[sectionIndex];
+    const sectionB = sortedInductionSections[swapIndex];
+
+    const itemsA = inductionItems.filter((i: any) => i.section === sectionA).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const itemsB = inductionItems.filter((i: any) => i.section === sectionB).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const minA = getSectionMinSort(sectionA);
+    const minB = getSectionMinSort(sectionB);
+
+    const updates: { id: number; sortOrder: number }[] = [];
+
+    if (direction === 'up') {
+      itemsA.forEach((item: any, idx: number) => updates.push({ id: item.id, sortOrder: minB + idx }));
+      itemsB.forEach((item: any, idx: number) => updates.push({ id: item.id, sortOrder: minB + itemsA.length + idx }));
+    } else {
+      itemsB.forEach((item: any, idx: number) => updates.push({ id: item.id, sortOrder: minA + idx }));
+      itemsA.forEach((item: any, idx: number) => updates.push({ id: item.id, sortOrder: minA + itemsB.length + idx }));
+    }
+
+    try {
+      await fetch('/api/induction-templates/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      window.location.reload();
+    } catch {
+      toast({ title: 'Failed to reorder sections', variant: 'destructive' });
+    }
+  };
+
+  const moveItem = async (section: string, itemIndex: number, direction: 'up' | 'down') => {
+    const sectionItems = inductionItems
+      .filter((i: any) => i.section === section)
+      .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const swapIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
+    if (swapIndex < 0 || swapIndex >= sectionItems.length) return;
+
+    const itemA = sectionItems[itemIndex];
+    const itemB = sectionItems[swapIndex];
+
+    const updates = [
+      { id: itemA.id, sortOrder: itemB.sortOrder },
+      { id: itemB.id, sortOrder: itemA.sortOrder },
+    ];
+
+    try {
+      await fetch('/api/induction-templates/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      window.location.reload();
+    } catch {
+      toast({ title: 'Failed to reorder items', variant: 'destructive' });
+    }
+  };
 
   const openAddInductionItem = (section: string) => {
     const sectionItems = inductionItems.filter((i: any) => i.section === section);
@@ -469,7 +545,7 @@ export default function AdminTemplates() {
 
               {loadingInduction ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
-              ) : inductionSections.length === 0 ? (
+              ) : sortedInductionSections.length === 0 ? (
                 <Card className="border-border/50">
                   <CardContent className="py-12 text-center">
                     <ClipboardCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
@@ -487,19 +563,44 @@ export default function AdminTemplates() {
                       <div>
                         <CardTitle className="text-lg">Standard Induction Checklist</CardTitle>
                         <CardDescription>
-                          {inductionItems.length} items across {inductionSections.length} sections
+                          {inductionItems.length} items across {sortedInductionSections.length} sections
                         </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <Accordion type="single" collapsible>
-                      {inductionSections.map((section) => {
+                      {sortedInductionSections.map((section, sectionIdx) => {
                         const isUniversal = sectionSettings.find((s: any) => s.sectionName === section)?.isUniversal ?? false;
+                        const sectionItems = inductionItems
+                          .filter((i: any) => i.section === section)
+                          .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
                         return (
                         <AccordionItem key={section} value={section}>
                           <AccordionTrigger className="hover:no-underline">
-                            <div className="flex items-center gap-3 flex-1">
+                            <div className="flex items-center gap-2 flex-1">
+                              <div className="flex flex-col gap-0" onClick={(e) => e.stopPropagation()}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5"
+                                  disabled={sectionIdx === 0}
+                                  onClick={(e) => { e.stopPropagation(); moveSection(sectionIdx, 'up'); }}
+                                  data-testid={`button-section-up-${section}`}
+                                >
+                                  <ChevronUp className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5"
+                                  disabled={sectionIdx === sortedInductionSections.length - 1}
+                                  onClick={(e) => { e.stopPropagation(); moveSection(sectionIdx, 'down'); }}
+                                  data-testid={`button-section-down-${section}`}
+                                >
+                                  <ChevronDown className="w-3 h-3" />
+                                </Button>
+                              </div>
                               {editingSectionName === section ? (
                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                                   <Input
@@ -577,7 +678,7 @@ export default function AdminTemplates() {
                                 </>
                               )}
                               <Badge variant="secondary">
-                                {inductionItems.filter((i: any) => i.section === section).length} items
+                                {sectionItems.length} items
                               </Badge>
                               {isUniversal && (
                                 <Badge className="bg-emerald-600 text-white text-xs">Universal</Badge>
@@ -586,21 +687,42 @@ export default function AdminTemplates() {
                           </AccordionTrigger>
                           <AccordionContent>
                             <div className="space-y-2 pl-4">
-                              {inductionItems
-                                .filter((i: any) => i.section === section)
-                                .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                                .map((item: any) => (
+                              {sectionItems.map((item: any, itemIdx: number) => (
                                   <div
                                     key={item.id}
                                     className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                                   >
-                                    <div>
-                                      <p className="font-medium text-sm">{item.title}</p>
-                                      {item.description && (
-                                        <p className="text-xs text-muted-foreground">
-                                          {item.description}
-                                        </p>
-                                      )}
+                                    <div className="flex items-center gap-3">
+                                      <div className="flex flex-col gap-0">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5"
+                                          disabled={itemIdx === 0}
+                                          onClick={() => moveItem(section, itemIdx, 'up')}
+                                          data-testid={`button-item-up-${item.id}`}
+                                        >
+                                          <ChevronUp className="w-3 h-3" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-5"
+                                          disabled={itemIdx === sectionItems.length - 1}
+                                          onClick={() => moveItem(section, itemIdx, 'down')}
+                                          data-testid={`button-item-down-${item.id}`}
+                                        >
+                                          <ChevronDown className="w-3 h-3" />
+                                        </Button>
+                                      </div>
+                                      <div>
+                                        <p className="font-medium text-sm">{item.title}</p>
+                                        {item.description && (
+                                          <p className="text-xs text-muted-foreground">
+                                            {item.description}
+                                          </p>
+                                        )}
+                                      </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {item.requiresEvidence && (

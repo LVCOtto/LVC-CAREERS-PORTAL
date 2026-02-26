@@ -73,6 +73,23 @@ export async function registerRoutes(
     res.status(201).json(item);
   });
 
+  app.patch("/api/induction-templates/reorder", async (req, res) => {
+    const { updates } = req.body;
+    if (!Array.isArray(updates)) {
+      return res.status(400).json({ message: "updates array required" });
+    }
+    try {
+      for (const { id, sortOrder, section } of updates) {
+        const data: any = { sortOrder };
+        if (section !== undefined) data.section = section;
+        await storage.updateInductionTemplateItem(id, data);
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Reorder failed" });
+    }
+  });
+
   app.patch("/api/induction-templates/:id", async (req, res) => {
     const item = await storage.updateInductionTemplateItem(Number(req.params.id), req.body);
     if (!item) return res.status(404).json({ message: "Not found" });

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -51,6 +52,7 @@ export default function AdminUsers() {
   const [newDepartment, setNewDepartment] = useState('');
   const [newManagerId, setNewManagerId] = useState('');
   const [newStartDate, setNewStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [newRequiresInduction, setNewRequiresInduction] = useState(true);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -61,6 +63,7 @@ export default function AdminUsers() {
   const [editDepartment, setEditDepartment] = useState('');
   const [editManagerId, setEditManagerId] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
+  const [editRequiresInduction, setEditRequiresInduction] = useState(true);
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   const { data: users = [], isLoading } = useUsers();
@@ -77,6 +80,7 @@ export default function AdminUsers() {
     setEditDepartment(user.department || '');
     setEditManagerId(user.managerId || '');
     setEditStartDate(user.startDate || '');
+    setEditRequiresInduction(user.requiresInduction !== false);
     setIsEditDialogOpen(true);
   };
 
@@ -93,6 +97,7 @@ export default function AdminUsers() {
           department: editDepartment,
           managerId: editManagerId || null,
           startDate: editStartDate,
+          requiresInduction: editRequiresInduction,
         },
       });
       toast({ title: 'User updated', description: 'User details have been saved.' });
@@ -153,6 +158,7 @@ export default function AdminUsers() {
         department: newDepartment,
         managerId: newManagerId || null,
         startDate: newStartDate,
+        requiresInduction: newRequiresInduction,
       });
       toast({ title: 'User created', description: 'New user has been added to the system.' });
       setIsAddDialogOpen(false);
@@ -165,6 +171,7 @@ export default function AdminUsers() {
       setNewDepartment('');
       setNewManagerId('');
       setNewStartDate(new Date().toISOString().split('T')[0]);
+      setNewRequiresInduction(true);
     } catch (e: any) {
       toast({ title: 'Error', description: e.message, variant: 'destructive' });
     }
@@ -274,6 +281,17 @@ export default function AdminUsers() {
                         ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="requiresInduction"
+                    checked={newRequiresInduction}
+                    onCheckedChange={(checked) => setNewRequiresInduction(checked === true)}
+                    data-testid="checkbox-requires-induction"
+                  />
+                  <Label htmlFor="requiresInduction" className="text-sm">
+                    Requires induction (uncheck for existing staff)
+                  </Label>
                 </div>
               </div>
               <DialogFooter>
@@ -460,6 +478,17 @@ export default function AdminUsers() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="edit-requiresInduction"
+                  checked={editRequiresInduction}
+                  onCheckedChange={(checked) => setEditRequiresInduction(checked === true)}
+                  data-testid="checkbox-edit-requires-induction"
+                />
+                <Label htmlFor="edit-requiresInduction" className="text-sm">
+                  Requires induction
+                </Label>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
@@ -476,8 +505,8 @@ export default function AdminUsers() {
           open={isImportOpen}
           onOpenChange={setIsImportOpen}
           title="Import Users"
-          description="Upload a CSV file to bulk-create user accounts. Existing usernames will be skipped."
-          expectedColumns={['name', 'email', 'username', 'password', 'role', 'jobRole', 'department', 'startDate']}
+          description="Upload a CSV to bulk-create user accounts. Existing usernames will be skipped. requiresInduction defaults to false (existing staff)."
+          expectedColumns={['name', 'email', 'username', 'password', 'role', 'jobRole', 'department', 'startDate', 'requiresInduction']}
           onImport={(rows) => api.importCsv('users', rows)}
           onComplete={() => invalidate('users')}
         />

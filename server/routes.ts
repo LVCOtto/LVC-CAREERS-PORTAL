@@ -388,9 +388,9 @@ export async function registerRoutes(
 
       if (type === "users") {
         const users = await storage.getAllUsers();
-        csvContent = "ID,Name,Email,Role,Job Role,Department,Manager ID,Start Date\n";
+        csvContent = "ID,Name,Email,Role,Job Role,Department,Manager ID,Start Date,Requires Induction\n";
         csvContent += users.map(u =>
-          `"${u.id}","${u.name}","${u.email}","${u.role}","${u.jobRole}","${u.department}","${u.managerId || ''}","${u.startDate}"`
+          `"${u.id}","${u.name}","${u.email}","${u.role}","${u.jobRole}","${u.department}","${u.managerId || ''}","${u.startDate}",${u.requiresInduction}`
         ).join("\n");
         filename = "users.csv";
       } else if (type === "training-records") {
@@ -493,6 +493,8 @@ export async function registerRoutes(
               continue;
             }
             const slug = row.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+            const ri = row.requiresInduction || row.requires_induction || "";
+            const requiresInduction = ri === "true" || ri === "yes" || ri === "1";
             await storage.createUser({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
               username: row.username,
@@ -504,6 +506,7 @@ export async function registerRoutes(
               department: row.department || "",
               managerId: row.managerId || row.manager_id || null,
               startDate: row.startDate || row.start_date || new Date().toISOString().split("T")[0],
+              requiresInduction,
             });
             created++;
           } catch (e: any) {

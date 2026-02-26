@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   department: text("department").notNull(),
   managerId: varchar("manager_id", { length: 50 }),
   startDate: text("start_date").notNull(),
+  requiresInduction: boolean("requires_induction").notNull().default(true),
 });
 
 export const insertUserSchema = createInsertSchema(users);

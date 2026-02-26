@@ -52,6 +52,18 @@ export default function Induction() {
 
   if (!currentUser) return null;
 
+  if (currentUser.requiresInduction === false) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <ClipboardCheck className="w-12 h-12 text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Induction Not Required</h2>
+          <p className="text-muted-foreground">Your induction has already been completed or is not required for your role.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   const isManager = currentUser.role === 'manager' || currentUser.role === 'admin';
 
   const { data: inductionData, isLoading } = useInduction(currentUser.id);

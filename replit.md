@@ -27,7 +27,7 @@ Employee training management system for LVC (cleaning equipment company) support
 - `client/src/pages/` - All page components
 
 ### Database Tables
-- `users` - Colleagues, managers, admins (varchar IDs like 'colleague-1')
+- `users` - Colleagues, managers, admins (varchar IDs like 'colleague-1'). Includes `requiresInduction` boolean flag — when false, Induction page/nav is hidden for that user
 - `induction_template_items` - Template checklist items
 - `induction_instances` - Per-user induction instances
 - `induction_item_completions` - Completion tracking per item

@@ -13,6 +13,7 @@ export interface User {
   department: string;
   managerId?: string | null;
   startDate: string;
+  requiresInduction: boolean;
 }
 
 interface AuthContextType {

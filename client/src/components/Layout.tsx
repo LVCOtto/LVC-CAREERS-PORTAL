@@ -195,9 +195,11 @@ export function Layout({ children }: LayoutProps) {
         <ScrollArea className="flex-1 py-4">
           <nav className="px-3 space-y-6">
             {navGroups.map((group, groupIndex) => {
-              const filteredItems = group.items.filter(item => 
-                item.roles.includes(currentUser.role)
-              );
+              const filteredItems = group.items.filter(item => {
+                if (!item.roles.includes(currentUser.role)) return false;
+                if (item.href === '/induction' && currentUser.requiresInduction === false) return false;
+                return true;
+              });
 
               if (filteredItems.length === 0) return null;
 

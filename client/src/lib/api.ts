@@ -103,6 +103,12 @@ export const api = {
     create: (data: any) => apiFetch<any>("/job-roles", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/job-roles/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => apiFetch<void>(`/job-roles/${id}`, { method: "DELETE" }),
+    getCategories: (id: number) => apiFetch<number[]>(`/job-roles/${id}/categories`),
+    setCategories: (id: number, categoryIds: number[]) =>
+      apiFetch<{ success: boolean }>(`/job-roles/${id}/categories`, { method: "PUT", body: JSON.stringify({ categoryIds }) }),
+  },
+  competenciesForRole: {
+    get: (jobRole: string) => apiFetch<any[] | null>(`/competencies-for-role?jobRole=${encodeURIComponent(jobRole)}`),
   },
   exportCsv: (type: string) => {
     window.open(`${BASE}/export/${type}`, "_blank");

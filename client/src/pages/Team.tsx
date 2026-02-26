@@ -23,6 +23,7 @@ import {
   useCompleteInductionItem,
   useTrainingMatrixForUser,
   useCompetencies,
+  useCompetenciesForRole,
   useStandardsSurvey,
   useUpdateTrainingMatrix,
 } from '@/lib/hooks';
@@ -57,9 +58,12 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { data: member, isLoading: memberLoading } = useUser(memberId);
   const { data: inductionData, isLoading: inductionLoading } = useInduction(memberId);
   const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(memberId);
-  const { data: competencies, isLoading: competenciesLoading } = useCompetencies(
+  const { data: roleCompetencies, isLoading: roleCompLoading } = useCompetenciesForRole(member?.jobRole);
+  const { data: deptCompetencies, isLoading: deptCompLoading } = useCompetencies(
     member?.department?.toLowerCase().includes('engineering') ? 'engineering' : 'admin'
   );
+  const competencies = roleCompetencies || deptCompetencies;
+  const competenciesLoading = roleCompLoading || deptCompLoading;
 
   const roleSlug = member?.jobRole
     ? member.jobRole.toLowerCase().replace(/\s+/g, '-')

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,12 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Briefcase, Plus, Edit, Users, Trash2, Download, Upload } from 'lucide-react';
+import { Briefcase, Plus, Edit, Users, Trash2, Download, Upload, GraduationCap, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole } from '@/lib/hooks';
+import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface RoleFormData {
   title: string;
@@ -38,6 +39,8 @@ export default function AdminRoles() {
   const [formData, setFormData] = useState<RoleFormData>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
+
+  const [skillsDialogRole, setSkillsDialogRole] = useState<any>(null);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
@@ -118,7 +121,7 @@ export default function AdminRoles() {
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">Job Roles</h1>
             <p className="text-muted-foreground mt-1">
-              Define job roles and their responsibilities
+              Define job roles, their responsibilities, and which training matrix skills apply to each
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -139,6 +142,14 @@ export default function AdminRoles() {
 
         {isLoading ? (
           <div className="flex justify-center py-12"><Spinner /></div>
+        ) : jobRoles.length === 0 ? (
+          <Card className="border-border/50">
+            <CardContent className="py-12 text-center">
+              <Briefcase className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="font-medium">No job roles yet</p>
+              <p className="text-sm text-muted-foreground mt-1">Click "Add Job Role" to create your first role.</p>
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid md:grid-cols-2 gap-6">
             {jobRoles.map((role: any) => (
@@ -155,6 +166,15 @@ export default function AdminRoles() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSkillsDialogRole(role)}
+                        data-testid={`button-manage-skills-${role.id}`}
+                      >
+                        <GraduationCap className="w-4 h-4 mr-1" />
+                        Skills
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -199,14 +219,6 @@ export default function AdminRoles() {
                         </ul>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 pt-2 border-t">
-                      <Badge variant="outline">
-                        <Users className="w-3 h-3 mr-1" />
-                        Linked Templates
-                      </Badge>
-                      <Badge variant="secondary">Induction</Badge>
-                      <Badge variant="secondary">Training Matrix</Badge>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -303,6 +315,13 @@ export default function AdminRoles() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {skillsDialogRole && (
+        <SkillCategoryAssigner
+          role={skillsDialogRole}
+          onClose={() => setSkillsDialogRole(null)}
+        />
+      )}
+
       <CsvImportDialog
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
@@ -313,5 +332,134 @@ export default function AdminRoles() {
         onComplete={() => invalidate('job-roles')}
       />
     </Layout>
+  );
+}
+
+function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => void }) {
+  const { toast } = useToast();
+  const { data: allCategories = [], isLoading: catsLoading } = useCompetencies();
+  const { data: assignedIds = [], isLoading: assignedLoading } = useJobRoleCategories(role.id);
+  const setCategories = useSetJobRoleCategories();
+
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!assignedLoading && assignedIds && !initialized) {
+      setSelected(new Set(assignedIds));
+      setInitialized(true);
+    }
+  }, [assignedIds, assignedLoading, initialized]);
+
+  const toggle = (catId: number) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) {
+        next.delete(catId);
+      } else {
+        next.add(catId);
+      }
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    try {
+      await setCategories.mutateAsync({ id: role.id, categoryIds: Array.from(selected) });
+      toast({ title: 'Saved', description: `Training matrix skills updated for ${role.title}.` });
+      onClose();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to save.', variant: 'destructive' });
+    }
+  };
+
+  const isLoading = catsLoading || assignedLoading;
+
+  const engineeringCats = allCategories.filter((c: any) => c.departmentType === 'engineering');
+  const adminCats = allCategories.filter((c: any) => c.departmentType === 'admin');
+  const otherCats = allCategories.filter((c: any) => c.departmentType !== 'engineering' && c.departmentType !== 'admin');
+
+  const renderGroup = (label: string, cats: any[]) => {
+    if (cats.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium text-muted-foreground">{label}</h4>
+        {cats.map((cat: any) => (
+          <label
+            key={cat.id}
+            className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
+            data-testid={`checkbox-role-category-${cat.id}`}
+          >
+            <Checkbox
+              checked={selected.has(cat.id)}
+              onCheckedChange={() => toggle(cat.id)}
+              className="mt-0.5"
+            />
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{cat.name}</span>
+                <Badge variant="secondary" className="text-xs">
+                  {(cat.items || []).length} skills
+                </Badge>
+              </div>
+              {(cat.items || []).length > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {(cat.items || []).slice(0, 3).map((i: any) => i.name).join(', ')}
+                  {(cat.items || []).length > 3 && ` +${(cat.items || []).length - 3} more`}
+                </p>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg" data-testid="dialog-role-skills">
+        <DialogHeader>
+          <DialogTitle className="font-display flex items-center gap-2">
+            <GraduationCap className="w-5 h-5" />
+            Training Matrix Skills — {role.title}
+          </DialogTitle>
+          <DialogDescription>
+            Select which skill categories apply to this role. Users with this job role will only see the selected categories in their training matrix.
+            If none are selected, they'll see all categories for their department type.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Spinner /></div>
+        ) : allCategories.length === 0 ? (
+          <div className="py-8 text-center">
+            <p className="text-sm text-muted-foreground">No skill categories have been created yet. Create them in the Templates page first.</p>
+          </div>
+        ) : (
+          <div className="space-y-4 max-h-[400px] overflow-auto pr-1">
+            {renderGroup('Engineering', engineeringCats)}
+            {renderGroup('Admin / Office', adminCats)}
+            {renderGroup('All Departments', otherCats)}
+          </div>
+        )}
+
+        <DialogFooter>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-sm text-muted-foreground">
+              {selected.size === 0 ? 'None selected (will use department default)' : `${selected.size} categor${selected.size === 1 ? 'y' : 'ies'} selected`}
+            </span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={onClose} data-testid="button-cancel-role-skills">
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={setCategories.isPending} data-testid="button-save-role-skills">
+                {setCategories.isPending ? <Spinner className="w-4 h-4 mr-2" /> : <Check className="w-4 h-4 mr-2" />}
+                Save
+              </Button>
+            </div>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

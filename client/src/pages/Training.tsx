@@ -27,7 +27,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
-import { useCompetencies, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
+import { useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 
 const competencyLevels = [
@@ -275,7 +275,10 @@ export default function Training() {
   const isEngineeringUser = (currentUser?.department || '').toLowerCase().includes('engineering');
   const departmentType = isEngineeringUser ? 'engineering' : 'admin';
 
-  const { data: categories = [], isLoading: categoriesLoading } = useCompetencies(departmentType);
+  const { data: roleCategories, isLoading: roleLoading } = useCompetenciesForRole(currentUser?.jobRole);
+  const { data: deptCategories = [], isLoading: deptLoading } = useCompetencies(departmentType);
+  const categories = roleCategories || deptCategories;
+  const categoriesLoading = roleLoading || deptLoading;
   const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(currentUser?.id || '');
   const createMatrix = useCreateTrainingMatrix();
   const updateMatrix = useUpdateTrainingMatrix();

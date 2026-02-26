@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 
@@ -78,6 +78,10 @@ export interface IStorage {
 
   getTrainingMatrixByToken(token: string): Promise<schema.TrainingMatrixSubmission | undefined>;
   generateShareToken(submissionId: number): Promise<string>;
+
+  getJobRoleCategories(jobRoleId: number): Promise<schema.JobRoleCategory[]>;
+  setJobRoleCategories(jobRoleId: number, categoryIds: number[]): Promise<void>;
+  getCompetencyCategoriesForJobRole(jobRoleTitle: string): Promise<(schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] | null>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -405,6 +409,40 @@ export class DatabaseStorage implements IStorage {
       .set({ shareToken: token })
       .where(eq(schema.trainingMatrixSubmissions.id, submissionId));
     return token;
+  }
+
+  async getJobRoleCategories(jobRoleId: number) {
+    return db.select().from(schema.jobRoleCategories)
+      .where(eq(schema.jobRoleCategories.jobRoleId, jobRoleId));
+  }
+
+  async setJobRoleCategories(jobRoleId: number, categoryIds: number[]) {
+    await db.delete(schema.jobRoleCategories)
+      .where(eq(schema.jobRoleCategories.jobRoleId, jobRoleId));
+    if (categoryIds.length > 0) {
+      await db.insert(schema.jobRoleCategories)
+        .values(categoryIds.map(categoryId => ({ jobRoleId, categoryId })));
+    }
+  }
+
+  async getCompetencyCategoriesForJobRole(jobRoleTitle: string) {
+    const roles = await db.select().from(schema.jobRoles);
+    const role = roles.find(r => r.title.toLowerCase() === jobRoleTitle.toLowerCase());
+    if (!role) return null;
+
+    const assignments = await this.getJobRoleCategories(role.id);
+    if (assignments.length === 0) return null;
+
+    const categoryIds = assignments.map(a => a.categoryId);
+    const categories = await db.select().from(schema.competencyCategories)
+      .where(inArray(schema.competencyCategories.id, categoryIds))
+      .orderBy(schema.competencyCategories.sortOrder);
+    const items = await this.getCompetencyItems();
+
+    return categories.map(cat => ({
+      ...cat,
+      items: items.filter(item => item.categoryId === cat.id),
+    }));
   }
 }
 

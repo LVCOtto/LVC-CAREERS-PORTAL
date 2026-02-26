@@ -314,6 +314,33 @@ export function useUpdateStandardsSurveyItem() {
   });
 }
 
+export function useJobRoleCategories(roleId: number) {
+  return useQuery({
+    queryKey: ["job-role-categories", roleId],
+    queryFn: () => api.jobRoles.getCategories(roleId),
+    enabled: !!roleId,
+  });
+}
+
+export function useSetJobRoleCategories() {
+  return useMutation({
+    mutationFn: ({ id, categoryIds }: { id: number; categoryIds: number[] }) =>
+      api.jobRoles.setCategories(id, categoryIds),
+    onSuccess: () => {
+      invalidate("job-role-categories");
+      invalidate("job-roles");
+    },
+  });
+}
+
+export function useCompetenciesForRole(jobRole: string | undefined) {
+  return useQuery({
+    queryKey: ["competencies-for-role", jobRole],
+    queryFn: () => api.competenciesForRole.get(jobRole!),
+    enabled: !!jobRole,
+  });
+}
+
 export function useDeleteStandardsSurveyItem() {
   return useMutation({
     mutationFn: (id: number) => api.standardsSurveys.deleteItem(id),

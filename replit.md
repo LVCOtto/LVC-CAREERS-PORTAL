@@ -33,6 +33,7 @@ Employee training management system for LVC (cleaning equipment company) support
 - `induction_item_completions` - Completion tracking per item
 - `competency_categories` - Training matrix categories (engineering/admin)
 - `competency_items` - Individual competency items
+- `job_role_categories` - Join table linking job roles to specific skill categories (role-specific training matrices)
 - `training_matrix_submissions` - User matrix submissions with ratings (JSONB)
 - `standards_survey_roles` - Survey templates per job role
 - `standards_survey_items` - Individual survey items
@@ -51,7 +52,7 @@ Employee training management system for LVC (cleaning equipment company) support
 
 ## Key Features
 - **Induction tracking**: Section-by-section checklist with manager sign-off
-- **Training matrix**: Interactive self-assessment with 0-4 rating scale via dialog, submit for review, manager approval
+- **Training matrix**: Interactive self-assessment with 0-4 rating scale via dialog, submit for review, manager approval. Supports role-specific skill assignments — admins can assign specific skill categories to each job role via the Job Roles page. Users see only skills relevant to their role; falls back to department-type filtering if no role-specific assignments exist.
 - **Shareable training matrix**: Colleagues can generate a unique link (`/training-matrix/shared/:token`) for anyone to fill in their self-assessment without logging in
 - **Standards survey**: Role-specific task standards
 - **Certificates**: Definition + assignment system

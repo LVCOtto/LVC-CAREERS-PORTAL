@@ -212,14 +212,20 @@ export async function registerRoutes(
     const submission = await storage.getTrainingMatrixByToken(req.params.token);
     if (!submission) return res.status(404).json({ message: "Not found" });
     const user = await storage.getUser(submission.userId);
-    const isEngineering = (user?.department || '').toLowerCase().includes('engineering');
-    const departmentType = isEngineering ? 'engineering' : 'admin';
-    const categories = await storage.getCompetencyCategories(departmentType);
-    const items = await storage.getCompetencyItems();
-    const competencies = categories.map(cat => ({
-      ...cat,
-      items: items.filter(item => item.categoryId === cat.id),
-    }));
+    let competencies: any[] | null = null;
+    if (user?.jobRole) {
+      competencies = await storage.getCompetencyCategoriesForJobRole(user.jobRole);
+    }
+    if (!competencies) {
+      const isEngineering = (user?.department || '').toLowerCase().includes('engineering');
+      const departmentType = isEngineering ? 'engineering' : 'admin';
+      const categories = await storage.getCompetencyCategories(departmentType);
+      const items = await storage.getCompetencyItems();
+      competencies = categories.map(cat => ({
+        ...cat,
+        items: items.filter(item => item.categoryId === cat.id),
+      }));
+    }
     res.json({
       submission,
       competencies,
@@ -414,6 +420,32 @@ export async function registerRoutes(
   app.delete("/api/job-roles/:id", async (req, res) => {
     await storage.deleteJobRole(Number(req.params.id));
     res.status(204).send();
+  });
+
+  app.get("/api/job-roles/:id/categories", async (req, res) => {
+    const assignments = await storage.getJobRoleCategories(Number(req.params.id));
+    res.json(assignments.map(a => a.categoryId));
+  });
+
+  app.put("/api/job-roles/:id/categories", async (req, res) => {
+    const { categoryIds } = req.body;
+    if (!Array.isArray(categoryIds)) {
+      return res.status(400).json({ message: "categoryIds must be an array" });
+    }
+    await storage.setJobRoleCategories(Number(req.params.id), categoryIds);
+    res.json({ success: true });
+  });
+
+  app.get("/api/competencies-for-role", async (req, res) => {
+    const jobRole = req.query.jobRole as string | undefined;
+    if (!jobRole) {
+      return res.status(400).json({ message: "jobRole query parameter required" });
+    }
+    const result = await storage.getCompetencyCategoriesForJobRole(jobRole);
+    if (result) {
+      return res.json(result);
+    }
+    return res.json(null);
   });
 
   // ===== EXPORT (CSV) =====

@@ -176,15 +176,15 @@ export default function SharedInduction() {
                 />
               </CardHeader>
               <CardContent className="p-0">
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-8"></TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Assigned To</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Completed</TableHead>
-                      <TableHead>Signed Off</TableHead>
+                      <TableHead style={{ width: '5%' }}></TableHead>
+                      <TableHead style={{ width: '33%' }}>Item</TableHead>
+                      <TableHead style={{ width: '15%' }}>Assigned To</TableHead>
+                      <TableHead style={{ width: '15%' }}>Status</TableHead>
+                      <TableHead style={{ width: '15%' }}>Completed</TableHead>
+                      <TableHead style={{ width: '17%' }}>Signed Off</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

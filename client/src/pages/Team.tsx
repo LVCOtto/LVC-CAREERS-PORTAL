@@ -240,15 +240,15 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
               />
             </CardHeader>
             <CardContent className="p-0">
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Assigned To</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Completed</TableHead>
-                    <TableHead>Signed Off</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead style={{ width: '30%' }}>Item</TableHead>
+                    <TableHead style={{ width: '14%' }}>Assigned To</TableHead>
+                    <TableHead style={{ width: '12%' }}>Status</TableHead>
+                    <TableHead style={{ width: '12%' }}>Completed</TableHead>
+                    <TableHead style={{ width: '14%' }}>Signed Off</TableHead>
+                    <TableHead style={{ width: '18%' }} className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

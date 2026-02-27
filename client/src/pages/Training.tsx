@@ -11,12 +11,8 @@ import {
   ChevronDown,
   ChevronRight,
   User as UserIcon,
-  Calendar,
   TrendingUp,
-  Download,
   HelpCircle,
-  Target,
-  CalendarPlus,
   ArrowLeft,
   Send,
   Share2,
@@ -355,8 +351,6 @@ export default function Training() {
   const matrixStatus = matrixSubmission?.status || 'draft';
   const lastAssessment = matrixSubmission?.lastAssessment || undefined;
 
-  const myLineManager = 'Line Manager';
-
   const openSelfAssessment = () => {
     if (matrixStatus === 'approved') {
       setDialogRatings({});
@@ -443,60 +437,25 @@ export default function Training() {
             <h1 className="text-3xl font-display font-bold">{getSetting('page.training.heading')}</h1>
             <p className="text-muted-foreground mt-1">{getSetting('page.training.description')}</p>
           </div>
-          <div className="flex items-center gap-3">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" data-testid="button-training-help">
-                    <HelpCircle className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs p-3">
-                  <p className="font-semibold mb-2 text-sm">Rating Scale (0-4)</p>
-                  <div className="space-y-1">
-                    {competencyLevels.map((level) => (
-                      <p key={level.value} className="text-xs">
-                        <span className="font-medium">{level.value}:</span> {level.label}
-                      </p>
-                    ))}
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <Button variant="outline" className="gap-2" data-testid="button-export-matrix" disabled>
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-          </div>
-        </div>
-
-        {!isColleague && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <UserIcon className="h-5 w-5 text-primary" />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" data-testid="button-training-help">
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-xs p-3">
+                <p className="font-semibold mb-2 text-sm">Rating Scale (0-4)</p>
+                <div className="space-y-1">
+                  {competencyLevels.map((level) => (
+                    <p key={level.value} className="text-xs">
+                      <span className="font-medium">{level.value}:</span> {level.label}
+                    </p>
+                  ))}
                 </div>
-                <div>
-                  <p className="font-medium">Your Development Journey</p>
-                  <p className="text-sm text-muted-foreground">
-                    This is your personal training matrix. For team specifics, open a colleague from your dashboard to view their profile.
-                    <span className="block mt-1">Line manager: <span className="font-medium text-foreground">{myLineManager}</span></span>
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        <div className="flex items-center justify-between gap-3">
-          <Badge variant="secondary" className="bg-muted/40" data-testid="badge-matrix-department">
-            {(currentUser.department || 'Department')}
-          </Badge>
-          <Badge variant="outline" className="gap-1 w-fit">
-            <Calendar className="h-3 w-3" />
-            Last updated: {lastAssessment ? new Date(lastAssessment).toLocaleDateString('en-GB') : 'Not submitted'}
-          </Badge>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <Card>
@@ -683,46 +642,6 @@ export default function Training() {
             </div>
           </DialogContent>
         </Dialog>
-
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Target className="h-4 w-4 text-red-500" />
-                  My Skills Gaps
-                </CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-sm text-muted-foreground">
-                Managers can review skills gaps per colleague from their profile.
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="h-full">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  My Scheduled Training
-                </CardTitle>
-                <Button size="sm" variant="outline" className="h-7 text-xs gap-1" disabled data-testid="button-schedule-training">
-                  <CalendarPlus className="h-3 w-3" />
-                  Schedule
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-6 text-muted-foreground">
-                <Calendar className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No training sessions scheduled</p>
-                <p className="text-xs mt-1">Contact your line manager to book training</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
           <DialogContent className="sm:max-w-md" data-testid="dialog-share-matrix">

@@ -92,6 +92,7 @@ function AssignToInput({ item, completeItem, toast }: { item: any; completeItem:
         completed: item.completed,
         inProgress: item.inProgress,
         completedDate: item.completedDate,
+        targetDate: item.targetDate,
         signedOffBy: item.signedOffBy,
         signedOffDate: item.signedOffDate,
         assignedTo,
@@ -169,6 +170,7 @@ function CompletedDateCell({ item, completeItem }: { item: any; completeItem: an
               completed: item.completed,
               inProgress: item.inProgress,
               completedDate: dateValue,
+              targetDate: item.targetDate,
               signedOffBy: item.signedOffBy,
               signedOffDate: item.signedOffDate,
               assignedTo: item.assignedTo,
@@ -190,6 +192,71 @@ function CompletedDateCell({ item, completeItem }: { item: any; completeItem: an
       onClick={() => { setDateValue(item.completedDate); setEditing(true); }}
     >
       {new Date(item.completedDate).toLocaleDateString()}
+      <Pencil className="w-3 h-3 text-muted-foreground" />
+    </button>
+  );
+}
+
+function TargetDateCell({ item, completeItem }: { item: any; completeItem: any }) {
+  const [editing, setEditing] = useState(false);
+  const [dateValue, setDateValue] = useState(item.targetDate || '');
+
+  const save = (val: string) => {
+    const newDate = val || null;
+    if (newDate !== (item.targetDate || null)) {
+      completeItem.mutate({
+        templateItemId: item.id,
+        completed: item.completed,
+        inProgress: item.inProgress,
+        completedDate: item.completedDate,
+        targetDate: newDate,
+        signedOffBy: item.signedOffBy,
+        signedOffDate: item.signedOffDate,
+        assignedTo: item.assignedTo,
+      });
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <Input
+        type="date"
+        autoFocus
+        className="h-7 w-[130px] text-xs"
+        data-testid={`input-target-date-${item.id}`}
+        value={dateValue}
+        onChange={(e) => setDateValue(e.target.value)}
+        onBlur={() => save(dateValue)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save(dateValue);
+          if (e.key === 'Escape') { setDateValue(item.targetDate || ''); setEditing(false); }
+        }}
+      />
+    );
+  }
+
+  if (!item.targetDate) {
+    return (
+      <button
+        className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+        data-testid={`button-set-target-${item.id}`}
+        onClick={() => { setDateValue(''); setEditing(true); }}
+      >
+        + Set date
+      </button>
+    );
+  }
+
+  const isOverdue = !item.completed && new Date(item.targetDate) < new Date(new Date().toISOString().slice(0, 10));
+
+  return (
+    <button
+      className={`text-sm hover:underline transition-colors flex items-center gap-1 ${isOverdue ? 'text-red-600 font-medium' : ''}`}
+      data-testid={`button-edit-target-${item.id}`}
+      onClick={() => { setDateValue(item.targetDate); setEditing(true); }}
+    >
+      {new Date(item.targetDate).toLocaleDateString()}
       <Pencil className="w-3 h-3 text-muted-foreground" />
     </button>
   );
@@ -241,6 +308,7 @@ function exportInductionPdf(memberName: string, memberRole: string, memberDepart
         titleCell,
         item.assignedTo || '-',
         status,
+        item.targetDate ? new Date(item.targetDate).toLocaleDateString('en-GB') : '-',
         item.completedDate ? new Date(item.completedDate).toLocaleDateString('en-GB') : '-',
         item.signedOffBy ? `${new Date(item.signedOffDate).toLocaleDateString('en-GB')} (${item.signedOffBy})` : '-',
       ];
@@ -248,17 +316,18 @@ function exportInductionPdf(memberName: string, memberRole: string, memberDepart
 
     autoTable(doc, {
       startY,
-      head: [['Item', 'Assigned To', 'Status', 'Completed', 'Signed Off']],
+      head: [['Item', 'Assigned To', 'Status', 'Target', 'Completed', 'Signed Off']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [41, 65, 122], fontSize: 8, cellPadding: 2 },
       bodyStyles: { fontSize: 8, cellPadding: 2, minCellHeight: 12 },
       columnStyles: {
-        0: { cellWidth: 55 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 25 },
-        3: { cellWidth: 25 },
-        4: { cellWidth: 40 },
+        0: { cellWidth: 50 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 22 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 35 },
       },
       margin: { left: 14, right: 14 },
       didParseCell: (data: any) => {
@@ -407,12 +476,13 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead style={{ width: '30%' }}>Item</TableHead>
-                    <TableHead style={{ width: '14%' }}>Assigned To</TableHead>
-                    <TableHead style={{ width: '12%' }}>Status</TableHead>
-                    <TableHead style={{ width: '12%' }}>Completed</TableHead>
-                    <TableHead style={{ width: '14%' }}>Signed Off</TableHead>
-                    <TableHead style={{ width: '18%' }} className="text-right">Actions</TableHead>
+                    <TableHead style={{ width: '24%' }}>Item</TableHead>
+                    <TableHead style={{ width: '12%' }}>Assigned To</TableHead>
+                    <TableHead style={{ width: '10%' }}>Status</TableHead>
+                    <TableHead style={{ width: '11%' }}>Target</TableHead>
+                    <TableHead style={{ width: '11%' }}>Completed</TableHead>
+                    <TableHead style={{ width: '12%' }}>Signed Off</TableHead>
+                    <TableHead style={{ width: '20%' }} className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -439,6 +509,9 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                         )}
                       </TableCell>
                       <TableCell>
+                        <TargetDateCell item={item} completeItem={completeItem} />
+                      </TableCell>
+                      <TableCell>
                         <CompletedDateCell item={item} completeItem={completeItem} />
                       </TableCell>
                       <TableCell>
@@ -463,6 +536,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                   completed: false,
                                   inProgress: true,
                                   completedDate: null,
+                                  targetDate: item.targetDate,
                                   signedOffBy: null,
                                   signedOffDate: null,
                                   assignedTo: item.assignedTo,
@@ -487,6 +561,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                     completed: true,
                                     inProgress: false,
                                     completedDate: new Date().toISOString().slice(0, 10),
+                                    targetDate: item.targetDate,
                                     signedOffBy: null,
                                     signedOffDate: null,
                                     assignedTo: item.assignedTo,
@@ -508,6 +583,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                     completed: false,
                                     inProgress: false,
                                     completedDate: null,
+                                    targetDate: item.targetDate,
                                     signedOffBy: null,
                                     signedOffDate: null,
                                     assignedTo: item.assignedTo,
@@ -531,6 +607,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                     completed: true,
                                     inProgress: false,
                                     completedDate: item.completedDate,
+                                    targetDate: item.targetDate,
                                     signedOffBy: currentUser?.name || 'Manager',
                                     signedOffDate: new Date().toISOString().slice(0, 10),
                                     assignedTo: item.assignedTo,
@@ -551,6 +628,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                     completed: false,
                                     inProgress: true,
                                     completedDate: null,
+                                    targetDate: item.targetDate,
                                     signedOffBy: null,
                                     signedOffDate: null,
                                     assignedTo: item.assignedTo,
@@ -574,6 +652,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                   completed: true,
                                   inProgress: false,
                                   completedDate: item.completedDate,
+                                  targetDate: item.targetDate,
                                   signedOffBy: null,
                                   signedOffDate: null,
                                   assignedTo: item.assignedTo,

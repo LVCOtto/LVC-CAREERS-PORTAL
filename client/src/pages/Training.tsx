@@ -516,7 +516,7 @@ export default function Training() {
         </Card>
 
         <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col" data-testid="dialog-submit-matrix">
+          <DialogContent className="max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col [display:flex]" data-testid="dialog-submit-matrix">
             <div className="px-6 py-5 border-b bg-gradient-to-b from-slate-50 to-white shrink-0">
               <DialogHeader>
                 <DialogTitle className="text-xl font-display">Self-Assessment</DialogTitle>

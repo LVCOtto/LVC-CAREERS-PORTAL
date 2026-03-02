@@ -370,6 +370,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         completed: toBool(r.completed),
         inProgress: toBool(r.inProgress),
         completedDate: r.completedDate || null,
+        targetDate: r.targetDate || null,
         signedOffBy: r.signedOffBy || null,
         signedOffDate: r.signedOffDate || null,
         assignedTo: r.assignedTo || null,

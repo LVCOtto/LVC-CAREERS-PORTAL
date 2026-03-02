@@ -224,12 +224,12 @@ export default function SharedInduction() {
                           )}
                         </TableCell>
                         <TableCell>
-                          {item.completedDate ? new Date(item.completedDate).toLocaleDateString() : '-'}
+                          {item.completedDate ? new Date(item.completedDate).toLocaleDateString('en-GB') : '-'}
                         </TableCell>
                         <TableCell>
                           {item.signedOffBy ? (
                             <div>
-                              <p className="text-sm">{new Date(item.signedOffDate).toLocaleDateString()}</p>
+                              <p className="text-sm">{new Date(item.signedOffDate).toLocaleDateString('en-GB')}</p>
                               <p className="text-xs text-muted-foreground">by {item.signedOffBy}</p>
                             </div>
                           ) : '-'}

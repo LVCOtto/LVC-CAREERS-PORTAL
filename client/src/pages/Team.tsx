@@ -191,7 +191,7 @@ function CompletedDateCell({ item, completeItem }: { item: any; completeItem: an
       data-testid={`button-edit-date-${item.id}`}
       onClick={() => { setDateValue(item.completedDate); setEditing(true); }}
     >
-      {new Date(item.completedDate).toLocaleDateString()}
+      {new Date(item.completedDate).toLocaleDateString('en-GB')}
       <Pencil className="w-3 h-3 text-muted-foreground" />
     </button>
   );
@@ -256,7 +256,7 @@ function TargetDateCell({ item, completeItem }: { item: any; completeItem: any }
       data-testid={`button-edit-target-${item.id}`}
       onClick={() => { setDateValue(item.targetDate); setEditing(true); }}
     >
-      {new Date(item.targetDate).toLocaleDateString()}
+      {new Date(item.targetDate).toLocaleDateString('en-GB')}
       <Pencil className="w-3 h-3 text-muted-foreground" />
     </button>
   );
@@ -517,7 +517,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                       <TableCell>
                         {item.signedOffBy ? (
                           <div>
-                            <p className="text-sm">{new Date(item.signedOffDate).toLocaleDateString()}</p>
+                            <p className="text-sm">{new Date(item.signedOffDate).toLocaleDateString('en-GB')}</p>
                             <p className="text-xs text-muted-foreground">by {item.signedOffBy}</p>
                           </div>
                         ) : '-'}
@@ -810,7 +810,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                 </div>
                 <div className="flex items-center gap-3 text-sm" data-testid="text-start-date">
                   <Calendar className="w-4 h-4 text-muted-foreground" />
-                  <span>Started {new Date(member.startDate).toLocaleDateString()}</span>
+                  <span>Started {new Date(member.startDate).toLocaleDateString('en-GB')}</span>
                 </div>
               </div>
             </CardContent>
@@ -868,7 +868,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                       <Badge className="bg-slate-100 text-slate-800 text-base px-4 py-2">Draft</Badge>
                     )}
                     <p className="text-sm text-muted-foreground mt-3">
-                      Last updated: {new Date(memberMatrix.lastAssessment).toLocaleDateString()}
+                      Last updated: {new Date(memberMatrix.lastAssessment).toLocaleDateString('en-GB')}
                     </p>
                   </>
                 ) : (
@@ -1154,7 +1154,7 @@ function TeamList() {
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar className="w-4 h-4" />
-                        <span>Started {new Date(member.startDate).toLocaleDateString()}</span>
+                        <span>Started {new Date(member.startDate).toLocaleDateString('en-GB')}</span>
                       </div>
                     </div>
                   </div>

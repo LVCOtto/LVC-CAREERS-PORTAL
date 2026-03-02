@@ -208,19 +208,16 @@ export default function AdminTemplates() {
     const swapIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
     if (swapIndex < 0 || swapIndex >= sectionItems.length) return;
 
-    const itemA = sectionItems[itemIndex];
-    const itemB = sectionItems[swapIndex];
-
-    const updates = [
-      { id: itemA.id, sortOrder: itemB.sortOrder },
-      { id: itemB.id, sortOrder: itemA.sortOrder },
-    ];
+    const normalized = sectionItems.map((item: any, idx: number) => ({ id: item.id, sortOrder: idx }));
+    const temp = normalized[itemIndex].sortOrder;
+    normalized[itemIndex].sortOrder = normalized[swapIndex].sortOrder;
+    normalized[swapIndex].sortOrder = temp;
 
     try {
       await fetch('/api/induction-templates/reorder', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates }),
+        body: JSON.stringify({ updates: normalized }),
       });
       queryClient.invalidateQueries({ queryKey: ["induction-templates"] });
     } catch {
@@ -236,19 +233,16 @@ export default function AdminTemplates() {
     const swapIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
     if (swapIndex < 0 || swapIndex >= items.length) return;
 
-    const itemA = items[itemIndex];
-    const itemB = items[swapIndex];
-
-    const updates = [
-      { id: itemA.id, sortOrder: itemB.sortOrder },
-      { id: itemB.id, sortOrder: itemA.sortOrder },
-    ];
+    const normalized = items.map((item: any, idx: number) => ({ id: item.id, sortOrder: idx }));
+    const temp = normalized[itemIndex].sortOrder;
+    normalized[itemIndex].sortOrder = normalized[swapIndex].sortOrder;
+    normalized[swapIndex].sortOrder = temp;
 
     try {
       await fetch('/api/competency-items/reorder', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ updates }),
+        body: JSON.stringify({ updates: normalized }),
       });
       queryClient.invalidateQueries({ queryKey: ["competencies"] });
     } catch {

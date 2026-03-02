@@ -31,6 +31,7 @@ import {
   useCompetenciesForRole,
   useStandardsSurvey,
   useUpdateTrainingMatrix,
+  useGenerateShareToken,
 } from '@/lib/hooks';
 import { IndividualView } from '@/pages/Training';
 import {
@@ -53,6 +54,7 @@ import {
   PlayCircle,
   Pencil,
   Download,
+  Check,
 } from 'lucide-react';
 
 const sectionColors = [
@@ -618,6 +620,9 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
 
   const completeItem = useCompleteInductionItem(memberId);
   const updateMatrix = useUpdateTrainingMatrix();
+  const generateShareToken = useGenerateShareToken();
+  const [matrixShareUrl, setMatrixShareUrl] = useState('');
+  const [matrixShareCopied, setMatrixShareCopied] = useState(false);
 
   if (memberLoading || inductionLoading) {
     return (
@@ -867,6 +872,41 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                         {memberMatrix ? 'Draft' : 'Not submitted'}
                       </Badge>
                     )}
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      data-testid="button-share-team-matrix"
+                      disabled={generateShareToken.isPending}
+                      onClick={async () => {
+                        try {
+                          let submissionId = matrixSubmission?.id;
+                          if (!submissionId) {
+                            toast({ title: 'No matrix to share', description: 'This colleague hasn\'t submitted a training matrix yet.', variant: 'destructive' });
+                            return;
+                          }
+                          const result = await generateShareToken.mutateAsync(submissionId);
+                          const url = `${window.location.origin}/training-matrix/shared/${result.token}`;
+                          setMatrixShareUrl(url);
+                          await navigator.clipboard.writeText(url);
+                          setMatrixShareCopied(true);
+                          setTimeout(() => setMatrixShareCopied(false), 2000);
+                          toast({ title: 'Link copied', description: 'Shareable training matrix link copied to clipboard.' });
+                        } catch {
+                          toast({ title: 'Error', description: 'Could not generate share link.', variant: 'destructive' });
+                        }
+                      }}
+                    >
+                      {generateShareToken.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : matrixShareCopied ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Share2 className="h-4 w-4" />
+                      )}
+                      {matrixShareCopied ? 'Copied!' : 'Share Link'}
+                    </Button>
 
                     <Button
                       size="sm"

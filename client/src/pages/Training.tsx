@@ -500,18 +500,6 @@ export default function Training() {
                 </div>
               )}
 
-              {!isColleague && (
-                <Button
-                  variant="outline"
-                  onClick={handleShareLink}
-                  className="gap-2"
-                  disabled={generateShareToken.isPending || createMatrix.isPending}
-                  data-testid="button-share-matrix"
-                >
-                  <Share2 className="h-4 w-4" />
-                  Share Link
-                </Button>
-              )}
             </div>
           </CardHeader>
           <CardContent>

@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
@@ -490,17 +489,6 @@ export default function Training() {
                   )}
 
                   <Button
-                    variant="outline"
-                    onClick={handleShareLink}
-                    className="gap-2"
-                    disabled={generateShareToken.isPending || createMatrix.isPending}
-                    data-testid="button-share-matrix"
-                  >
-                    <Share2 className="h-4 w-4" />
-                    Share Link
-                  </Button>
-
-                  <Button
                     onClick={openSelfAssessment}
                     className="gap-2"
                     disabled={matrixStatus === 'pending_review'}
@@ -510,6 +498,19 @@ export default function Training() {
                     {matrixStatus === 'approved' ? 'Start new self-assessment' : 'Submit training matrix'}
                   </Button>
                 </div>
+              )}
+
+              {!isColleague && (
+                <Button
+                  variant="outline"
+                  onClick={handleShareLink}
+                  className="gap-2"
+                  disabled={generateShareToken.isPending || createMatrix.isPending}
+                  data-testid="button-share-matrix"
+                >
+                  <Share2 className="h-4 w-4" />
+                  Share Link
+                </Button>
               )}
             </div>
           </CardHeader>
@@ -549,7 +550,7 @@ export default function Training() {
               </div>
             </div>
 
-            <ScrollArea className="flex-1 min-h-0">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="px-6 py-4 space-y-3">
                 {categories.map((category: any) => {
                   const isExpanded = dialogExpandedCategories.has(category.slug);
@@ -622,7 +623,7 @@ export default function Training() {
                   );
                 })}
               </div>
-            </ScrollArea>
+            </div>
 
             <div className="px-6 py-4 border-t bg-white shrink-0">
               <DialogFooter className="sm:justify-between">

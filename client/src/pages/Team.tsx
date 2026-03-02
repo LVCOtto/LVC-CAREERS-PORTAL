@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useAuth, User } from '@/lib/authContext';
 import { usePortalSettings } from '@/lib/portalSettingsContext';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { useRoute, Link } from 'wouter';
 import { Layout } from '@/components/Layout';
 import { useToast } from '@/hooks/use-toast';
@@ -50,6 +52,7 @@ import {
   ExternalLink,
   PlayCircle,
   Pencil,
+  Download,
 } from 'lucide-react';
 
 const sectionColors = [
@@ -190,6 +193,86 @@ function CompletedDateCell({ item, completeItem }: { item: any; completeItem: an
   );
 }
 
+function exportInductionPdf(memberName: string, memberRole: string, memberDepartment: string, items: any[]) {
+  const doc = new jsPDF();
+  const sections = Array.from(new Set(items.map((i: any) => i.section)));
+
+  doc.setFontSize(18);
+  doc.text('Induction Progress Report', 14, 20);
+
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Name: ${memberName}`, 14, 30);
+  doc.text(`Role: ${memberRole}`, 14, 36);
+  doc.text(`Department: ${memberDepartment}`, 14, 42);
+  doc.text(`Date: ${new Date().toLocaleDateString('en-GB')}`, 14, 48);
+
+  const completedCount = items.filter((i: any) => i.completed).length;
+  const signedOffCount = items.filter((i: any) => i.signedOffBy).length;
+  const inProgressCount = items.filter((i: any) => i.inProgress && !i.completed).length;
+  doc.text(`Progress: ${completedCount}/${items.length} completed, ${signedOffCount} signed off, ${inProgressCount} in progress`, 14, 54);
+
+  doc.setTextColor(0);
+
+  let startY = 62;
+
+  sections.forEach((section) => {
+    const sectionItems = items.filter((i: any) => i.section === section);
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(section, 14, startY);
+    doc.setFont('helvetica', 'normal');
+    startY += 2;
+
+    const tableData = sectionItems.map((item: any) => {
+      let status = 'Not Started';
+      if (item.signedOffBy) status = 'Signed Off';
+      else if (item.completed) status = 'Completed';
+      else if (item.inProgress) status = 'In Progress';
+
+      return [
+        item.title,
+        item.assignedTo || '-',
+        status,
+        item.completedDate ? new Date(item.completedDate).toLocaleDateString('en-GB') : '-',
+        item.signedOffBy ? `${new Date(item.signedOffDate).toLocaleDateString('en-GB')} (${item.signedOffBy})` : '-',
+      ];
+    });
+
+    autoTable(doc, {
+      startY,
+      head: [['Item', 'Assigned To', 'Status', 'Completed', 'Signed Off']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 65, 122], fontSize: 8, cellPadding: 2 },
+      bodyStyles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: {
+        0: { cellWidth: 55 },
+        1: { cellWidth: 30 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 25 },
+        4: { cellWidth: 40 },
+      },
+      margin: { left: 14, right: 14 },
+      didParseCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 2) {
+          const val = data.cell.raw;
+          if (val === 'Signed Off') data.cell.styles.textColor = [5, 122, 85];
+          else if (val === 'Completed') data.cell.styles.textColor = [180, 130, 0];
+          else if (val === 'In Progress') data.cell.styles.textColor = [37, 99, 235];
+          else data.cell.styles.textColor = [120, 120, 120];
+        }
+      },
+    });
+
+    startY = (doc as any).lastAutoTable.finalY + 10;
+  });
+
+  const safeName = memberName.replace(/\s+/g, '_');
+  doc.save(`Induction_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
 function InductionShareBar({ memberId, toast }: { memberId: string; toast: any }) {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -217,7 +300,7 @@ function InductionShareBar({ memberId, toast }: { memberId: string; toast: any }
   };
 
   return (
-    <div className="mb-4 flex items-center gap-3">
+    <div className="flex items-center gap-3">
       {!shareLink ? (
         <Button
           variant="outline"
@@ -701,7 +784,25 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
           </TabsList>
 
           <TabsContent value="induction" className="mt-6">
-            <InductionShareBar memberId={memberId} toast={toast} />
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <InductionShareBar memberId={memberId} toast={toast} />
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 shrink-0"
+                data-testid="button-export-induction-pdf"
+                onClick={() => {
+                  if (member && items.length > 0) {
+                    exportInductionPdf(member.name, member.jobRole || '', member.department || '', items);
+                    toast({ title: 'PDF exported', description: `Induction report for ${member.name} has been downloaded.` });
+                  }
+                }}
+                disabled={!items.length}
+              >
+                <Download className="h-4 w-4" />
+                Export PDF
+              </Button>
+            </div>
             <InductionSectionView
               items={items}
               completeItem={completeItem}

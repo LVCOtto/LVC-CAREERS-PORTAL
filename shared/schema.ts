@@ -52,6 +52,7 @@ export const inductionItemCompletions = pgTable("induction_item_completions", {
   instanceId: integer("instance_id").notNull(),
   templateItemId: integer("template_item_id").notNull(),
   completed: boolean("completed").notNull().default(false),
+  inProgress: boolean("in_progress").notNull().default(false),
   completedDate: text("completed_date"),
   signedOffBy: varchar("signed_off_by", { length: 50 }),
   signedOffDate: text("signed_off_date"),

@@ -48,6 +48,8 @@ import {
   Share2,
   Copy,
   ExternalLink,
+  PlayCircle,
+  Pencil,
 } from 'lucide-react';
 
 const sectionColors = [
@@ -83,6 +85,7 @@ function AssignToInput({ item, completeItem, toast }: { item: any; completeItem:
       completeItem.mutate({
         templateItemId: item.id,
         completed: item.completed,
+        inProgress: item.inProgress,
         completedDate: item.completedDate,
         signedOffBy: item.signedOffBy,
         signedOffDate: item.signedOffDate,
@@ -136,6 +139,54 @@ function AssignToInput({ item, completeItem, toast }: { item: any; completeItem:
         if (e.key === 'Escape') { setValue(item.assignedTo || ''); setEditing(false); }
       }}
     />
+  );
+}
+
+function CompletedDateCell({ item, completeItem }: { item: any; completeItem: any }) {
+  const [editing, setEditing] = useState(false);
+  const [dateValue, setDateValue] = useState(item.completedDate || '');
+
+  if (!item.completedDate) return <span className="text-muted-foreground">-</span>;
+
+  if (editing) {
+    return (
+      <Input
+        type="date"
+        autoFocus
+        className="h-7 w-[130px] text-xs"
+        data-testid={`input-completed-date-${item.id}`}
+        value={dateValue}
+        onChange={(e) => setDateValue(e.target.value)}
+        onBlur={() => {
+          if (dateValue && dateValue !== item.completedDate) {
+            completeItem.mutate({
+              templateItemId: item.id,
+              completed: item.completed,
+              inProgress: item.inProgress,
+              completedDate: dateValue,
+              signedOffBy: item.signedOffBy,
+              signedOffDate: item.signedOffDate,
+              assignedTo: item.assignedTo,
+            });
+          }
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { setDateValue(item.completedDate); setEditing(false); }
+        }}
+      />
+    );
+  }
+
+  return (
+    <button
+      className="text-sm hover:underline transition-colors flex items-center gap-1"
+      data-testid={`button-edit-date-${item.id}`}
+      onClick={() => { setDateValue(item.completedDate); setEditing(true); }}
+    >
+      {new Date(item.completedDate).toLocaleDateString()}
+      <Pencil className="w-3 h-3 text-muted-foreground" />
+    </button>
   );
 }
 
@@ -268,12 +319,14 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                           <StatusBadge status="complete" />
                         ) : item.completed ? (
                           <StatusBadge status="awaiting_signoff" />
+                        ) : item.inProgress ? (
+                          <StatusBadge status="in_progress" />
                         ) : (
                           <StatusBadge status="not_started" />
                         )}
                       </TableCell>
                       <TableCell>
-                        {item.completedDate ? new Date(item.completedDate).toLocaleDateString() : '-'}
+                        <CompletedDateCell item={item} completeItem={completeItem} />
                       </TableCell>
                       <TableCell>
                         {item.signedOffBy ? (
@@ -285,27 +338,73 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {!item.completed && (
+                          {!item.inProgress && !item.completed && (
                             <Button
                               size="sm"
                               variant="outline"
                               className="gap-1"
-                              data-testid={`button-complete-${item.id}`}
+                              data-testid={`button-start-${item.id}`}
                               onClick={() => {
                                 completeItem.mutate({
                                   templateItemId: item.id,
-                                  completed: true,
-                                  completedDate: new Date().toISOString().slice(0, 10),
+                                  completed: false,
+                                  inProgress: true,
+                                  completedDate: null,
                                   signedOffBy: null,
                                   signedOffDate: null,
                                   assignedTo: item.assignedTo,
                                 });
-                                toast({ title: 'Item marked complete', description: `"${item.title}" has been marked as complete.` });
+                                toast({ title: 'Item started', description: `"${item.title}" is now in progress.` });
                               }}
                             >
-                              <CheckCircle2 className="w-3 h-3" />
-                              Complete
+                              <PlayCircle className="w-3 h-3" />
+                              Start
                             </Button>
+                          )}
+                          {item.inProgress && !item.completed && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="gap-1"
+                                data-testid={`button-complete-${item.id}`}
+                                onClick={() => {
+                                  completeItem.mutate({
+                                    templateItemId: item.id,
+                                    completed: true,
+                                    inProgress: false,
+                                    completedDate: new Date().toISOString().slice(0, 10),
+                                    signedOffBy: null,
+                                    signedOffDate: null,
+                                    assignedTo: item.assignedTo,
+                                  });
+                                  toast({ title: 'Item marked complete', description: `"${item.title}" has been marked as complete.` });
+                                }}
+                              >
+                                <CheckCircle2 className="w-3 h-3" />
+                                Complete
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="gap-1 text-muted-foreground"
+                                data-testid={`button-undo-start-${item.id}`}
+                                onClick={() => {
+                                  completeItem.mutate({
+                                    templateItemId: item.id,
+                                    completed: false,
+                                    inProgress: false,
+                                    completedDate: null,
+                                    signedOffBy: null,
+                                    signedOffDate: null,
+                                    assignedTo: item.assignedTo,
+                                  });
+                                  toast({ title: 'Progress undone', description: `"${item.title}" has been reset to not started.` });
+                                }}
+                              >
+                                <Undo2 className="w-3 h-3" />
+                              </Button>
+                            </>
                           )}
                           {item.completed && !item.signedOffBy && (
                             <>
@@ -317,6 +416,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                   completeItem.mutate({
                                     templateItemId: item.id,
                                     completed: true,
+                                    inProgress: false,
                                     completedDate: item.completedDate,
                                     signedOffBy: currentUser?.name || 'Manager',
                                     signedOffDate: new Date().toISOString().slice(0, 10),
@@ -336,12 +436,13 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                   completeItem.mutate({
                                     templateItemId: item.id,
                                     completed: false,
+                                    inProgress: true,
                                     completedDate: null,
                                     signedOffBy: null,
                                     signedOffDate: null,
                                     assignedTo: item.assignedTo,
                                   });
-                                  toast({ title: 'Completion undone', description: `"${item.title}" has been reset.` });
+                                  toast({ title: 'Completion undone', description: `"${item.title}" has been moved back to in progress.` });
                                 }}
                               >
                                 <Undo2 className="w-3 h-3" />
@@ -358,6 +459,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                                 completeItem.mutate({
                                   templateItemId: item.id,
                                   completed: true,
+                                  inProgress: false,
                                   completedDate: item.completedDate,
                                   signedOffBy: null,
                                   signedOffDate: null,

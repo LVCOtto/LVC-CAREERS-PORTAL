@@ -135,6 +135,7 @@ export async function registerRoutes(
       return {
         ...tmpl,
         completed: completion?.completed ?? false,
+        inProgress: completion?.inProgress ?? false,
         completedDate: completion?.completedDate ?? null,
         signedOffBy: completion?.signedOffBy ?? null,
         signedOffDate: completion?.signedOffDate ?? null,
@@ -175,6 +176,7 @@ export async function registerRoutes(
       return {
         ...tmpl,
         completed: completion?.completed ?? false,
+        inProgress: completion?.inProgress ?? false,
         completedDate: completion?.completedDate ?? null,
         signedOffBy: completion?.signedOffBy ?? null,
         signedOffDate: completion?.signedOffDate ?? null,
@@ -186,7 +188,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/induction/:userId/complete-item", async (req, res) => {
-    const { templateItemId, completed, completedDate, signedOffBy, signedOffDate, assignedTo } = req.body;
+    const { templateItemId, completed, inProgress, completedDate, signedOffBy, signedOffDate, assignedTo } = req.body;
     let instance = await storage.getInductionInstance(req.params.userId);
     if (!instance) {
       instance = await storage.createInductionInstance({
@@ -201,6 +203,7 @@ export async function registerRoutes(
       instanceId: instance.id,
       templateItemId,
       completed,
+      inProgress: inProgress ?? false,
       completedDate: completedDate || null,
       signedOffBy: signedOffBy || null,
       signedOffDate: signedOffDate || null,

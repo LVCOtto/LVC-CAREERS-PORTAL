@@ -308,6 +308,8 @@ export default function Induction() {
                               <StatusBadge status="complete" />
                             ) : item.completed ? (
                               <StatusBadge status="awaiting_signoff" />
+                            ) : item.inProgress ? (
+                              <StatusBadge status="in_progress" />
                             ) : (
                               <StatusBadge status="not_started" />
                             )}

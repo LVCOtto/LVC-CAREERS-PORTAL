@@ -368,6 +368,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         instanceId: toInt(r.instanceId),
         templateItemId: toInt(r.templateItemId),
         completed: toBool(r.completed),
+        inProgress: toBool(r.inProgress),
         completedDate: r.completedDate || null,
         signedOffBy: r.signedOffBy || null,
         signedOffDate: r.signedOffDate || null,

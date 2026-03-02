@@ -231,8 +231,12 @@ function exportInductionPdf(memberName: string, memberRole: string, memberDepart
       else if (item.completed) status = 'Completed';
       else if (item.inProgress) status = 'In Progress';
 
+      const titleCell = item.description
+        ? `${item.title}\n${item.description}`
+        : item.title;
+
       return [
-        item.title,
+        titleCell,
         item.assignedTo || '-',
         status,
         item.completedDate ? new Date(item.completedDate).toLocaleDateString('en-GB') : '-',
@@ -246,7 +250,7 @@ function exportInductionPdf(memberName: string, memberRole: string, memberDepart
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [41, 65, 122], fontSize: 8, cellPadding: 2 },
-      bodyStyles: { fontSize: 8, cellPadding: 2 },
+      bodyStyles: { fontSize: 8, cellPadding: 2, minCellHeight: 12 },
       columnStyles: {
         0: { cellWidth: 55 },
         1: { cellWidth: 30 },
@@ -256,12 +260,36 @@ function exportInductionPdf(memberName: string, memberRole: string, memberDepart
       },
       margin: { left: 14, right: 14 },
       didParseCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          const raw = data.cell.raw as string;
+          const newlineIdx = raw.indexOf('\n');
+          if (newlineIdx !== -1) {
+            data.cell.text = [raw.substring(0, newlineIdx)];
+          }
+        }
         if (data.section === 'body' && data.column.index === 2) {
           const val = data.cell.raw;
           if (val === 'Signed Off') data.cell.styles.textColor = [5, 122, 85];
           else if (val === 'Completed') data.cell.styles.textColor = [180, 130, 0];
           else if (val === 'In Progress') data.cell.styles.textColor = [37, 99, 235];
           else data.cell.styles.textColor = [120, 120, 120];
+        }
+      },
+      didDrawCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 0) {
+          const raw = data.cell.raw as string;
+          const newlineIdx = raw.indexOf('\n');
+          if (newlineIdx !== -1) {
+            const description = raw.substring(newlineIdx + 1);
+            doc.setFontSize(6.5);
+            doc.setTextColor(120, 120, 120);
+            const titleHeight = data.cell.styles.fontSize * 0.5;
+            doc.text(description, data.cell.x + 2, data.cell.y + titleHeight + 5, {
+              maxWidth: data.cell.width - 4,
+            });
+            doc.setTextColor(0);
+            doc.setFontSize(8);
+          }
         }
       },
     });

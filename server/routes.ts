@@ -258,6 +258,21 @@ export async function registerRoutes(
     res.status(204).send();
   });
 
+  app.patch("/api/competency-items/reorder", async (req, res) => {
+    const { updates } = req.body;
+    if (!Array.isArray(updates)) {
+      return res.status(400).json({ message: "updates array required" });
+    }
+    try {
+      for (const { id, sortOrder } of updates) {
+        await storage.updateCompetencyItem(id, { sortOrder });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Reorder failed" });
+    }
+  });
+
   app.post("/api/competency-items", async (req, res) => {
     const item = await storage.createCompetencyItem(req.body);
     res.status(201).json(item);

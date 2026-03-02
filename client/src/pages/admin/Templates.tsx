@@ -228,6 +228,34 @@ export default function AdminTemplates() {
     }
   };
 
+  const moveSkillItem = async (categoryId: number, itemIndex: number, direction: 'up' | 'down') => {
+    const category = competencies?.find((c: any) => c.id === categoryId);
+    if (!category) return;
+    const items = (category.items || []).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const swapIndex = direction === 'up' ? itemIndex - 1 : itemIndex + 1;
+    if (swapIndex < 0 || swapIndex >= items.length) return;
+
+    const itemA = items[itemIndex];
+    const itemB = items[swapIndex];
+
+    const updates = [
+      { id: itemA.id, sortOrder: itemB.sortOrder },
+      { id: itemB.id, sortOrder: itemA.sortOrder },
+    ];
+
+    try {
+      await fetch('/api/competency-items/reorder', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["competencies"] });
+    } catch {
+      toast({ title: 'Failed to reorder skills', variant: 'destructive' });
+    }
+  };
+
   const openAddInductionItem = (section: string) => {
     const sectionItems = inductionItems.filter((i: any) => i.section === section);
     const maxSort = sectionItems.length > 0 ? Math.max(...sectionItems.map((i: any) => i.sortOrder || 0)) : 0;
@@ -855,16 +883,40 @@ export default function AdminTemplates() {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-2">
-                          {(category.items || []).map((item: any) => (
+                          {(category.items || []).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((item: any, itemIdx: number, sortedItems: any[]) => (
                             <div
                               key={item.id}
                               className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                             >
-                              <div>
-                                <span className="text-sm font-medium">{item.name}</span>
-                                {item.description && (
-                                  <p className="text-xs text-muted-foreground">{item.description}</p>
-                                )}
+                              <div className="flex items-center gap-2">
+                                <div className="flex flex-col">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                    disabled={itemIdx === 0}
+                                    onClick={() => moveSkillItem(category.id, itemIdx, 'up')}
+                                    data-testid={`button-skill-up-${item.id}`}
+                                  >
+                                    <ChevronUp className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                    disabled={itemIdx === sortedItems.length - 1}
+                                    onClick={() => moveSkillItem(category.id, itemIdx, 'down')}
+                                    data-testid={`button-skill-down-${item.id}`}
+                                  >
+                                    <ChevronDown className="w-3 h-3" />
+                                  </Button>
+                                </div>
+                                <div>
+                                  <span className="text-sm font-medium">{item.name}</span>
+                                  {item.description && (
+                                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                                  )}
+                                </div>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditSkillItem(item)} data-testid={`button-edit-skill-${item.id}`}>

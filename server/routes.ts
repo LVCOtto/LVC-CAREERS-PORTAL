@@ -767,10 +767,17 @@ export async function registerRoutes(
   // ===== CSV IMPORT =====
   app.post("/api/import/:type", async (req, res) => {
     const { type } = req.params;
-    const { rows } = req.body;
-    if (!Array.isArray(rows) || rows.length === 0) {
+    const { rows: rawRows } = req.body;
+    if (!Array.isArray(rawRows) || rawRows.length === 0) {
       return res.status(400).json({ message: "No data rows provided" });
     }
+    const rows = rawRows.map((r: Record<string, string>) => {
+      const out: Record<string, string> = {};
+      for (const [k, v] of Object.entries(r)) {
+        out[k.trim().toLowerCase().replace(/\s+/g, "_")] = v;
+      }
+      return out;
+    });
     try {
       let created = 0;
       let skipped = 0;

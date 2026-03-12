@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Search, UserPlus, Edit, Trash2, Shield, Users as UsersIcon, User as UserIcon, Download, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useDepartments } from '@/lib/hooks';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useDepartments, useJobRoles } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -68,6 +68,7 @@ export default function AdminUsers() {
 
   const { data: users = [], isLoading } = useUsers();
   const { data: departmentsList } = useDepartments();
+  const { data: jobRolesList = [] } = useJobRoles();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
@@ -255,7 +256,22 @@ export default function AdminUsers() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="jobRole">Job Role</Label>
-                  <Input id="jobRole" placeholder="Enter job role" value={newJobRole} onChange={e => setNewJobRole(e.target.value)} data-testid="input-job-role" />
+                  <Select value={newJobRole || "__none__"} onValueChange={v => {
+                    const role = v === "__none__" ? "" : v;
+                    setNewJobRole(role);
+                    const match = jobRolesList.find((r: any) => r.title === role);
+                    if (match) setNewDepartment(match.department);
+                  }}>
+                    <SelectTrigger data-testid="input-job-role">
+                      <SelectValue placeholder="Select job role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Select job role</SelectItem>
+                      {jobRolesList.map((r: any) => (
+                        <SelectItem key={r.id} value={r.title}>{r.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="department">Department</Label>
@@ -461,7 +477,22 @@ export default function AdminUsers() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-jobRole">Job Role</Label>
-                <Input id="edit-jobRole" placeholder="Enter job role" value={editJobRole} onChange={e => setEditJobRole(e.target.value)} data-testid="input-edit-job-role" />
+                <Select value={editJobRole || "__none__"} onValueChange={v => {
+                  const role = v === "__none__" ? "" : v;
+                  setEditJobRole(role);
+                  const match = jobRolesList.find((r: any) => r.title === role);
+                  if (match) setEditDepartment(match.department);
+                }}>
+                  <SelectTrigger data-testid="input-edit-job-role">
+                    <SelectValue placeholder="Select job role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Select job role</SelectItem>
+                    {jobRolesList.map((r: any) => (
+                      <SelectItem key={r.id} value={r.title}>{r.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-department">Department</Label>

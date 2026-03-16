@@ -237,6 +237,13 @@ export function useDeleteJobRole() {
   });
 }
 
+export function useReorderJobRole() {
+  return useMutation({
+    mutationFn: (data: { id: number; reportsTo?: number | null; sortOrder?: number }) => api.jobRoles.reorder(data),
+    onSuccess: () => invalidate("job-roles"),
+  });
+}
+
 export function useGenerateShareToken() {
   return useMutation({
     mutationFn: (id: number) => api.trainingMatrix.generateShareToken(id),

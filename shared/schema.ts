@@ -216,6 +216,8 @@ export const jobRoles = pgTable("job_roles", {
   department: text("department").notNull(),
   summary: text("summary").notNull(),
   responsibilities: jsonb("responsibilities").notNull().default([]),
+  reportsTo: integer("reports_to"),
+  sortOrder: integer("sort_order").notNull().default(0),
 });
 
 export const insertJobRoleSchema = createInsertSchema(jobRoles).omit({ id: true });

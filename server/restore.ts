@@ -148,6 +148,8 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         department: r.department,
         summary: r.summary || "",
         responsibilities: parseJson(r.responsibilities, []),
+        reportsTo: r.reports_to || r.reportsTo ? toInt(r.reports_to || r.reportsTo) : null,
+        sortOrder: r.sort_order || r.sortOrder ? toInt(r.sort_order || r.sortOrder) : 0,
       }).onConflictDoNothing();
     }
     return rows.length;

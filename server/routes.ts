@@ -528,6 +528,17 @@ export async function registerRoutes(
     res.status(201).json(role);
   });
 
+  app.patch("/api/job-roles/reorder", async (req, res) => {
+    const { id, reportsTo, sortOrder } = req.body;
+    if (typeof id !== "number") return res.status(400).json({ message: "id is required" });
+    const updates: any = {};
+    if (reportsTo !== undefined) updates.reportsTo = reportsTo;
+    if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+    const role = await storage.updateJobRole(id, updates);
+    if (!role) return res.status(404).json({ message: "Not found" });
+    res.json(role);
+  });
+
   app.patch("/api/job-roles/:id", async (req, res) => {
     const role = await storage.updateJobRole(Number(req.params.id), req.body);
     if (!role) return res.status(404).json({ message: "Not found" });
@@ -704,9 +715,9 @@ export async function registerRoutes(
         filename = "certificates.csv";
       } else if (type === "job-roles") {
         const roles = await storage.getJobRoles();
-        csvContent = "ID,Title,Department,Summary\n";
+        csvContent = "ID,Title,Department,Summary,ReportsTo,SortOrder\n";
         csvContent += roles.map(r =>
-          `${r.id},"${r.title}","${r.department}","${(r.summary || '').replace(/"/g, '""')}"`
+          `${r.id},"${r.title}","${r.department}","${(r.summary || '').replace(/"/g, '""')}",${r.reportsTo ?? ''},${r.sortOrder}`
         ).join("\n");
         filename = "job-roles.csv";
       } else if (type === "competencies") {
@@ -828,6 +839,8 @@ export async function registerRoutes(
               department: row.department,
               summary: row.summary || "",
               responsibilities: row.responsibilities ? JSON.parse(row.responsibilities) : [],
+              reportsTo: row.reportsto ? parseInt(row.reportsto) : null,
+              sortOrder: row.sortorder ? parseInt(row.sortorder) : 0,
             });
             created++;
           } catch (e: any) {

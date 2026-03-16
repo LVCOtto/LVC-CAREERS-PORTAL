@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,9 +9,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Briefcase, Plus, Edit, Users, Trash2, Download, Upload, GraduationCap, Check, ClipboardList } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections } from '@/lib/hooks';
+import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -22,34 +23,61 @@ interface RoleFormData {
   department: string;
   summary: string;
   responsibilities: string;
+  reportsTo: number | null;
 }
 
-const emptyForm: RoleFormData = { title: '', department: '', summary: '', responsibilities: '' };
+const emptyForm: RoleFormData = { title: '', department: '', summary: '', responsibilities: '', reportsTo: null };
+
+function buildTree(roles: any[]): any[] {
+  const sorted = [...roles].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const map = new Map<number, any>();
+  const roots: any[] = [];
+
+  sorted.forEach(role => {
+    map.set(role.id, { ...role, children: [] });
+  });
+
+  sorted.forEach(role => {
+    const node = map.get(role.id)!;
+    if (role.reportsTo && map.has(role.reportsTo)) {
+      map.get(role.reportsTo)!.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  return roots;
+}
 
 export default function AdminRoles() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const { data: jobRoles = [], isLoading } = useJobRoles();
+  const { data: departmentsList = [] } = useDepartments();
   const createJobRole = useCreateJobRole();
   const updateJobRole = useUpdateJobRole();
   const deleteJobRole = useDeleteJobRole();
+  const reorderJobRole = useReorderJobRole();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<any>(null);
   const [formData, setFormData] = useState<RoleFormData>(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set());
 
   const [skillsDialogRole, setSkillsDialogRole] = useState<any>(null);
   const [inductionDialogRole, setInductionDialogRole] = useState<any>(null);
+
+  const tree = useMemo(() => buildTree(jobRoles), [jobRoles]);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
   }
 
-  const openCreate = () => {
+  const openCreate = (parentId?: number) => {
     setEditingRole(null);
-    setFormData(emptyForm);
+    setFormData({ ...emptyForm, reportsTo: parentId ?? null });
     setDialogOpen(true);
   };
 
@@ -60,6 +88,7 @@ export default function AdminRoles() {
       department: role.department || '',
       summary: role.summary || '',
       responsibilities: (role.responsibilities || []).join('\n'),
+      reportsTo: role.reportsTo ?? null,
     });
     setDialogOpen(true);
   };
@@ -69,11 +98,12 @@ export default function AdminRoles() {
       toast({ title: 'Validation error', description: 'Title and department are required.', variant: 'destructive' });
       return;
     }
-    const payload = {
+    const payload: any = {
       title: formData.title.trim(),
       department: formData.department.trim(),
       summary: formData.summary.trim(),
       responsibilities: formData.responsibilities.split('\n').map(r => r.trim()).filter(Boolean),
+      reportsTo: formData.reportsTo,
     };
 
     if (editingRole) {
@@ -87,6 +117,10 @@ export default function AdminRoles() {
         },
       });
     } else {
+      const siblings = jobRoles.filter((r: any) =>
+        formData.reportsTo ? r.reportsTo === formData.reportsTo : !r.reportsTo
+      );
+      payload.sortOrder = siblings.length;
       createJobRole.mutate(payload, {
         onSuccess: () => {
           toast({ title: 'Role created', description: `${payload.title} has been created.` });
@@ -101,6 +135,12 @@ export default function AdminRoles() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
+    const childRoles = jobRoles.filter((r: any) => r.reportsTo === deleteTarget.id);
+    if (childRoles.length > 0) {
+      childRoles.forEach((child: any) => {
+        reorderJobRole.mutate({ id: child.id, reportsTo: deleteTarget.reportsTo ?? null });
+      });
+    }
     deleteJobRole.mutate(deleteTarget.id, {
       onSuccess: () => {
         toast({ title: 'Role deleted', description: `${deleteTarget.title} has been deleted.` });
@@ -113,16 +153,180 @@ export default function AdminRoles() {
     });
   };
 
+  const moveRole = (roleId: number, direction: 'up' | 'down') => {
+    const role = jobRoles.find((r: any) => r.id === roleId);
+    if (!role) return;
+    const siblings = jobRoles
+      .filter((r: any) => (role.reportsTo ? r.reportsTo === role.reportsTo : !r.reportsTo) && r.id !== role.id)
+      .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const allSorted = [...siblings];
+    const currentIdx = allSorted.findIndex((r: any) => (r.sortOrder || 0) >= (role.sortOrder || 0));
+    const insertIdx = currentIdx === -1 ? allSorted.length : currentIdx;
+    allSorted.splice(insertIdx, 0, role);
+
+    const roleIdx = allSorted.findIndex((r: any) => r.id === roleId);
+    const swapIdx = direction === 'up' ? roleIdx - 1 : roleIdx + 1;
+    if (swapIdx < 0 || swapIdx >= allSorted.length) return;
+
+    reorderJobRole.mutate({ id: roleId, sortOrder: swapIdx });
+    reorderJobRole.mutate({ id: allSorted[swapIdx].id, sortOrder: roleIdx });
+  };
+
+  const toggleCollapse = (id: number) => {
+    setCollapsed(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const isSaving = createJobRole.isPending || updateJobRole.isPending;
+
+  const renderTreeNode = (node: any, depth: number, siblingCount: number, siblingIndex: number) => {
+    const hasChildren = node.children && node.children.length > 0;
+    const isCollapsed = collapsed.has(node.id);
+    const paddingLeft = depth * 32;
+
+    return (
+      <div key={node.id} data-testid={`tree-node-${node.id}`}>
+        <div
+          className={`flex items-center gap-2 py-2.5 px-3 border-b hover:bg-muted/30 transition-colors group ${depth === 0 ? 'bg-muted/10' : ''}`}
+          style={{ paddingLeft: paddingLeft + 12 }}
+        >
+          <div className="flex items-center gap-1 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+              onClick={() => moveRole(node.id, 'up')}
+              disabled={siblingIndex === 0}
+              data-testid={`button-move-up-${node.id}`}
+            >
+              <ArrowUp className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+              onClick={() => moveRole(node.id, 'down')}
+              disabled={siblingIndex === siblingCount - 1}
+              data-testid={`button-move-down-${node.id}`}
+            >
+              <ArrowDown className="h-3 w-3" />
+            </Button>
+          </div>
+
+          {hasChildren ? (
+            <button
+              onClick={() => toggleCollapse(node.id)}
+              className="shrink-0 h-5 w-5 flex items-center justify-center rounded hover:bg-muted"
+              data-testid={`button-toggle-${node.id}`}
+            >
+              {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          ) : (
+            <span className="shrink-0 h-5 w-5 flex items-center justify-center">
+              {depth > 0 && <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground/40" />}
+            </span>
+          )}
+
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${depth === 0 ? 'bg-primary/10' : 'bg-muted/50'}`}>
+            <Briefcase className={`w-4 h-4 ${depth === 0 ? 'text-primary' : 'text-muted-foreground'}`} />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className={`font-medium text-sm truncate ${depth === 0 ? 'text-foreground' : ''}`}>
+                {node.title}
+              </span>
+              <Badge variant="secondary" className="text-xs shrink-0">
+                {node.department}
+              </Badge>
+            </div>
+            {node.summary && (
+              <p className="text-xs text-muted-foreground truncate mt-0.5">{node.summary}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            {hasChildren && (
+              <Badge variant="outline" className="text-xs">
+                {node.children.length} report{node.children.length !== 1 ? 's' : ''}
+              </Badge>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => openCreate(node.id)}
+              data-testid={`button-add-under-${node.id}`}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setSkillsDialogRole(node)}
+              data-testid={`button-manage-skills-${node.id}`}
+            >
+              <GraduationCap className="w-3 h-3 mr-1" />
+              Skills
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => setInductionDialogRole(node)}
+              data-testid={`button-manage-induction-${node.id}`}
+            >
+              <ClipboardList className="w-3 h-3 mr-1" />
+              Induction
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => openEdit(node)}
+              data-testid={`button-edit-role-${node.id}`}
+            >
+              <Edit className="w-3 h-3 mr-1" />
+              Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+              onClick={() => setDeleteTarget(node)}
+              data-testid={`button-delete-role-${node.id}`}
+            >
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          </div>
+        </div>
+
+        {hasChildren && !isCollapsed && (
+          <div>
+            {node.children.map((child: any, idx: number) =>
+              renderTreeNode(child, depth + 1, node.children.length, idx)
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Layout>
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl font-bold text-foreground">Job Roles</h1>
             <p className="text-muted-foreground mt-1">
-              Define job roles, their responsibilities, and which training matrix skills apply to each
+              Organisational hierarchy — define reporting lines, skills, and induction for each role
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -134,7 +338,7 @@ export default function AdminRoles() {
               <Upload className="h-4 w-4" />
               Import
             </Button>
-            <Button data-testid="button-add-role" onClick={openCreate}>
+            <Button data-testid="button-add-role" onClick={() => openCreate()}>
               <Plus className="w-4 h-4 mr-2" />
               Add Job Role
             </Button>
@@ -152,88 +356,24 @@ export default function AdminRoles() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid md:grid-cols-2 gap-6">
-            {jobRoles.map((role: any) => (
-              <Card key={role.id} className="border-border/50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Briefcase className="w-6 h-6 text-primary" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg">{role.title}</CardTitle>
-                        <CardDescription>{role.department}</CardDescription>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSkillsDialogRole(role)}
-                        data-testid={`button-manage-skills-${role.id}`}
-                      >
-                        <GraduationCap className="w-4 h-4 mr-1" />
-                        Skills
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setInductionDialogRole(role)}
-                        data-testid={`button-manage-induction-${role.id}`}
-                      >
-                        <ClipboardList className="w-4 h-4 mr-1" />
-                        Induction
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEdit(role)}
-                        data-testid={`button-edit-role-${role.id}`}
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDeleteTarget(role)}
-                        data-testid={`button-delete-role-${role.id}`}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {role.summary && (
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-2">Summary</h4>
-                        <p className="text-sm">{role.summary}</p>
-                      </div>
-                    )}
-                    {role.responsibilities && role.responsibilities.length > 0 && (
-                      <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-2">
-                          Key Responsibilities
-                        </h4>
-                        <ul className="space-y-1">
-                          {role.responsibilities.map((resp: string, idx: number) => (
-                            <li key={idx} className="text-sm flex items-start gap-2">
-                              <span className="text-primary mt-1">•</span>
-                              {resp}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card className="border-border/50 overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-primary" />
+                Organisation Structure
+              </CardTitle>
+              <CardDescription>
+                {jobRoles.length} role{jobRoles.length !== 1 ? 's' : ''} — use the arrows to reorder, hover for actions
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="border-t">
+                {tree.map((node: any, idx: number) =>
+                  renderTreeNode(node, 0, tree.length, idx)
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
 
@@ -260,13 +400,41 @@ export default function AdminRoles() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role-department">Department</Label>
-              <Input
-                id="role-department"
-                data-testid="input-role-department"
-                value={formData.department}
-                onChange={(e) => setFormData(f => ({ ...f, department: e.target.value }))}
-                placeholder="e.g. Operations"
-              />
+              <Select
+                value={formData.department || "__none__"}
+                onValueChange={(v) => setFormData(f => ({ ...f, department: v === "__none__" ? "" : v }))}
+              >
+                <SelectTrigger data-testid="input-role-department">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Select department</SelectItem>
+                  {(departmentsList || []).map((d: any) => (
+                    <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="role-reports-to">Reports To</Label>
+              <Select
+                value={formData.reportsTo?.toString() || "__none__"}
+                onValueChange={(v) => setFormData(f => ({ ...f, reportsTo: v === "__none__" ? null : parseInt(v) }))}
+              >
+                <SelectTrigger data-testid="input-role-reports-to">
+                  <SelectValue placeholder="None (top-level role)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None (top-level role)</SelectItem>
+                  {jobRoles
+                    .filter((r: any) => !editingRole || r.id !== editingRole.id)
+                    .map((r: any) => (
+                      <SelectItem key={r.id} value={r.id.toString()}>
+                        {r.title} ({r.department})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="role-summary">Summary</Label>
@@ -308,7 +476,12 @@ export default function AdminRoles() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Job Role</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deleteTarget?.title}"? This action cannot be undone.
+              Are you sure you want to delete "{deleteTarget?.title}"?
+              {deleteTarget && jobRoles.filter((r: any) => r.reportsTo === deleteTarget.id).length > 0 && (
+                <span className="block mt-2 text-amber-600">
+                  Roles reporting to this position will be moved up to report to its parent.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

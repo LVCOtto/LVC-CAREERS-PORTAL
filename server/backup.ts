@@ -103,9 +103,9 @@ export async function exportFullBackup(res: Response) {
 
   const jobRoles = await db.select().from(schema.jobRoles);
   archive.append(toCsv(
-    ["id", "title", "department", "summary", "responsibilities"],
+    ["id", "title", "department", "summary", "responsibilities", "reportsTo", "sortOrder"],
     jobRoles,
-    (r) => [String(r.id), r.title, r.department, r.summary, JSON.stringify(r.responsibilities)]
+    (r) => [String(r.id), r.title, r.department, r.summary, JSON.stringify(r.responsibilities), r.reportsTo != null ? String(r.reportsTo) : "", String(r.sortOrder)]
   ), { name: "job-roles.csv" });
 
   const jobRoleCategories = await db.select().from(schema.jobRoleCategories);

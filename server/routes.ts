@@ -528,9 +528,28 @@ export async function registerRoutes(
     res.status(201).json(role);
   });
 
+  async function wouldCreateCycle(roleId: number, newParentId: number | null | undefined): Promise<boolean> {
+    if (newParentId === null || newParentId === undefined) return false;
+    if (newParentId === roleId) return true;
+    const allRoles = await storage.getJobRoles();
+    const visited = new Set<number>();
+    let current: number | null = newParentId;
+    while (current !== null) {
+      if (current === roleId) return true;
+      if (visited.has(current)) return true;
+      visited.add(current);
+      const parent = allRoles.find(r => r.id === current);
+      current = parent?.reportsTo ?? null;
+    }
+    return false;
+  }
+
   app.patch("/api/job-roles/reorder", async (req, res) => {
     const { id, reportsTo, sortOrder } = req.body;
     if (typeof id !== "number") return res.status(400).json({ message: "id is required" });
+    if (reportsTo !== undefined && await wouldCreateCycle(id, reportsTo)) {
+      return res.status(400).json({ message: "Cannot set parent: this would create a circular reporting chain." });
+    }
     const updates: any = {};
     if (reportsTo !== undefined) updates.reportsTo = reportsTo;
     if (sortOrder !== undefined) updates.sortOrder = sortOrder;
@@ -540,7 +559,11 @@ export async function registerRoutes(
   });
 
   app.patch("/api/job-roles/:id", async (req, res) => {
-    const role = await storage.updateJobRole(Number(req.params.id), req.body);
+    const id = Number(req.params.id);
+    if (req.body.reportsTo !== undefined && await wouldCreateCycle(id, req.body.reportsTo)) {
+      return res.status(400).json({ message: "Cannot set parent: this would create a circular reporting chain." });
+    }
+    const role = await storage.updateJobRole(id, req.body);
     if (!role) return res.status(404).json({ message: "Not found" });
     res.json(role);
   });

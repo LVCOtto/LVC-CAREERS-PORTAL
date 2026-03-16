@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,11 +12,14 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight, Building2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments } from '@/lib/hooks';
+import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface RoleFormData {
   title: string;
@@ -27,6 +30,21 @@ interface RoleFormData {
 }
 
 const emptyForm: RoleFormData = { title: '', department: '', summary: '', responsibilities: '', reportsTo: null };
+
+const tailwindColorMap: Record<string, string> = {
+  'bg-slate-600': '#475569', 'bg-gray-600': '#4b5563', 'bg-zinc-600': '#52525b',
+  'bg-red-600': '#dc2626', 'bg-orange-600': '#ea580c', 'bg-amber-600': '#d97706',
+  'bg-yellow-600': '#ca8a04', 'bg-lime-600': '#65a30d', 'bg-green-600': '#16a34a',
+  'bg-emerald-600': '#059669', 'bg-teal-600': '#0d9488', 'bg-cyan-600': '#0891b2',
+  'bg-sky-600': '#0284c7', 'bg-blue-600': '#2563eb', 'bg-indigo-600': '#4f46e5',
+  'bg-violet-600': '#7c3aed', 'bg-purple-600': '#9333ea', 'bg-fuchsia-600': '#c026d3',
+  'bg-pink-600': '#db2777', 'bg-rose-600': '#e11d48',
+};
+
+function resolveColor(twClass: string | null): string | null {
+  if (!twClass) return null;
+  return tailwindColorMap[twClass] || null;
+}
 
 function buildTree(roles: any[]): any[] {
   const sorted = [...roles].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
@@ -58,6 +76,13 @@ export default function AdminRoles() {
   const updateJobRole = useUpdateJobRole();
   const deleteJobRole = useDeleteJobRole();
   const reorderJobRole = useReorderJobRole();
+  const updateDepartment = useUpdateDepartment();
+  const [draggingDeptId, setDraggingDeptId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<any>(null);
@@ -72,12 +97,23 @@ export default function AdminRoles() {
 
   const deptColorMap = useMemo(() => {
     const m = new Map<string, string>();
-    departmentsList.forEach((d: any) => { if (d.color) m.set(d.name, d.color); });
+    departmentsList.forEach((d: any) => {
+      const hex = resolveColor(d.color);
+      if (hex) m.set(d.name, hex);
+    });
+    return m;
+  }, [departmentsList]);
+
+  const deptIdMap = useMemo(() => {
+    const m = new Map<string, number>();
+    departmentsList.forEach((d: any) => m.set(d.name, d.id));
     return m;
   }, [departmentsList]);
 
   const rolesByDepartment = useMemo(() => {
-    const deptOrder = departmentsList.map((d: any) => d.name);
+    const deptSortOrder = new Map<string, number>();
+    departmentsList.forEach((d: any) => deptSortOrder.set(d.name, d.sortOrder ?? 0));
+
     const groups = new Map<string, any[]>();
     jobRoles.forEach((role: any) => {
       const dept = role.department || 'Uncategorised';
@@ -85,20 +121,19 @@ export default function AdminRoles() {
       groups.get(dept)!.push(role);
     });
     const sorted = Array.from(groups.entries()).sort(([a], [b]) => {
-      const ai = deptOrder.indexOf(a);
-      const bi = deptOrder.indexOf(b);
-      if (ai !== -1 && bi !== -1) return ai - bi;
-      if (ai !== -1) return -1;
-      if (bi !== -1) return 1;
+      const aOrder = deptSortOrder.get(a) ?? 999;
+      const bOrder = deptSortOrder.get(b) ?? 999;
+      if (aOrder !== bOrder) return aOrder - bOrder;
       return a.localeCompare(b);
     });
     return sorted.map(([dept, roles]) => ({
       department: dept,
+      deptId: deptIdMap.get(dept) || null,
       tree: buildTree(roles),
       count: roles.length,
       color: deptColorMap.get(dept) || null,
     }));
-  }, [jobRoles, departmentsList, deptColorMap]);
+  }, [jobRoles, departmentsList, deptColorMap, deptIdMap]);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
@@ -394,59 +429,45 @@ export default function AdminRoles() {
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Building2 className="w-4 h-4" />
-              <span>{rolesByDepartment.length} department{rolesByDepartment.length !== 1 ? 's' : ''} &middot; {jobRoles.length} role{jobRoles.length !== 1 ? 's' : ''}</span>
+              <span>{rolesByDepartment.length} department{rolesByDepartment.length !== 1 ? 's' : ''} &middot; {jobRoles.length} role{jobRoles.length !== 1 ? 's' : ''} &middot; drag to reorder departments</span>
             </div>
-            {rolesByDepartment.map(({ department, tree: deptTree, count, color }) => {
-              const isDeptCollapsed = collapsedDepts.has(department);
-              return (
-                <Card key={department} className="border-border/50 overflow-hidden" data-testid={`dept-section-${department}`}>
-                  <div
-                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
-                    onClick={() => toggleDept(department)}
-                    data-testid={`button-toggle-dept-${department}`}
-                  >
-                    <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                      style={color ? { backgroundColor: color + '20' } : undefined}
-                    >
-                      <Building2
-                        className="w-4.5 h-4.5"
-                        style={color ? { color } : undefined}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm">{department}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          <Users className="w-3 h-3 mr-1" />
-                          {count} role{count !== 1 ? 's' : ''}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={(e) => { e.stopPropagation(); openCreate(undefined, department); }}
-                        data-testid={`button-add-role-dept-${department}`}
-                      >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Add Role
-                      </Button>
-                      {isDeptCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
-                    </div>
-                  </div>
-                  {!isDeptCollapsed && (
-                    <div className="border-t">
-                      {deptTree.map((node: any, idx: number) =>
-                        renderTreeNode(node, 0, deptTree.length, idx)
-                      )}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={(event: DragStartEvent) => setDraggingDeptId(event.active.id as string)}
+              onDragEnd={(event: DragEndEvent) => {
+                setDraggingDeptId(null);
+                const { active, over } = event;
+                if (!over || active.id === over.id) return;
+                const oldIndex = rolesByDepartment.findIndex(d => d.department === active.id);
+                const newIndex = rolesByDepartment.findIndex(d => d.department === over.id);
+                if (oldIndex === -1 || newIndex === -1) return;
+                const reordered = arrayMove(rolesByDepartment, oldIndex, newIndex);
+                reordered.forEach((group, idx) => {
+                  if (group.deptId) {
+                    updateDepartment.mutate({ id: group.deptId, sortOrder: idx });
+                  }
+                });
+              }}
+            >
+              <SortableContext items={rolesByDepartment.map(d => d.department)} strategy={verticalListSortingStrategy}>
+                {rolesByDepartment.map(({ department, deptId, tree: deptTree, count, color }) => (
+                  <SortableDepartmentCard
+                    key={department}
+                    id={department}
+                    department={department}
+                    deptTree={deptTree}
+                    count={count}
+                    color={color}
+                    isCollapsed={collapsedDepts.has(department)}
+                    onToggle={() => toggleDept(department)}
+                    onAddRole={() => openCreate(undefined, department)}
+                    renderTreeNode={renderTreeNode}
+                    isDragging={draggingDeptId === department}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
         )}
       </div>
@@ -616,6 +637,91 @@ export default function AdminRoles() {
         onComplete={() => invalidate('job-roles')}
       />
     </Layout>
+  );
+}
+
+interface SortableDeptProps {
+  id: string;
+  department: string;
+  deptTree: any[];
+  count: number;
+  color: string | null;
+  isCollapsed: boolean;
+  onToggle: () => void;
+  onAddRole: () => void;
+  renderTreeNode: (node: any, depth: number, siblingCount: number, siblingIndex: number) => React.ReactNode;
+  isDragging: boolean;
+}
+
+function SortableDepartmentCard({ id, department, deptTree, count, color, isCollapsed, onToggle, onAddRole, renderTreeNode, isDragging }: SortableDeptProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className="border-border/50 overflow-hidden"
+      data-testid={`dept-section-${department}`}
+    >
+      <div
+        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
+        onClick={onToggle}
+        data-testid={`button-toggle-dept-${department}`}
+      >
+        <div
+          className="shrink-0 cursor-grab active:cursor-grabbing touch-none"
+          {...attributes}
+          {...listeners}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground/60" />
+        </div>
+        <div
+          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+          style={color ? { backgroundColor: color + '20' } : undefined}
+        >
+          <Building2
+            className="w-4.5 h-4.5"
+            style={color ? { color } : undefined}
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-sm">{department}</span>
+            <Badge variant="secondary" className="text-xs">
+              <Users className="w-3 h-3 mr-1" />
+              {count} role{count !== 1 ? 's' : ''}
+            </Badge>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={(e) => { e.stopPropagation(); onAddRole(); }}
+            data-testid={`button-add-role-dept-${department}`}
+          >
+            <Plus className="w-3 h-3 mr-1" />
+            Add Role
+          </Button>
+          {isCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+        </div>
+      </div>
+      {!isCollapsed && (
+        <div className="border-t">
+          {deptTree.map((node: any, idx: number) =>
+            renderTreeNode(node, 0, deptTree.length, idx)
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 

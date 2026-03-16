@@ -212,7 +212,7 @@ export type TrainingRecord = typeof trainingRecords.$inferSelect;
 
 export const jobRoles = pgTable("job_roles", {
   id: serial("id").primaryKey(),
-  title: text("title").notNull(),
+  title: text("title").notNull().unique(),
   department: text("department").notNull(),
   summary: text("summary").notNull(),
   responsibilities: jsonb("responsibilities").notNull().default([]),

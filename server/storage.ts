@@ -99,7 +99,7 @@ export interface IStorage {
   setJobRoleInductionSections(jobRoleId: number, sections: string[]): Promise<void>;
   getInductionSectionSettings(): Promise<schema.InductionSectionSetting[]>;
   upsertInductionSectionSetting(sectionName: string, isUniversal: boolean): Promise<schema.InductionSectionSetting>;
-  getInductionSectionsForUser(jobRoleTitle: string): Promise<string[] | null>;
+  getInductionSectionsForUser(jobRoleTitle: string): Promise<string[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -559,22 +559,21 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getInductionSectionsForUser(jobRoleTitle: string): Promise<string[] | null> {
-    const role = await db.select().from(schema.jobRoles)
-      .where(eq(schema.jobRoles.title, jobRoleTitle));
-    if (role.length === 0) return null;
-
+  async getInductionSectionsForUser(jobRoleTitle: string): Promise<string[]> {
     const universalSettings = await db.select().from(schema.inductionSectionSettings)
       .where(eq(schema.inductionSectionSettings.isUniversal, true));
     const universalSections = universalSettings.map(s => s.sectionName);
+
+    const normalizedTitle = jobRoleTitle.trim().replace(/\s+/g, " ");
+    const allRoles = await db.select().from(schema.jobRoles);
+    const role = allRoles.filter(r => r.title === jobRoleTitle || r.title.trim().replace(/\s+/g, " ") === normalizedTitle);
+    if (role.length === 0) return universalSections;
 
     const roleAssignments = await db.select().from(schema.jobRoleInductionSections)
       .where(eq(schema.jobRoleInductionSections.jobRoleId, role[0].id));
     const roleSections = roleAssignments.map(r => r.sectionName);
 
-    const allSections = Array.from(new Set([...universalSections, ...roleSections]));
-    if (allSections.length === 0) return null;
-    return allSections;
+    return Array.from(new Set([...universalSections, ...roleSections]));
   }
   async renameInductionSection(oldName: string, newName: string): Promise<void> {
     await db.update(schema.inductionTemplateItems)

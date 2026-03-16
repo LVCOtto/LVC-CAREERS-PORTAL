@@ -1,6 +1,7 @@
 import { db } from "./db";
 import * as schema from "@shared/schema";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
+import { getAllSeedRoles } from "./ensureJobRoles";
 
 async function seed() {
   console.log("Seeding database...");
@@ -307,11 +308,15 @@ async function seed() {
   ]);
   console.log("Career data seeded");
 
-  await db.insert(schema.jobRoles).values([
-    { title: "Engineer", department: "Engineering", summary: "Responsible for technical operations and equipment maintenance", responsibilities: ["Maintain and repair technical equipment", "Follow safety protocols and procedures", "Document work completed and issues identified", "Collaborate with team members on complex projects", "Participate in continuous improvement initiatives"] },
-    { title: "Operations Coordinator", department: "Operations", summary: "Coordinates daily operations and supports team efficiency", responsibilities: ["Coordinate team schedules and assignments", "Manage inventory and supply ordering", "Process customer orders and service requests", "Prepare operational reports", "Support health and safety compliance"] },
-    { title: "Engineering Lead", department: "Engineering", summary: "Leads the engineering team and oversees technical standards", responsibilities: ["Manage engineering team performance", "Set technical standards and procedures", "Oversee major projects and installations", "Mentor and train junior engineers", "Ensure compliance with all regulations"] },
-  ]);
+  const allJobRoles = getAllSeedRoles();
+  for (const role of allJobRoles) {
+    await db.insert(schema.jobRoles).values({
+      title: role.title,
+      department: role.department,
+      summary: role.summary,
+      responsibilities: role.responsibilities || [],
+    }).onConflictDoNothing();
+  }
   console.log("Job roles seeded");
 
   const feedbackQuestions = [

@@ -125,9 +125,7 @@ export async function registerRoutes(
 
     if (user?.jobRole) {
       const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
-      if (allowedSections) {
-        templateItems = templateItems.filter(item => allowedSections.includes(item.section));
-      }
+      templateItems = templateItems.filter(item => allowedSections.includes(item.section));
     }
 
     const items = templateItems.map((tmpl) => {
@@ -167,9 +165,7 @@ export async function registerRoutes(
     const user = await storage.getUser(req.params.userId);
     if (user?.jobRole) {
       const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
-      if (allowedSections) {
-        templateItems = templateItems.filter(item => allowedSections.includes(item.section));
-      }
+      templateItems = templateItems.filter(item => allowedSections.includes(item.section));
     }
 
     const items = templateItems.map((tmpl) => {

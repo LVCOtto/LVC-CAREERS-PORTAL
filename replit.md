@@ -45,7 +45,7 @@ Employee training management system for LVC (cleaning equipment company) support
 - `career_milestones` - User career history
 - `career_nodes` - Career path structure
 - `training_records` - Compliance training records
-- `job_roles` - Job role definitions
+- `job_roles` - Job role definitions with `reportsTo` (self-referencing hierarchy), `sortOrder`, and `department` (string matching departments.name). Admin Roles page groups roles by department with collapsible sections and per-department hierarchy trees.
 - `job_role_induction_sections` - Join table linking job roles to induction section names (role-specific induction)
 - `induction_section_settings` - Per-section settings with isUniversal flag (universal sections appear for all roles)
 - `departments` - Organisation departments with name (unique), parentId (self-referencing hierarchy), color (Tailwind class), sortOrder

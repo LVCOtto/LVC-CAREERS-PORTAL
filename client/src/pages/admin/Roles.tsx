@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight } from 'lucide-react';
+import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight, Building2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
@@ -68,16 +68,54 @@ export default function AdminRoles() {
 
   const [skillsDialogRole, setSkillsDialogRole] = useState<any>(null);
   const [inductionDialogRole, setInductionDialogRole] = useState<any>(null);
+  const [collapsedDepts, setCollapsedDepts] = useState<Set<string>>(new Set());
 
-  const tree = useMemo(() => buildTree(jobRoles), [jobRoles]);
+  const deptColorMap = useMemo(() => {
+    const m = new Map<string, string>();
+    departmentsList.forEach((d: any) => { if (d.color) m.set(d.name, d.color); });
+    return m;
+  }, [departmentsList]);
+
+  const rolesByDepartment = useMemo(() => {
+    const deptOrder = departmentsList.map((d: any) => d.name);
+    const groups = new Map<string, any[]>();
+    jobRoles.forEach((role: any) => {
+      const dept = role.department || 'Uncategorised';
+      if (!groups.has(dept)) groups.set(dept, []);
+      groups.get(dept)!.push(role);
+    });
+    const sorted = Array.from(groups.entries()).sort(([a], [b]) => {
+      const ai = deptOrder.indexOf(a);
+      const bi = deptOrder.indexOf(b);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.localeCompare(b);
+    });
+    return sorted.map(([dept, roles]) => ({
+      department: dept,
+      tree: buildTree(roles),
+      count: roles.length,
+      color: deptColorMap.get(dept) || null,
+    }));
+  }, [jobRoles, departmentsList, deptColorMap]);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
   }
 
-  const openCreate = (parentId?: number) => {
+  const toggleDept = (dept: string) => {
+    setCollapsedDepts(prev => {
+      const next = new Set(prev);
+      if (next.has(dept)) next.delete(dept);
+      else next.add(dept);
+      return next;
+    });
+  };
+
+  const openCreate = (parentId?: number, department?: string) => {
     setEditingRole(null);
-    setFormData({ ...emptyForm, reportsTo: parentId ?? null });
+    setFormData({ ...emptyForm, reportsTo: parentId ?? null, department: department || '' });
     setDialogOpen(true);
   };
 
@@ -118,7 +156,7 @@ export default function AdminRoles() {
       });
     } else {
       const siblings = jobRoles.filter((r: any) =>
-        formData.reportsTo ? r.reportsTo === formData.reportsTo : !r.reportsTo
+        r.department === formData.department && (formData.reportsTo ? r.reportsTo === formData.reportsTo : !r.reportsTo)
       );
       payload.sortOrder = siblings.length;
       createJobRole.mutate(payload, {
@@ -157,7 +195,7 @@ export default function AdminRoles() {
     const role = jobRoles.find((r: any) => r.id === roleId);
     if (!role) return;
     const siblings = jobRoles
-      .filter((r: any) => (role.reportsTo ? r.reportsTo === role.reportsTo : !r.reportsTo) && r.id !== role.id)
+      .filter((r: any) => r.department === role.department && (role.reportsTo ? r.reportsTo === role.reportsTo : !r.reportsTo) && r.id !== role.id)
       .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
     const allSorted = [...siblings];
@@ -241,9 +279,6 @@ export default function AdminRoles() {
               <span className={`font-medium text-sm truncate ${depth === 0 ? 'text-foreground' : ''}`}>
                 {node.title}
               </span>
-              <Badge variant="secondary" className="text-xs shrink-0">
-                {node.department}
-              </Badge>
             </div>
             {node.summary && (
               <p className="text-xs text-muted-foreground truncate mt-0.5">{node.summary}</p>
@@ -260,7 +295,7 @@ export default function AdminRoles() {
               variant="ghost"
               size="sm"
               className="h-7 px-2 text-xs"
-              onClick={() => openCreate(node.id)}
+              onClick={() => openCreate(node.id, node.department)}
               data-testid={`button-add-under-${node.id}`}
             >
               <Plus className="w-3 h-3 mr-1" />
@@ -356,24 +391,63 @@ export default function AdminRoles() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="border-border/50 overflow-hidden">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-primary" />
-                Organisation Structure
-              </CardTitle>
-              <CardDescription>
-                {jobRoles.length} role{jobRoles.length !== 1 ? 's' : ''} — use the arrows to reorder, hover for actions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="border-t">
-                {tree.map((node: any, idx: number) =>
-                  renderTreeNode(node, 0, tree.length, idx)
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Building2 className="w-4 h-4" />
+              <span>{rolesByDepartment.length} department{rolesByDepartment.length !== 1 ? 's' : ''} &middot; {jobRoles.length} role{jobRoles.length !== 1 ? 's' : ''}</span>
+            </div>
+            {rolesByDepartment.map(({ department, tree: deptTree, count, color }) => {
+              const isDeptCollapsed = collapsedDepts.has(department);
+              return (
+                <Card key={department} className="border-border/50 overflow-hidden" data-testid={`dept-section-${department}`}>
+                  <div
+                    className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
+                    onClick={() => toggleDept(department)}
+                    data-testid={`button-toggle-dept-${department}`}
+                  >
+                    <div
+                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                      style={color ? { backgroundColor: color + '20' } : undefined}
+                    >
+                      <Building2
+                        className="w-4.5 h-4.5"
+                        style={color ? { color } : undefined}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-sm">{department}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          <Users className="w-3 h-3 mr-1" />
+                          {count} role{count !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={(e) => { e.stopPropagation(); openCreate(undefined, department); }}
+                        data-testid={`button-add-role-dept-${department}`}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add Role
+                      </Button>
+                      {isDeptCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                    </div>
+                  </div>
+                  {!isDeptCollapsed && (
+                    <div className="border-t">
+                      {deptTree.map((node: any, idx: number) =>
+                        renderTreeNode(node, 0, deptTree.length, idx)
+                      )}
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
         )}
       </div>
 
@@ -426,13 +500,33 @@ export default function AdminRoles() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__none__">None (top-level role)</SelectItem>
-                  {jobRoles
-                    .filter((r: any) => !editingRole || r.id !== editingRole.id)
-                    .map((r: any) => (
-                      <SelectItem key={r.id} value={r.id.toString()}>
-                        {r.title} ({r.department})
-                      </SelectItem>
-                    ))}
+                  {(() => {
+                    const sameDept = jobRoles.filter((r: any) =>
+                      (!editingRole || r.id !== editingRole.id) && r.department === formData.department
+                    );
+                    const otherDept = jobRoles.filter((r: any) =>
+                      (!editingRole || r.id !== editingRole.id) && r.department !== formData.department
+                    );
+                    return (
+                      <>
+                        {sameDept.map((r: any) => (
+                          <SelectItem key={r.id} value={r.id.toString()}>
+                            {r.title}
+                          </SelectItem>
+                        ))}
+                        {otherDept.length > 0 && sameDept.length > 0 && (
+                          <SelectItem value="__divider__" disabled>
+                            ── Other departments ──
+                          </SelectItem>
+                        )}
+                        {otherDept.map((r: any) => (
+                          <SelectItem key={r.id} value={r.id.toString()}>
+                            {r.title} ({r.department})
+                          </SelectItem>
+                        ))}
+                      </>
+                    );
+                  })()}
                 </SelectContent>
               </Select>
             </div>

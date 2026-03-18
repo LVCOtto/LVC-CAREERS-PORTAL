@@ -72,7 +72,7 @@ export default function AdminRoles() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const { data: jobRoles = [], isLoading } = useJobRoles();
-  const { data: allUsers = [] } = useUsers();
+  const { data: allUsers = [], isLoading: usersLoading } = useUsers();
   const { data: departmentsList = [] } = useDepartments();
   const createJobRole = useCreateJobRole();
   const updateJobRole = useUpdateJobRole();
@@ -351,7 +351,7 @@ export default function AdminRoles() {
                   className={`text-xs cursor-pointer hover:bg-muted transition-colors ${headcount === 0 ? 'text-muted-foreground' : ''}`}
                 >
                   <Users className="w-3 h-3 mr-1" />
-                  {headcount > 0 ? `${headcount} ${headcount === 1 ? 'person' : 'people'}` : 'Vacant'}
+                  {usersLoading ? '…' : headcount > 0 ? `${headcount} ${headcount === 1 ? 'person' : 'people'}` : 'Vacant'}
                 </Badge>
               </button>
             </div>

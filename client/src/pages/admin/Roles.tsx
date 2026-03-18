@@ -10,9 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight, Building2, Users } from 'lucide-react';
+import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight, Building2, Users, User } from 'lucide-react';
+import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
-import { useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment } from '@/lib/hooks';
+import { useUsers, useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -71,6 +72,7 @@ export default function AdminRoles() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const { data: jobRoles = [], isLoading } = useJobRoles();
+  const { data: allUsers = [] } = useUsers();
   const { data: departmentsList = [] } = useDepartments();
   const createJobRole = useCreateJobRole();
   const updateJobRole = useUpdateJobRole();
@@ -94,6 +96,19 @@ export default function AdminRoles() {
   const [skillsDialogRole, setSkillsDialogRole] = useState<any>(null);
   const [inductionDialogRole, setInductionDialogRole] = useState<any>(null);
   const [collapsedDepts, setCollapsedDepts] = useState<Set<string>>(new Set());
+  const [expandedPeople, setExpandedPeople] = useState<Set<number>>(new Set());
+
+  const usersByRole = useMemo(() => {
+    const m = new Map<string, any[]>();
+    allUsers.forEach((u: any) => {
+      if (u.jobRole) {
+        const key = u.jobRole;
+        if (!m.has(key)) m.set(key, []);
+        m.get(key)!.push(u);
+      }
+    });
+    return m;
+  }, [allUsers]);
 
   const deptColorMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -257,10 +272,22 @@ export default function AdminRoles() {
 
   const isSaving = createJobRole.isPending || updateJobRole.isPending;
 
+  const togglePeople = (id: number) => {
+    setExpandedPeople(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const renderTreeNode = (node: any, depth: number, siblingCount: number, siblingIndex: number) => {
     const hasChildren = node.children && node.children.length > 0;
     const isCollapsed = collapsed.has(node.id);
     const paddingLeft = depth * 32;
+    const assignedUsers = usersByRole.get(node.title) || [];
+    const headcount = assignedUsers.length;
+    const isPeopleExpanded = expandedPeople.has(node.id);
 
     return (
       <div key={node.id} data-testid={`tree-node-${node.id}`}>
@@ -314,6 +341,19 @@ export default function AdminRoles() {
               <span className={`font-medium text-sm truncate ${depth === 0 ? 'text-foreground' : ''}`}>
                 {node.title}
               </span>
+              <button
+                onClick={() => togglePeople(node.id)}
+                className="shrink-0"
+                data-testid={`button-headcount-${node.id}`}
+              >
+                <Badge
+                  variant={headcount > 0 ? 'secondary' : 'outline'}
+                  className={`text-xs cursor-pointer hover:bg-muted transition-colors ${headcount === 0 ? 'text-muted-foreground' : ''}`}
+                >
+                  <Users className="w-3 h-3 mr-1" />
+                  {headcount > 0 ? `${headcount} ${headcount === 1 ? 'person' : 'people'}` : 'Vacant'}
+                </Badge>
+              </button>
             </div>
             {node.summary && (
               <p className="text-xs text-muted-foreground truncate mt-0.5">{node.summary}</p>
@@ -377,6 +417,32 @@ export default function AdminRoles() {
             </Button>
           </div>
         </div>
+
+        {isPeopleExpanded && (
+          <div
+            className="border-b bg-muted/20"
+            style={{ paddingLeft: paddingLeft + 52 }}
+            data-testid={`people-list-${node.id}`}
+          >
+            {assignedUsers.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2 px-3 italic">No one is assigned to this role</p>
+            ) : (
+              <div className="py-1.5 px-3 space-y-0.5">
+                {assignedUsers.map((u: any) => (
+                  <Link
+                    key={u.id}
+                    href={`/team/${u.id}`}
+                    className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 transition-colors text-sm"
+                    data-testid={`link-user-${u.id}`}
+                  >
+                    <User className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>{u.fullName || u.username}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {hasChildren && !isCollapsed && (
           <div>

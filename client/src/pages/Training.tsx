@@ -24,7 +24,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
+import { useUser, useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 
 const competencyColors = [
@@ -299,6 +299,7 @@ export default function Training() {
   const categories = roleCategories || deptCategories;
   const categoriesLoading = roleLoading || deptLoading;
   const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(currentUser?.id || '');
+  const { data: approverUser } = useUser(matrixSubmission?.approvedBy || '');
   const createMatrix = useCreateTrainingMatrix();
   const updateMatrix = useUpdateTrainingMatrix();
   const generateShareToken = useGenerateShareToken();
@@ -515,6 +516,7 @@ export default function Training() {
                   {matrixSubmission?.approvedDate && (
                     <span className="text-xs text-muted-foreground" data-testid="text-colleague-approved-date">
                       Approved: {new Date(matrixSubmission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                      {approverUser ? ` by ${approverUser.name}` : ''}
                     </span>
                   )}
 

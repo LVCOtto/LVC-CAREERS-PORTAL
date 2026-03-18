@@ -1352,7 +1352,11 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
               </CardContent>
             </Card>
 
-            {matrixHistory && matrixHistory.length > 1 && (
+            {(() => {
+              const pastApproved = matrixHistory
+                ? matrixHistory.slice(1).filter((e: any) => e.status === 'approved')
+                : [];
+              return pastApproved.length > 0 ? (
               <Card className="mt-6 border-border/50">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -1360,12 +1364,12 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     Assessment History
                   </CardTitle>
                   <CardDescription>
-                    Previous training matrix submissions for this colleague
+                    Previous approved training matrix submissions for this colleague
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {matrixHistory.slice(1).map((entry: any) => {
+                    {pastApproved.map((entry: any) => {
                       const entryRatings = (entry.ratings || {}) as Record<string, number>;
                       let entryTotal = 0;
                       let entryCount = 0;
@@ -1432,7 +1436,8 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                   </div>
                 </CardContent>
               </Card>
-            )}
+            ) : null;
+            })()}
           </TabsContent>
 
           <TabsContent value="standards" className="mt-6">

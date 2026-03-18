@@ -1082,7 +1082,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     </div>
                   )}
 
-                  {matrixSubmission?.status === 'approved' && matrixSubmission.nextReviewDate && !showApproveConfirm && (
+                  {matrixSubmission?.status === 'approved' && matrixSubmission.nextReviewDate && !showApproveConfirm && !editingNextReview && (
                     <div className="mt-3 flex items-center gap-2" data-testid="next-review-display">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                       {(() => {
@@ -1110,6 +1110,26 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                         data-testid="button-edit-next-review"
                       >
                         <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {matrixSubmission?.status === 'approved' && !matrixSubmission.nextReviewDate && !showApproveConfirm && !editingNextReview && (
+                    <div className="mt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => {
+                          const sixMonths = new Date();
+                          sixMonths.setMonth(sixMonths.getMonth() + 6);
+                          setNextReviewDate(sixMonths.toISOString().slice(0, 10));
+                          setEditingNextReview(true);
+                        }}
+                        data-testid="button-add-next-review"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        Add next review date
                       </Button>
                     </div>
                   )}

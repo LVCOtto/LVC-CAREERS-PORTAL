@@ -181,6 +181,7 @@ export function IndividualView({
   categories,
   onBack,
   showBackButton = true,
+  compact = false,
 }: {
   name: string;
   jobRole: string;
@@ -190,6 +191,7 @@ export function IndividualView({
   categories: any[];
   onBack?: () => void;
   showBackButton?: boolean;
+  compact?: boolean;
 }) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set([categories[0]?.slug]));
   const overallAvg = calculateOverallAverage(ratings, categories);
@@ -207,7 +209,7 @@ export function IndividualView({
   };
 
   return (
-    <div className="space-y-6">
+    <div className={compact ? "space-y-4" : "space-y-6"}>
       {showBackButton && onBack && (
         <Button variant="ghost" onClick={onBack} className="gap-2 -ml-2" data-testid="button-back-to-team">
           <ArrowLeft className="h-4 w-4" />
@@ -215,31 +217,33 @@ export function IndividualView({
         </Button>
       )}
 
-      <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
-        <div className="flex items-center gap-4">
-          <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
-            <UserIcon className="h-7 w-7 text-primary" />
+      {!compact && (
+        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg border">
+          <div className="flex items-center gap-4">
+            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <UserIcon className="h-7 w-7 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-xl font-display font-bold">{name}</h2>
+              <p className="text-sm text-muted-foreground">
+                {jobRole} • {department}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-display font-bold">{name}</h2>
-            <p className="text-sm text-muted-foreground">
-              {jobRole} • {department}
-            </p>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground mb-1">Overall Score</p>
+            <div className="flex items-center gap-2">
+              <span className="text-3xl font-bold">{overallAvg.toFixed(1)}</span>
+              <span className="text-muted-foreground">/ 4</span>
+            </div>
+            {lastAssessment && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Updated: {new Date(lastAssessment).toLocaleDateString('en-GB')}
+              </p>
+            )}
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground mb-1">Overall Score</p>
-          <div className="flex items-center gap-2">
-            <span className="text-3xl font-bold">{overallAvg.toFixed(1)}</span>
-            <span className="text-muted-foreground">/ 4</span>
-          </div>
-          {lastAssessment && (
-            <p className="text-xs text-muted-foreground mt-1">
-              Updated: {new Date(lastAssessment).toLocaleDateString('en-GB')}
-            </p>
-          )}
-        </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {categories.slice(0, 4).map((category: any) => {

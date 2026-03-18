@@ -1064,16 +1064,10 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
 
           <TabsContent value="training" className="mt-6">
             <Card className="border-border/50">
-              <CardHeader className="pb-3">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <CardTitle className="text-lg">Training Matrix</CardTitle>
-                    <CardDescription>
-                      Review the colleague's submitted matrix and approve when you're happy.
-                    </CardDescription>
-                  </div>
-
-                  <div className="flex items-center gap-2">
                     {memberMatrix?.status === 'pending_review' && (
                       <Badge variant="secondary" className="bg-amber-100 text-amber-800" data-testid="status-team-matrix-pending">
                         Pending sign-off
@@ -1089,246 +1083,257 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                         {memberMatrix ? 'Draft' : 'Not submitted'}
                       </Badge>
                     )}
-
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     {matrixSubmission?.submittedDate && (
-                      <span className="text-xs text-muted-foreground" data-testid="text-submitted-date-header">
+                      <span data-testid="text-submitted-date-header">
                         Submitted: {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
                       </span>
                     )}
+                    {matrixSubmission?.submittedDate && matrixSubmission?.approvedDate && (
+                      <span className="text-border">|</span>
+                    )}
                     {matrixSubmission?.approvedDate && (
-                      <span className="text-xs text-muted-foreground" data-testid="text-approved-date-header">
+                      <span data-testid="text-approved-date-header">
                         Approved: {new Date(matrixSubmission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
                         {approverUser ? ` by ${approverUser.name}` : ''}
                       </span>
                     )}
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2"
-                      data-testid="button-share-team-matrix"
-                      disabled={generateShareToken.isPending}
-                      onClick={async () => {
-                        try {
-                          let submissionId = matrixSubmission?.id;
-                          if (!submissionId) {
-                            toast({ title: 'No matrix to share', description: 'This colleague hasn\'t submitted a training matrix yet.', variant: 'destructive' });
-                            return;
-                          }
-                          const result = await generateShareToken.mutateAsync(submissionId);
-                          const url = `${window.location.origin}/training-matrix/shared/${result.token}`;
-                          setMatrixShareUrl(url);
-                          await navigator.clipboard.writeText(url);
-                          setMatrixShareCopied(true);
-                          setTimeout(() => setMatrixShareCopied(false), 2000);
-                          toast({ title: 'Link copied', description: 'Shareable training matrix link copied to clipboard.' });
-                        } catch {
-                          toast({ title: 'Error', description: 'Could not generate share link.', variant: 'destructive' });
-                        }
-                      }}
-                    >
-                      {generateShareToken.isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : matrixShareCopied ? (
-                        <Check className="h-4 w-4" />
-                      ) : (
-                        <Share2 className="h-4 w-4" />
-                      )}
-                      {matrixShareCopied ? 'Copied!' : 'Share Link'}
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-2"
-                      data-testid="button-download-matrix-pdf"
-                      disabled={!matrixSubmission || !memberMatrix}
-                      onClick={() => {
-                        if (member && memberMatrix && matrixSubmission) {
-                          exportTrainingMatrixPdf(
-                            member.name,
-                            member.jobRole || '',
-                            member.department || '',
-                            memberMatrix.ratings,
-                            categories,
-                            matrixSubmission,
-                            approverUser?.name
-                          );
-                        }
-                      }}
-                    >
-                      <Download className="h-4 w-4" />
-                      Download PDF
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      className="gap-2"
-                      disabled={!matrixSubmission || matrixSubmission.status !== 'pending_review'}
-                      onClick={() => {
-                        if (matrixSubmission) {
-                          const today = new Date().toISOString().slice(0, 10);
-                          const sixMonths = new Date();
-                          sixMonths.setMonth(sixMonths.getMonth() + 6);
-                          const defaultNext = sixMonths.toISOString().slice(0, 10);
-                          setNextReviewDate(defaultNext);
-                          setShowApproveConfirm(true);
-                        }
-                      }}
-                      data-testid="button-approve-matrix"
-                    >
-                      Approve
-                    </Button>
                   </div>
+                </div>
+                <CardDescription>
+                  Review the colleague's submitted matrix and approve when you're happy.
+                </CardDescription>
 
-                  {showApproveConfirm && matrixSubmission && (
-                    <div className="flex items-center gap-3 mt-3 p-3 rounded-lg bg-muted/50 border" data-testid="approve-confirm-panel">
-                      <div className="flex-1">
-                        <label className="text-sm font-medium text-foreground">Next review due</label>
-                        <Input
-                          type="date"
-                          value={nextReviewDate}
-                          onChange={(e) => setNextReviewDate(e.target.value)}
-                          className="mt-1 w-48"
-                          data-testid="input-next-review-date"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 pt-5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setShowApproveConfirm(false)}
-                          data-testid="button-cancel-approve"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="gap-2"
-                          onClick={() => {
-                            const today = new Date().toISOString().slice(0, 10);
-                            updateMatrix.mutate(
-                              {
-                                id: matrixSubmission.id,
-                                data: {
-                                  status: 'approved',
-                                  approvedBy: currentUser?.id || '',
-                                  approvedDate: today,
-                                  nextReviewDate: nextReviewDate || undefined,
-                                },
-                              },
-                              {
-                                onSuccess: () => {
-                                  setShowApproveConfirm(false);
-                                  toast({
-                                    title: 'Matrix approved',
-                                    description: nextReviewDate
-                                      ? `Approved. Next review due ${new Date(nextReviewDate + 'T00:00:00').toLocaleDateString('en-GB')}.`
-                                      : 'The colleague can now see this matrix as approved.',
-                                  });
-                                },
-                              }
-                            );
-                          }}
-                          data-testid="button-confirm-approve"
-                        >
-                          <Check className="h-4 w-4" />
-                          Confirm Approval
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    data-testid="button-share-team-matrix"
+                    disabled={generateShareToken.isPending}
+                    onClick={async () => {
+                      try {
+                        let submissionId = matrixSubmission?.id;
+                        if (!submissionId) {
+                          toast({ title: 'No matrix to share', description: 'This colleague hasn\'t submitted a training matrix yet.', variant: 'destructive' });
+                          return;
+                        }
+                        const result = await generateShareToken.mutateAsync(submissionId);
+                        const url = `${window.location.origin}/training-matrix/shared/${result.token}`;
+                        setMatrixShareUrl(url);
+                        await navigator.clipboard.writeText(url);
+                        setMatrixShareCopied(true);
+                        setTimeout(() => setMatrixShareCopied(false), 2000);
+                        toast({ title: 'Link copied', description: 'Shareable training matrix link copied to clipboard.' });
+                      } catch {
+                        toast({ title: 'Error', description: 'Could not generate share link.', variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    {generateShareToken.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : matrixShareCopied ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Share2 className="h-4 w-4" />
+                    )}
+                    {matrixShareCopied ? 'Copied!' : 'Share Link'}
+                  </Button>
 
-                  {matrixSubmission?.status === 'approved' && matrixSubmission.nextReviewDate && !showApproveConfirm && !editingNextReview && (
-                    <div className="mt-3 flex items-center gap-2" data-testid="next-review-display">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      {(() => {
-                        const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
-                        const now = new Date();
-                        const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                        const isOverdue = daysUntil < 0;
-                        const isDueSoon = daysUntil >= 0 && daysUntil <= 14;
-                        return (
-                          <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                            Next review due: {due.toLocaleDateString('en-GB')}
-                            {isOverdue && ' (overdue)'}
-                            {isDueSoon && !isOverdue && ' (due soon)'}
-                          </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    data-testid="button-download-matrix-pdf"
+                    disabled={!matrixSubmission || !memberMatrix}
+                    onClick={() => {
+                      if (member && memberMatrix && matrixSubmission) {
+                        exportTrainingMatrixPdf(
+                          member.name,
+                          member.jobRole || '',
+                          member.department || '',
+                          memberMatrix.ratings,
+                          categories,
+                          matrixSubmission,
+                          approverUser?.name
                         );
-                      })()}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => {
-                          setNextReviewDate(matrixSubmission.nextReviewDate || '');
-                          setEditingNextReview(true);
-                        }}
-                        data-testid="button-edit-next-review"
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )}
+                      }
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    Download PDF
+                  </Button>
 
-                  {matrixSubmission?.status === 'approved' && !matrixSubmission.nextReviewDate && !showApproveConfirm && !editingNextReview && (
-                    <div className="mt-3">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => {
-                          const sixMonths = new Date();
-                          sixMonths.setMonth(sixMonths.getMonth() + 6);
-                          setNextReviewDate(sixMonths.toISOString().slice(0, 10));
-                          setEditingNextReview(true);
-                        }}
-                        data-testid="button-add-next-review"
-                      >
-                        <Calendar className="w-4 h-4" />
-                        Add next review date
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex-1" />
 
-                  {editingNextReview && matrixSubmission && (
-                    <div className="mt-2 flex items-center gap-2" data-testid="edit-next-review-panel">
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    disabled={!matrixSubmission || matrixSubmission.status !== 'pending_review'}
+                    onClick={() => {
+                      if (matrixSubmission) {
+                        const today = new Date().toISOString().slice(0, 10);
+                        const sixMonths = new Date();
+                        sixMonths.setMonth(sixMonths.getMonth() + 6);
+                        const defaultNext = sixMonths.toISOString().slice(0, 10);
+                        setNextReviewDate(defaultNext);
+                        setShowApproveConfirm(true);
+                      }
+                    }}
+                    data-testid="button-approve-matrix"
+                  >
+                    Approve
+                  </Button>
+                </div>
+
+                {showApproveConfirm && matrixSubmission && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 mt-3 p-4 rounded-lg bg-muted/50 border" data-testid="approve-confirm-panel">
+                    <div>
+                      <label className="text-sm font-medium text-foreground">Next review due</label>
                       <Input
                         type="date"
                         value={nextReviewDate}
                         onChange={(e) => setNextReviewDate(e.target.value)}
-                        className="w-48"
-                        data-testid="input-edit-next-review"
+                        className="mt-1 w-48"
+                        data-testid="input-next-review-date"
                       />
+                    </div>
+                    <div className="flex items-center gap-2 sm:pt-5">
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => setEditingNextReview(false)}
+                        onClick={() => setShowApproveConfirm(false)}
+                        data-testid="button-cancel-approve"
                       >
                         Cancel
                       </Button>
                       <Button
                         size="sm"
+                        className="gap-2"
                         onClick={() => {
+                          const today = new Date().toISOString().slice(0, 10);
                           updateMatrix.mutate(
-                            { id: matrixSubmission.id, data: { nextReviewDate: nextReviewDate } },
+                            {
+                              id: matrixSubmission.id,
+                              data: {
+                                status: 'approved',
+                                approvedBy: currentUser?.id || '',
+                                approvedDate: today,
+                                nextReviewDate: nextReviewDate || undefined,
+                              },
+                            },
                             {
                               onSuccess: () => {
-                                setEditingNextReview(false);
-                                toast({ title: 'Updated', description: 'Next review date has been updated.' });
+                                setShowApproveConfirm(false);
+                                toast({
+                                  title: 'Matrix approved',
+                                  description: nextReviewDate
+                                    ? `Approved. Next review due ${new Date(nextReviewDate + 'T00:00:00').toLocaleDateString('en-GB')}.`
+                                    : 'The colleague can now see this matrix as approved.',
+                                });
                               },
                             }
                           );
                         }}
-                        data-testid="button-save-next-review"
+                        data-testid="button-confirm-approve"
                       >
-                        Save
+                        <Check className="h-4 w-4" />
+                        Confirm Approval
                       </Button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {matrixSubmission?.status === 'approved' && matrixSubmission.nextReviewDate && !showApproveConfirm && !editingNextReview && (
+                  <div className="flex items-center gap-2 pt-1" data-testid="next-review-display">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    {(() => {
+                      const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
+                      const now = new Date();
+                      const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                      const isOverdue = daysUntil < 0;
+                      const isDueSoon = daysUntil >= 0 && daysUntil <= 14;
+                      return (
+                        <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                          Next review due: {due.toLocaleDateString('en-GB')}
+                          {isOverdue && ' (overdue)'}
+                          {isDueSoon && !isOverdue && ' (due soon)'}
+                        </span>
+                      );
+                    })()}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => {
+                        setNextReviewDate(matrixSubmission.nextReviewDate || '');
+                        setEditingNextReview(true);
+                      }}
+                      data-testid="button-edit-next-review"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+
+                {matrixSubmission?.status === 'approved' && !matrixSubmission.nextReviewDate && !showApproveConfirm && !editingNextReview && (
+                  <div className="pt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => {
+                        const sixMonths = new Date();
+                        sixMonths.setMonth(sixMonths.getMonth() + 6);
+                        setNextReviewDate(sixMonths.toISOString().slice(0, 10));
+                        setEditingNextReview(true);
+                      }}
+                      data-testid="button-add-next-review"
+                    >
+                      <Calendar className="w-4 h-4" />
+                      Add next review date
+                    </Button>
+                  </div>
+                )}
+
+                {editingNextReview && matrixSubmission && (
+                  <div className="flex items-center gap-2 pt-1" data-testid="edit-next-review-panel">
+                    <Input
+                      type="date"
+                      value={nextReviewDate}
+                      onChange={(e) => setNextReviewDate(e.target.value)}
+                      className="w-48"
+                      data-testid="input-edit-next-review"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setEditingNextReview(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        updateMatrix.mutate(
+                          { id: matrixSubmission.id, data: { nextReviewDate: nextReviewDate } },
+                          {
+                            onSuccess: () => {
+                              setEditingNextReview(false);
+                              toast({ title: 'Updated', description: 'Next review date has been updated.' });
+                            },
+                          }
+                        );
+                      }}
+                      data-testid="button-save-next-review"
+                    >
+                      Save
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent className="pt-0 px-6 pb-6">
                 {matrixLoading || competenciesLoading ? (
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -1342,6 +1347,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     lastAssessment={memberMatrix.lastAssessment}
                     categories={categories}
                     showBackButton={false}
+                    compact
                   />
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
@@ -1358,7 +1364,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                 : [];
               return pastApproved.length > 0 ? (
               <Card className="mt-6 border-border/50">
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <History className="w-5 h-5" />
                     Assessment History
@@ -1367,7 +1373,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     Previous approved training matrix submissions for this colleague
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="space-y-2">
                     {pastApproved.map((entry: any) => {
                       const entryRatings = (entry.ratings || {}) as Record<string, number>;
@@ -1383,42 +1389,38 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                       const isExpanded = expandedHistoryId === entry.id;
 
                       return (
-                        <div key={entry.id} className="border rounded-lg" data-testid={`history-entry-${entry.id}`}>
+                        <div key={entry.id} className="border rounded-lg overflow-hidden" data-testid={`history-entry-${entry.id}`}>
                           <button
-                            className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors rounded-lg"
+                            className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors"
                             onClick={() => setExpandedHistoryId(isExpanded ? null : entry.id)}
                             data-testid={`button-toggle-history-${entry.id}`}
                           >
                             <div className="flex items-center gap-3">
-                              {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary" className={
-                                    entry.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-                                    entry.status === 'pending_review' ? 'bg-amber-100 text-amber-800' :
-                                    'bg-slate-100 text-slate-800'
-                                  }>
-                                    {entry.status === 'approved' ? 'Approved' : entry.status === 'pending_review' ? 'Pending' : 'Draft'}
-                                  </Badge>
-                                  {entry.submittedDate && (
-                                    <span className="text-xs text-muted-foreground">
-                                      Submitted: {new Date(entry.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
-                                    </span>
-                                  )}
-                                  {entry.approvedDate && (
-                                    <span className="text-xs text-muted-foreground">
-                                      Approved: {new Date(entry.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                              {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                              <Badge variant="secondary" className={
+                                entry.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                                entry.status === 'pending_review' ? 'bg-amber-100 text-amber-800' :
+                                'bg-slate-100 text-slate-800'
+                              }>
+                                {entry.status === 'approved' ? 'Approved' : entry.status === 'pending_review' ? 'Pending' : 'Draft'}
+                              </Badge>
+                              {entry.submittedDate && (
+                                <span className="text-xs text-muted-foreground">
+                                  Submitted: {new Date(entry.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                                </span>
+                              )}
+                              {entry.approvedDate && (
+                                <span className="text-xs text-muted-foreground">
+                                  Approved: {new Date(entry.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                                </span>
+                              )}
                             </div>
                             <span className="text-sm font-medium text-muted-foreground">
                               Score: {entryAvg.toFixed(1)}/4
                             </span>
                           </button>
                           {isExpanded && (
-                            <div className="border-t p-4">
+                            <div className="border-t px-4 py-4">
                               <IndividualView
                                 name={member?.name || ''}
                                 jobRole={member?.jobRole || ''}
@@ -1427,6 +1429,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                                 lastAssessment={entry.lastAssessment}
                                 categories={categories}
                                 showBackButton={false}
+                                compact
                               />
                             </div>
                           )}

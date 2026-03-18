@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 
@@ -33,6 +33,7 @@ export interface IStorage {
   deleteCompetencyItem(id: number): Promise<void>;
 
   getTrainingMatrixSubmission(userId: string): Promise<schema.TrainingMatrixSubmission | undefined>;
+  getTrainingMatrixHistory(userId: string): Promise<schema.TrainingMatrixSubmission[]>;
   getAllTrainingMatrixSubmissions(): Promise<schema.TrainingMatrixSubmission[]>;
   createTrainingMatrixSubmission(sub: schema.InsertTrainingMatrixSubmission): Promise<schema.TrainingMatrixSubmission>;
   updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>): Promise<schema.TrainingMatrixSubmission | undefined>;
@@ -244,9 +245,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTrainingMatrixSubmission(userId: string) {
-    const [sub] = await db.select().from(schema.trainingMatrixSubmissions)
-      .where(eq(schema.trainingMatrixSubmissions.userId, userId));
-    return sub;
+    const subs = await db.select().from(schema.trainingMatrixSubmissions)
+      .where(eq(schema.trainingMatrixSubmissions.userId, userId))
+      .orderBy(desc(schema.trainingMatrixSubmissions.id));
+    return subs[0];
+  }
+
+  async getTrainingMatrixHistory(userId: string) {
+    return db.select().from(schema.trainingMatrixSubmissions)
+      .where(eq(schema.trainingMatrixSubmissions.userId, userId))
+      .orderBy(desc(schema.trainingMatrixSubmissions.id));
   }
 
   async getAllTrainingMatrixSubmissions() {

@@ -51,6 +51,7 @@ export const api = {
   trainingMatrix: {
     list: () => apiFetch<any[]>("/training-matrix"),
     get: (userId: string) => apiFetch<any>(`/training-matrix/${userId}`),
+    history: (userId: string) => apiFetch<any[]>(`/training-matrix/history/${userId}`),
     create: (data: any) => apiFetch<any>("/training-matrix", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/training-matrix/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     generateShareToken: (id: number) => apiFetch<{ token: string }>(`/training-matrix/${id}/share`, { method: "POST" }),

@@ -82,17 +82,21 @@ export function useTrainingMatrixForUser(userId: string) {
   return useQuery({ queryKey: ["training-matrix", userId], queryFn: () => api.trainingMatrix.get(userId), enabled: !!userId });
 }
 
+export function useTrainingMatrixHistory(userId: string) {
+  return useQuery({ queryKey: ["training-matrix-history", userId], queryFn: () => api.trainingMatrix.history(userId), enabled: !!userId });
+}
+
 export function useCreateTrainingMatrix() {
   return useMutation({
     mutationFn: (data: any) => api.trainingMatrix.create(data),
-    onSuccess: () => invalidate("training-matrix"),
+    onSuccess: () => invalidate("training-matrix", "training-matrix-history"),
   });
 }
 
 export function useUpdateTrainingMatrix() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.trainingMatrix.update(id, data),
-    onSuccess: () => invalidate("training-matrix"),
+    onSuccess: () => invalidate("training-matrix", "training-matrix-history"),
   });
 }
 

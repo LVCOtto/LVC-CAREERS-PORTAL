@@ -294,6 +294,11 @@ export async function registerRoutes(
     res.json(submissions);
   });
 
+  app.get("/api/training-matrix/history/:userId", async (req, res) => {
+    const history = await storage.getTrainingMatrixHistory(req.params.userId);
+    res.json(history);
+  });
+
   app.get("/api/training-matrix/:userId", async (req, res) => {
     const submission = await storage.getTrainingMatrixSubmission(req.params.userId);
     res.json(submission || null);

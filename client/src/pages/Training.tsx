@@ -507,6 +507,17 @@ export default function Training() {
                     </Badge>
                   )}
 
+                  {matrixSubmission?.submittedDate && (
+                    <span className="text-xs text-muted-foreground" data-testid="text-colleague-submitted-date">
+                      Submitted: {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                    </span>
+                  )}
+                  {matrixSubmission?.approvedDate && (
+                    <span className="text-xs text-muted-foreground" data-testid="text-colleague-approved-date">
+                      Approved: {new Date(matrixSubmission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                    </span>
+                  )}
+
                   <Button
                     onClick={openSelfAssessment}
                     className="gap-2"

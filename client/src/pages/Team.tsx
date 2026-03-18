@@ -27,6 +27,7 @@ import {
   useInduction,
   useCompleteInductionItem,
   useTrainingMatrixForUser,
+  useTrainingMatrixHistory,
   useCompetencies,
   useCompetenciesForRole,
   useStandardsSurvey,
@@ -55,6 +56,9 @@ import {
   Pencil,
   Download,
   Check,
+  ChevronDown,
+  ChevronRight,
+  History,
 } from 'lucide-react';
 
 const sectionColors = [
@@ -372,6 +376,109 @@ function exportInductionPdf(memberName: string, memberRole: string, memberDepart
   doc.save(`Induction_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+function exportTrainingMatrixPdf(
+  memberName: string,
+  memberRole: string,
+  memberDepartment: string,
+  ratings: Record<string, number>,
+  categories: any[],
+  submission: any,
+  approverName?: string
+) {
+  const doc = new jsPDF();
+
+  doc.setFontSize(18);
+  doc.text('Training Matrix Report', 14, 20);
+
+  doc.setFontSize(11);
+  doc.setTextColor(100);
+  doc.text(`Name: ${memberName}`, 14, 30);
+  doc.text(`Role: ${memberRole}`, 14, 36);
+  doc.text(`Department: ${memberDepartment}`, 14, 42);
+
+  let infoY = 48;
+  if (submission?.submittedDate) {
+    doc.text(`Submitted: ${new Date(submission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}`, 14, infoY);
+    infoY += 6;
+  }
+  if (submission?.approvedDate) {
+    const approverStr = approverName ? ` by ${approverName}` : (submission.approvedBy ? ` by ${submission.approvedBy}` : '');
+    doc.text(`Approved: ${new Date(submission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}${approverStr}`, 14, infoY);
+    infoY += 6;
+  }
+  if (submission?.nextReviewDate) {
+    doc.text(`Next Review: ${new Date(submission.nextReviewDate + 'T00:00:00').toLocaleDateString('en-GB')}`, 14, infoY);
+    infoY += 6;
+  }
+
+  let total = 0;
+  let count = 0;
+  categories.forEach((cat: any) => {
+    cat.items.forEach((item: any) => { total += ratings[item.slug] ?? 0; count++; });
+  });
+  const overall = count > 0 ? total / count : 0;
+  doc.setTextColor(0);
+  doc.setFontSize(12);
+  doc.text(`Overall Score: ${overall.toFixed(1)} / 4`, 14, infoY + 2);
+  infoY += 10;
+
+  const ratingLabels = [
+    'No experience',
+    'Some experience',
+    'Reasonably confident',
+    'Highly confident',
+    'Expert / can train others',
+  ];
+
+  let startY = infoY;
+
+  categories.forEach((category: any) => {
+    const catRatings = category.items.map((item: any) => ratings[item.slug] ?? 0);
+    const catAvg = catRatings.reduce((a: number, b: number) => a + b, 0) / (catRatings.length || 1);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${category.name}  (avg: ${catAvg.toFixed(1)}/4)`, 14, startY);
+    doc.setFont('helvetica', 'normal');
+    startY += 2;
+
+    const tableData = category.items.map((item: any) => {
+      const r = ratings[item.slug] ?? 0;
+      return [item.name, `${r}`, ratingLabels[r] || '-'];
+    });
+
+    autoTable(doc, {
+      startY,
+      head: [['Competency', 'Rating', 'Level']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [41, 65, 122], fontSize: 8, cellPadding: 2 },
+      bodyStyles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: {
+        0: { cellWidth: 80 },
+        1: { cellWidth: 20, halign: 'center' as const },
+        2: { cellWidth: 70 },
+      },
+      margin: { left: 14, right: 14 },
+      didParseCell: (data: any) => {
+        if (data.section === 'body' && data.column.index === 1) {
+          const val = parseInt(data.cell.raw);
+          if (val >= 4) data.cell.styles.textColor = [5, 122, 85];
+          else if (val >= 3) data.cell.styles.textColor = [37, 99, 235];
+          else if (val >= 2) data.cell.styles.textColor = [180, 130, 0];
+          else if (val >= 1) data.cell.styles.textColor = [200, 100, 0];
+          else data.cell.styles.textColor = [120, 120, 120];
+        }
+      },
+    });
+
+    startY = (doc as any).lastAutoTable.finalY + 8;
+  });
+
+  const safeName = memberName.replace(/\s+/g, '_');
+  doc.save(`Training_Matrix_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
 function InductionShareBar({ memberId, toast }: { memberId: string; toast: any }) {
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -685,6 +792,8 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { data: member, isLoading: memberLoading } = useUser(memberId);
   const { data: inductionData, isLoading: inductionLoading } = useInduction(memberId);
   const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(memberId);
+  const { data: matrixHistory } = useTrainingMatrixHistory(memberId);
+  const { data: approverUser } = useUser(matrixSubmission?.approvedBy || '');
   const { data: roleCompetencies, isLoading: roleCompLoading } = useCompetenciesForRole(member?.jobRole);
   const { data: deptCompetencies, isLoading: deptCompLoading } = useCompetencies(
     member?.department?.toLowerCase().includes('engineering') ? 'engineering' : 'admin'
@@ -705,6 +814,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [nextReviewDate, setNextReviewDate] = useState('');
   const [editingNextReview, setEditingNextReview] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
 
   if (memberLoading || inductionLoading) {
     return (
@@ -873,6 +983,17 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     <p className="text-sm text-muted-foreground mt-3">
                       Last updated: {new Date(memberMatrix.lastAssessment).toLocaleDateString('en-GB')}
                     </p>
+                    {matrixSubmission?.submittedDate && (
+                      <p className="text-sm text-muted-foreground mt-1" data-testid="text-submitted-date-summary">
+                        Submitted: {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                      </p>
+                    )}
+                    {matrixSubmission?.approvedDate && (
+                      <p className="text-sm text-muted-foreground mt-1" data-testid="text-approved-date-summary">
+                        Approved: {new Date(matrixSubmission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                        {approverUser ? ` by ${approverUser.name}` : ''}
+                      </p>
+                    )}
                     {memberMatrix.status === 'approved' && matrixSubmission?.nextReviewDate && (
                       <p className={`text-sm font-medium mt-1 ${(() => {
                         const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
@@ -969,6 +1090,18 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                       </Badge>
                     )}
 
+                    {matrixSubmission?.submittedDate && (
+                      <span className="text-xs text-muted-foreground" data-testid="text-submitted-date-header">
+                        Submitted: {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                      </span>
+                    )}
+                    {matrixSubmission?.approvedDate && (
+                      <span className="text-xs text-muted-foreground" data-testid="text-approved-date-header">
+                        Approved: {new Date(matrixSubmission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                        {approverUser ? ` by ${approverUser.name}` : ''}
+                      </span>
+                    )}
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -1002,6 +1135,30 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                         <Share2 className="h-4 w-4" />
                       )}
                       {matrixShareCopied ? 'Copied!' : 'Share Link'}
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-2"
+                      data-testid="button-download-matrix-pdf"
+                      disabled={!matrixSubmission || !memberMatrix}
+                      onClick={() => {
+                        if (member && memberMatrix && matrixSubmission) {
+                          exportTrainingMatrixPdf(
+                            member.name,
+                            member.jobRole || '',
+                            member.department || '',
+                            memberMatrix.ratings,
+                            categories,
+                            matrixSubmission,
+                            approverUser?.name
+                          );
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4" />
+                      Download PDF
                     </Button>
 
                     <Button
@@ -1194,6 +1351,88 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                 )}
               </CardContent>
             </Card>
+
+            {matrixHistory && matrixHistory.length > 1 && (
+              <Card className="mt-6 border-border/50">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <History className="w-5 h-5" />
+                    Assessment History
+                  </CardTitle>
+                  <CardDescription>
+                    Previous training matrix submissions for this colleague
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {matrixHistory.slice(1).map((entry: any) => {
+                      const entryRatings = (entry.ratings || {}) as Record<string, number>;
+                      let entryTotal = 0;
+                      let entryCount = 0;
+                      categories.forEach((cat: any) => {
+                        cat.items.forEach((item: any) => {
+                          entryTotal += entryRatings[item.slug] ?? 0;
+                          entryCount++;
+                        });
+                      });
+                      const entryAvg = entryCount > 0 ? entryTotal / entryCount : 0;
+                      const isExpanded = expandedHistoryId === entry.id;
+
+                      return (
+                        <div key={entry.id} className="border rounded-lg" data-testid={`history-entry-${entry.id}`}>
+                          <button
+                            className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50 transition-colors rounded-lg"
+                            onClick={() => setExpandedHistoryId(isExpanded ? null : entry.id)}
+                            data-testid={`button-toggle-history-${entry.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {isExpanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className={
+                                    entry.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                                    entry.status === 'pending_review' ? 'bg-amber-100 text-amber-800' :
+                                    'bg-slate-100 text-slate-800'
+                                  }>
+                                    {entry.status === 'approved' ? 'Approved' : entry.status === 'pending_review' ? 'Pending' : 'Draft'}
+                                  </Badge>
+                                  {entry.submittedDate && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Submitted: {new Date(entry.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                                    </span>
+                                  )}
+                                  {entry.approvedDate && (
+                                    <span className="text-xs text-muted-foreground">
+                                      Approved: {new Date(entry.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <span className="text-sm font-medium text-muted-foreground">
+                              Score: {entryAvg.toFixed(1)}/4
+                            </span>
+                          </button>
+                          {isExpanded && (
+                            <div className="border-t p-4">
+                              <IndividualView
+                                name={member?.name || ''}
+                                jobRole={member?.jobRole || ''}
+                                department={member?.department || ''}
+                                ratings={entryRatings}
+                                lastAssessment={entry.lastAssessment}
+                                categories={categories}
+                                showBackButton={false}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="standards" className="mt-6">

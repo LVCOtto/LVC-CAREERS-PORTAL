@@ -19,6 +19,7 @@ import {
   Copy,
   Check,
   Link,
+  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -375,6 +376,7 @@ export default function Training() {
           ratings: dialogRatings,
           lastAssessment: today,
           submittedDate: today,
+          nextReviewDate: matrixSubmission?.nextReviewDate || undefined,
         });
       }
       setIsSubmitOpen(false);
@@ -478,9 +480,26 @@ export default function Training() {
                     </Badge>
                   )}
                   {matrixStatus === 'approved' && (
-                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800" data-testid="status-matrix-approved">
-                      Approved
-                    </Badge>
+                    <>
+                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-800" data-testid="status-matrix-approved">
+                        Approved
+                      </Badge>
+                      {matrixSubmission?.nextReviewDate && (
+                        <span className={`text-sm font-medium flex items-center gap-1.5 ${(() => {
+                          const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
+                          const daysUntil = Math.ceil((due.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                          return daysUntil < 0 ? 'text-red-600' : daysUntil <= 14 ? 'text-amber-600' : 'text-muted-foreground';
+                        })()}`} data-testid="text-next-assessment-due">
+                          <CalendarIcon className="w-4 h-4" />
+                          Next assessment due: {new Date(matrixSubmission.nextReviewDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                          {(() => {
+                            const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
+                            const daysUntil = Math.ceil((due.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                            return daysUntil < 0 ? ' (overdue)' : daysUntil <= 14 ? ' (due soon)' : '';
+                          })()}
+                        </span>
+                      )}
+                    </>
                   )}
                   {matrixStatus === 'draft' && (
                     <Badge variant="secondary" className="bg-slate-100 text-slate-800" data-testid="status-matrix-draft">

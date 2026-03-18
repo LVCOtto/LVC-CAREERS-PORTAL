@@ -702,6 +702,9 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const generateShareToken = useGenerateShareToken();
   const [matrixShareUrl, setMatrixShareUrl] = useState('');
   const [matrixShareCopied, setMatrixShareCopied] = useState(false);
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [nextReviewDate, setNextReviewDate] = useState('');
+  const [editingNextReview, setEditingNextReview] = useState(false);
 
   if (memberLoading || inductionLoading) {
     return (
@@ -870,6 +873,20 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     <p className="text-sm text-muted-foreground mt-3">
                       Last updated: {new Date(memberMatrix.lastAssessment).toLocaleDateString('en-GB')}
                     </p>
+                    {memberMatrix.status === 'approved' && matrixSubmission?.nextReviewDate && (
+                      <p className={`text-sm font-medium mt-1 ${(() => {
+                        const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
+                        const daysUntil = Math.ceil((due.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                        return daysUntil < 0 ? 'text-red-600' : daysUntil <= 14 ? 'text-amber-600' : 'text-muted-foreground';
+                      })()}`} data-testid="text-next-review-summary">
+                        Next review: {new Date(matrixSubmission.nextReviewDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                        {(() => {
+                          const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
+                          const daysUntil = Math.ceil((due.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                          return daysUntil < 0 ? ' (overdue)' : daysUntil <= 14 ? ' (due soon)' : '';
+                        })()}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="text-muted-foreground">No matrix submitted</p>
@@ -993,17 +1010,12 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                       disabled={!matrixSubmission || matrixSubmission.status !== 'pending_review'}
                       onClick={() => {
                         if (matrixSubmission) {
-                          updateMatrix.mutate(
-                            { id: matrixSubmission.id, data: { status: 'approved' } },
-                            {
-                              onSuccess: () => {
-                                toast({
-                                  title: 'Matrix approved',
-                                  description: 'The colleague can now see this matrix as approved.',
-                                });
-                              },
-                            }
-                          );
+                          const today = new Date().toISOString().slice(0, 10);
+                          const sixMonths = new Date();
+                          sixMonths.setMonth(sixMonths.getMonth() + 6);
+                          const defaultNext = sixMonths.toISOString().slice(0, 10);
+                          setNextReviewDate(defaultNext);
+                          setShowApproveConfirm(true);
                         }
                       }}
                       data-testid="button-approve-matrix"
@@ -1011,6 +1023,132 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                       Approve
                     </Button>
                   </div>
+
+                  {showApproveConfirm && matrixSubmission && (
+                    <div className="flex items-center gap-3 mt-3 p-3 rounded-lg bg-muted/50 border" data-testid="approve-confirm-panel">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium text-foreground">Next review due</label>
+                        <Input
+                          type="date"
+                          value={nextReviewDate}
+                          onChange={(e) => setNextReviewDate(e.target.value)}
+                          className="mt-1 w-48"
+                          data-testid="input-next-review-date"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 pt-5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowApproveConfirm(false)}
+                          data-testid="button-cancel-approve"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => {
+                            const today = new Date().toISOString().slice(0, 10);
+                            updateMatrix.mutate(
+                              {
+                                id: matrixSubmission.id,
+                                data: {
+                                  status: 'approved',
+                                  approvedBy: currentUser?.id || '',
+                                  approvedDate: today,
+                                  nextReviewDate: nextReviewDate || undefined,
+                                },
+                              },
+                              {
+                                onSuccess: () => {
+                                  setShowApproveConfirm(false);
+                                  toast({
+                                    title: 'Matrix approved',
+                                    description: nextReviewDate
+                                      ? `Approved. Next review due ${new Date(nextReviewDate + 'T00:00:00').toLocaleDateString('en-GB')}.`
+                                      : 'The colleague can now see this matrix as approved.',
+                                  });
+                                },
+                              }
+                            );
+                          }}
+                          data-testid="button-confirm-approve"
+                        >
+                          <Check className="h-4 w-4" />
+                          Confirm Approval
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {matrixSubmission?.status === 'approved' && matrixSubmission.nextReviewDate && !showApproveConfirm && (
+                    <div className="mt-3 flex items-center gap-2" data-testid="next-review-display">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      {(() => {
+                        const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
+                        const now = new Date();
+                        const daysUntil = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        const isOverdue = daysUntil < 0;
+                        const isDueSoon = daysUntil >= 0 && daysUntil <= 14;
+                        return (
+                          <span className={`text-sm font-medium ${isOverdue ? 'text-red-600' : isDueSoon ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                            Next review due: {due.toLocaleDateString('en-GB')}
+                            {isOverdue && ' (overdue)'}
+                            {isDueSoon && !isOverdue && ' (due soon)'}
+                          </span>
+                        );
+                      })()}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => {
+                          setNextReviewDate(matrixSubmission.nextReviewDate || '');
+                          setEditingNextReview(true);
+                        }}
+                        data-testid="button-edit-next-review"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )}
+
+                  {editingNextReview && matrixSubmission && (
+                    <div className="mt-2 flex items-center gap-2" data-testid="edit-next-review-panel">
+                      <Input
+                        type="date"
+                        value={nextReviewDate}
+                        onChange={(e) => setNextReviewDate(e.target.value)}
+                        className="w-48"
+                        data-testid="input-edit-next-review"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingNextReview(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          updateMatrix.mutate(
+                            { id: matrixSubmission.id, data: { nextReviewDate: nextReviewDate } },
+                            {
+                              onSuccess: () => {
+                                setEditingNextReview(false);
+                                toast({ title: 'Updated', description: 'Next review date has been updated.' });
+                              },
+                            }
+                          );
+                        }}
+                        data-testid="button-save-next-review"
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-6">

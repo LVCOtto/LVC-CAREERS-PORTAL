@@ -98,6 +98,7 @@ export const trainingMatrixSubmissions = pgTable("training_matrix_submissions", 
   submittedDate: text("submitted_date"),
   approvedBy: varchar("approved_by", { length: 50 }),
   approvedDate: text("approved_date"),
+  nextReviewDate: text("next_review_date"),
   shareToken: varchar("share_token", { length: 100 }).unique(),
 });
 

@@ -36,7 +36,7 @@ Employee training management system for LVC (cleaning equipment company) support
 - `competency_categories` - Training matrix categories (engineering/admin)
 - `competency_items` - Individual competency items
 - `job_role_categories` - Join table linking job roles to specific skill categories (role-specific training matrices)
-- `training_matrix_submissions` - User matrix submissions with ratings (JSONB)
+- `training_matrix_submissions` - User matrix submissions with ratings (JSONB), `nextReviewDate` for scheduling follow-up assessments
 - `standards_survey_roles` - Survey templates per job role
 - `standards_survey_items` - Individual survey items
 - `resources` - Learning resources
@@ -78,6 +78,7 @@ The architect role is a non-employee user type for customising the portal. Archi
 - **Induction tracking**: Section-by-section checklist with manager sign-off. Flow: Not Started → In Progress → Completed → Signed Off. `inProgress` boolean on `induction_item_completions`. Modular induction system — sections can be marked "Universal" (applies to all roles) or assigned per job role via the Job Roles page. If no sections are configured, users see all sections (backwards compatible). Uses `induction_section_settings` table (universal toggles) and `job_role_induction_sections` join table (role-specific assignments). Managers/admins can fully manage team induction from Team page: start items, mark complete, sign off, undo any step, assign a person, and edit completed date inline. `assignedTo` and `inProgress` fields on `induction_item_completions`.
 - **Training matrix**: Interactive self-assessment with 0-4 rating scale via dialog, submit for review, manager approval. Supports role-specific skill assignments — admins can assign specific skill categories to each job role via the Job Roles page. Users see only skills relevant to their role; falls back to department-type filtering if no role-specific assignments exist.
 - **Shareable training matrix**: Colleagues can generate a unique link (`/training-matrix/shared/:token`) for anyone to fill in their self-assessment without logging in
+- **Next review date**: Managers set a next review date (default 6 months) when approving a training matrix. Shown with overdue/due-soon indicators on both manager (Team) and colleague (Training) pages. Managers can edit the date post-approval. Date carries forward when colleague starts a new self-assessment. `approvedBy` and `approvedDate` are now correctly recorded on approval.
 - **Shareable induction progress**: Managers can generate a read-only share link (`/induction/shared/:token`) for a colleague's induction. Shows colleague name, job role, section-grouped progress with color-coded cards. Uses `shareToken` on `induction_instances` table. Route ordering: `/api/induction/shared/:token` must come before `/api/induction/:userId`.
 - **Standards survey**: Role-specific task standards
 - **Certificates**: Definition + assignment system

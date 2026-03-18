@@ -436,7 +436,7 @@ export default function AdminRoles() {
                     data-testid={`link-user-${u.id}`}
                   >
                     <User className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span>{u.fullName || u.username}</span>
+                    <span>{u.name || u.username}</span>
                   </Link>
                 ))}
               </div>

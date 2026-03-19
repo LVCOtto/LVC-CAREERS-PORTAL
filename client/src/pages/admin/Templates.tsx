@@ -880,17 +880,29 @@ export default function AdminTemplates() {
                       const totalSkills = getDeptSkillCount(deptCategories);
                       return (
                         <AccordionItem key={deptKey} value={deptKey} className="border rounded-lg px-2" data-testid={`dept-section-${deptKey}`}>
-                          <AccordionTrigger className="hover:no-underline py-4 px-2">
-                            <div className="flex items-center gap-3">
-                              <span className="text-base font-semibold">{getDeptLabel(deptKey)}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {deptCategories.length} {deptCategories.length === 1 ? 'category' : 'categories'}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {totalSkills} {totalSkills === 1 ? 'skill' : 'skills'}
-                              </Badge>
-                            </div>
-                          </AccordionTrigger>
+                          <div className="flex items-center gap-2">
+                            <AccordionTrigger className="hover:no-underline py-4 px-2 flex-1">
+                              <div className="flex items-center gap-3">
+                                <span className="text-base font-semibold">{getDeptLabel(deptKey)}</span>
+                                <Badge variant="secondary" className="text-xs">
+                                  {deptCategories.length} {deptCategories.length === 1 ? 'category' : 'categories'}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                  {totalSkills} {totalSkills === 1 ? 'skill' : 'skills'}
+                                </Badge>
+                              </div>
+                            </AccordionTrigger>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="shrink-0"
+                              onClick={(e) => { e.stopPropagation(); openAddCategory(deptKey); }}
+                              data-testid={`button-add-category-header-${deptKey}`}
+                            >
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add Category
+                            </Button>
+                          </div>
                           <AccordionContent className="pb-4 px-2">
                             <div className="space-y-4">
                               {deptCategories.map((category: any) => (
@@ -979,16 +991,6 @@ export default function AdminTemplates() {
                                   </CardContent>
                                 </Card>
                               ))}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="w-full mt-2 border-dashed"
-                                onClick={() => openAddCategory(deptKey)}
-                                data-testid={`button-add-category-${deptKey}`}
-                              >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Add Category to {getDeptLabel(deptKey)}
-                              </Button>
                             </div>
                           </AccordionContent>
                         </AccordionItem>

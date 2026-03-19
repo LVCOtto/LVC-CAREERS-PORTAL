@@ -898,7 +898,7 @@ export async function registerRoutes(
               const newCat = await storage.createCompetencyCategory({
                 slug: `${slug}-${Date.now().toString(36)}`,
                 name: catName,
-                departmentType: row.category_department_type || "all",
+                departmentType: row.category_department_type || "Universal",
                 sortOrder: parseInt(row.category_sort_order) || 0,
               });
               catId = newCat.id;

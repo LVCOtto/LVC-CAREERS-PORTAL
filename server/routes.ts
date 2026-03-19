@@ -335,11 +335,12 @@ export async function registerRoutes(
       competencies = await storage.getCompetencyCategoriesForJobRole(user.jobRole);
     }
     if (!competencies) {
-      const isEngineering = (user?.department || '').toLowerCase().includes('engineering');
-      const departmentType = isEngineering ? 'engineering' : 'admin';
-      const categories = await storage.getCompetencyCategories(departmentType);
+      const userDept = user?.department || '';
+      const deptCategories = await storage.getCompetencyCategories(userDept);
+      const universalCategories = await storage.getCompetencyCategories('all');
+      const allCats = [...universalCategories, ...deptCategories];
       const items = await storage.getCompetencyItems();
-      competencies = categories.map(cat => ({
+      competencies = allCats.map(cat => ({
         ...cat,
         items: items.filter(item => item.categoryId === cat.id),
       }));

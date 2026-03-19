@@ -189,6 +189,16 @@ export class DatabaseStorage implements IStorage {
 
   async getCompetencyCategories(departmentType?: string) {
     if (departmentType) {
+      const legacyMap: Record<string, string[]> = {
+        'engineering': ['engineering', 'Engineering'],
+        'admin': ['admin', 'Admin / Office'],
+      };
+      const mapped = legacyMap[departmentType];
+      if (mapped) {
+        return db.select().from(schema.competencyCategories)
+          .where(inArray(schema.competencyCategories.departmentType, mapped))
+          .orderBy(schema.competencyCategories.sortOrder);
+      }
       return db.select().from(schema.competencyCategories)
         .where(eq(schema.competencyCategories.departmentType, departmentType))
         .orderBy(schema.competencyCategories.sortOrder);

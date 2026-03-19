@@ -59,6 +59,7 @@ import {
   useDeleteStandardsSurveyRole,
   useInductionSectionSettings,
   useUpsertInductionSectionSetting,
+  useDepartments,
 } from '@/lib/hooks';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
@@ -92,6 +93,7 @@ export default function AdminTemplates() {
 
   const createSurveyRole = useCreateStandardsSurveyRole();
   const deleteSurveyRole = useDeleteStandardsSurveyRole();
+  const { data: departments = [] } = useDepartments();
 
   const [surveySearch, setSurveySearch] = useState('');
   const [editingSurvey, setEditingSurvey] = useState<any | null>(null);
@@ -380,8 +382,8 @@ export default function AdminTemplates() {
     }
   };
 
-  const openAddCategory = () => {
-    setCategoryForm({ name: '', departmentType: 'all', sortOrder: competencies.length });
+  const openAddCategory = (prefillDepartmentType?: string) => {
+    setCategoryForm({ name: '', departmentType: prefillDepartmentType || 'all', sortOrder: competencies.length });
     setCategoryDialog({ open: true, mode: 'add' });
   };
 
@@ -855,9 +857,17 @@ export default function AdminTemplates() {
                   if (!grouped[key]) grouped[key] = [];
                   grouped[key].push(cat);
                 });
+                const deptSortMap: Record<string, number> = {};
+                departments.forEach((d: any) => {
+                  deptSortMap[d.name] = d.sortOrder ?? 999;
+                  deptSortMap[d.name.toLowerCase()] = d.sortOrder ?? 999;
+                });
                 const sortedKeys = Object.keys(grouped).sort((a, b) => {
                   if (a === 'all') return -1;
                   if (b === 'all') return 1;
+                  const aSort = deptSortMap[a] ?? deptSortMap[a.toLowerCase()] ?? 999;
+                  const bSort = deptSortMap[b] ?? deptSortMap[b.toLowerCase()] ?? 999;
+                  if (aSort !== bSort) return aSort - bSort;
                   return a.localeCompare(b);
                 });
                 const getDeptLabel = (key: string) => key === 'all' ? 'Universal' : key.charAt(0).toUpperCase() + key.slice(1);
@@ -969,6 +979,16 @@ export default function AdminTemplates() {
                                   </CardContent>
                                 </Card>
                               ))}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full mt-2 border-dashed"
+                                onClick={() => openAddCategory(deptKey)}
+                                data-testid={`button-add-category-${deptKey}`}
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add Category to {getDeptLabel(deptKey)}
+                              </Button>
                             </div>
                           </AccordionContent>
                         </AccordionItem>
@@ -1501,9 +1521,12 @@ export default function AdminTemplates() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Departments</SelectItem>
-                    <SelectItem value="engineering">Engineering</SelectItem>
-                    <SelectItem value="admin">Admin / Office</SelectItem>
+                    <SelectItem value="all">Universal (All Departments)</SelectItem>
+                    {departments
+                      .sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+                      .map((dept: any) => (
+                        <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

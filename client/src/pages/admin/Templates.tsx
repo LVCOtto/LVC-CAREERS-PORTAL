@@ -848,96 +848,135 @@ export default function AdminTemplates() {
                     <p className="text-sm text-muted-foreground mt-1">Click "New Category" to create your first skill category, or import from CSV.</p>
                   </CardContent>
                 </Card>
-              ) : (
-                <div className="space-y-4">
-                  {competencies.map((category: any) => (
-                    <Card key={category.id} className="border-border/50" data-testid={`skill-category-${category.id}`}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <GraduationCap className="w-5 h-5 text-primary" />
+              ) : (() => {
+                const grouped: Record<string, any[]> = {};
+                competencies.forEach((cat: any) => {
+                  const key = cat.departmentType || 'all';
+                  if (!grouped[key]) grouped[key] = [];
+                  grouped[key].push(cat);
+                });
+                const sortedKeys = Object.keys(grouped).sort((a, b) => {
+                  if (a === 'all') return -1;
+                  if (b === 'all') return 1;
+                  return a.localeCompare(b);
+                });
+                const getDeptLabel = (key: string) => key === 'all' ? 'Universal' : key.charAt(0).toUpperCase() + key.slice(1);
+                const getDeptSkillCount = (cats: any[]) => cats.reduce((sum: number, c: any) => sum + (c.items || []).length, 0);
+
+                return (
+                  <Accordion type="multiple" defaultValue={sortedKeys} className="space-y-4">
+                    {sortedKeys.map((deptKey) => {
+                      const deptCategories = grouped[deptKey];
+                      const totalSkills = getDeptSkillCount(deptCategories);
+                      return (
+                        <AccordionItem key={deptKey} value={deptKey} className="border rounded-lg px-2" data-testid={`dept-section-${deptKey}`}>
+                          <AccordionTrigger className="hover:no-underline py-4 px-2">
+                            <div className="flex items-center gap-3">
+                              <span className="text-base font-semibold">{getDeptLabel(deptKey)}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {deptCategories.length} {deptCategories.length === 1 ? 'category' : 'categories'}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {totalSkills} {totalSkills === 1 ? 'skill' : 'skills'}
+                              </Badge>
                             </div>
-                            <div>
-                              <CardTitle className="text-lg">{category.name}</CardTitle>
-                              <CardDescription>
-                                {category.departmentType === 'all' ? 'All departments' : category.departmentType} · {(category.items || []).length} skills
-                              </CardDescription>
+                          </AccordionTrigger>
+                          <AccordionContent className="pb-4 px-2">
+                            <div className="space-y-4">
+                              {deptCategories.map((category: any) => (
+                                <Card key={category.id} className="border-border/50" data-testid={`skill-category-${category.id}`}>
+                                  <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                                          <GraduationCap className="w-5 h-5 text-primary" />
+                                        </div>
+                                        <div>
+                                          <CardTitle className="text-lg">{category.name}</CardTitle>
+                                          <CardDescription>
+                                            {(category.items || []).length} skills
+                                          </CardDescription>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditCategory(category)} data-testid={`button-edit-category-${category.id}`}>
+                                          <Edit className="w-4 h-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(category)} data-testid={`button-delete-category-${category.id}`}>
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </CardHeader>
+                                  <CardContent>
+                                    <div className="space-y-2">
+                                      {(category.items || []).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((item: any, itemIdx: number, sortedItems: any[]) => (
+                                        <div
+                                          key={item.id}
+                                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <div className="flex flex-col">
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                                disabled={itemIdx === 0}
+                                                onClick={() => moveSkillItem(category.id, itemIdx, 'up')}
+                                                data-testid={`button-skill-up-${item.id}`}
+                                              >
+                                                <ChevronUp className="w-3 h-3" />
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                                                disabled={itemIdx === sortedItems.length - 1}
+                                                onClick={() => moveSkillItem(category.id, itemIdx, 'down')}
+                                                data-testid={`button-skill-down-${item.id}`}
+                                              >
+                                                <ChevronDown className="w-3 h-3" />
+                                              </Button>
+                                            </div>
+                                            <div>
+                                              <span className="text-sm font-medium">{item.name}</span>
+                                              {item.description && (
+                                                <p className="text-xs text-muted-foreground">{item.description}</p>
+                                              )}
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditSkillItem(item)} data-testid={`button-edit-skill-${item.id}`}>
+                                              <Edit className="w-3 h-3" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteSkillItem(item)} data-testid={`button-delete-skill-${item.id}`}>
+                                              <Trash2 className="w-3 h-3" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full mt-2"
+                                        onClick={() => openAddSkillItem(category.id)}
+                                        data-testid={`button-add-skill-item-${category.id}`}
+                                      >
+                                        <Plus className="w-4 h-4 mr-1" />
+                                        Add Skill
+                                      </Button>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditCategory(category)} data-testid={`button-edit-category-${category.id}`}>
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteCategory(category)} data-testid={`button-delete-category-${category.id}`}>
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {(category.items || []).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0)).map((item: any, itemIdx: number, sortedItems: any[]) => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="flex flex-col">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                                    disabled={itemIdx === 0}
-                                    onClick={() => moveSkillItem(category.id, itemIdx, 'up')}
-                                    data-testid={`button-skill-up-${item.id}`}
-                                  >
-                                    <ChevronUp className="w-3 h-3" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                                    disabled={itemIdx === sortedItems.length - 1}
-                                    onClick={() => moveSkillItem(category.id, itemIdx, 'down')}
-                                    data-testid={`button-skill-down-${item.id}`}
-                                  >
-                                    <ChevronDown className="w-3 h-3" />
-                                  </Button>
-                                </div>
-                                <div>
-                                  <span className="text-sm font-medium">{item.name}</span>
-                                  {item.description && (
-                                    <p className="text-xs text-muted-foreground">{item.description}</p>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditSkillItem(item)} data-testid={`button-edit-skill-${item.id}`}>
-                                  <Edit className="w-3 h-3" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDeleteSkillItem(item)} data-testid={`button-delete-skill-${item.id}`}>
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full mt-2"
-                            onClick={() => openAddSkillItem(category.id)}
-                            data-testid={`button-add-skill-item-${category.id}`}
-                          >
-                            <Plus className="w-4 h-4 mr-1" />
-                            Add Skill
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                );
+              })()}
             </div>
           </TabsContent>
 

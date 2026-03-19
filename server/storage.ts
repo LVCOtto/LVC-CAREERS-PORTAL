@@ -192,7 +192,7 @@ export class DatabaseStorage implements IStorage {
       const legacyMap: Record<string, string[]> = {
         'all': ['all', 'Universal'],
         'engineering': ['engineering', 'Engineering'],
-        'admin': ['admin', 'Admin / Office'],
+        'admin': ['admin', 'Accounts'],
       };
       const mapped = legacyMap[departmentType];
       if (mapped) {

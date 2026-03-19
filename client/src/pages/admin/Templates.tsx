@@ -1524,7 +1524,7 @@ export default function AdminTemplates() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Universal">Universal (All Departments)</SelectItem>
-                    {departments
+                    {[...departments]
                       .sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
                       .map((dept: any) => (
                         <SelectItem key={dept.id} value={dept.name}>{dept.name}</SelectItem>

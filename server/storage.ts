@@ -420,10 +420,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteJobRole(id: number) {
-    await db.delete(schema.jobRoleCategories).where(eq(schema.jobRoleCategories.jobRoleId, id));
-    await db.delete(schema.jobRoleInductionSections).where(eq(schema.jobRoleInductionSections.jobRoleId, id));
-    await db.update(schema.jobRoles).set({ reportsTo: null }).where(eq(schema.jobRoles.reportsTo, id));
-    await db.delete(schema.jobRoles).where(eq(schema.jobRoles.id, id));
+    const [role] = await db.select().from(schema.jobRoles).where(eq(schema.jobRoles.id, id));
+    const grandparent = role?.reportsTo ?? null;
+
+    await db.transaction(async (tx) => {
+      await tx.delete(schema.jobRoleCategories).where(eq(schema.jobRoleCategories.jobRoleId, id));
+      await tx.delete(schema.jobRoleInductionSections).where(eq(schema.jobRoleInductionSections.jobRoleId, id));
+      await tx.update(schema.jobRoles).set({ reportsTo: grandparent }).where(eq(schema.jobRoles.reportsTo, id));
+      await tx.delete(schema.jobRoles).where(eq(schema.jobRoles.id, id));
+    });
   }
 
   async getTrainingMatrixByToken(token: string) {

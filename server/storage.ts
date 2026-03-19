@@ -190,6 +190,7 @@ export class DatabaseStorage implements IStorage {
   async getCompetencyCategories(departmentType?: string) {
     if (departmentType) {
       const legacyMap: Record<string, string[]> = {
+        'all': ['all', 'Universal'],
         'engineering': ['engineering', 'Engineering'],
         'admin': ['admin', 'Admin / Office'],
       };

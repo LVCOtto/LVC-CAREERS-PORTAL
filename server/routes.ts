@@ -336,8 +336,8 @@ export async function registerRoutes(
     }
     if (!competencies) {
       const userDept = user?.department || '';
-      const deptCategories = await storage.getCompetencyCategories(userDept);
-      const universalCategories = await storage.getCompetencyCategories('all');
+      const deptCategories = userDept ? await storage.getCompetencyCategories(userDept) : [];
+      const universalCategories = await storage.getCompetencyCategories('Universal');
       const allCats = [...universalCategories, ...deptCategories];
       const items = await storage.getCompetencyItems();
       competencies = allCats.map(cat => ({

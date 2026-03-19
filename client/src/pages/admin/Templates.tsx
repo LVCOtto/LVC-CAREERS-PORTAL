@@ -136,7 +136,7 @@ export default function AdminTemplates() {
     mode: 'add' | 'edit';
     category?: any;
   }>({ open: false, mode: 'add' });
-  const [categoryForm, setCategoryForm] = useState({ name: '', departmentType: 'all', sortOrder: 0 });
+  const [categoryForm, setCategoryForm] = useState({ name: '', departmentType: 'Universal', sortOrder: 0 });
 
   const [skillItemDialog, setSkillItemDialog] = useState<{
     open: boolean;
@@ -383,12 +383,12 @@ export default function AdminTemplates() {
   };
 
   const openAddCategory = (prefillDepartmentType?: string) => {
-    setCategoryForm({ name: '', departmentType: prefillDepartmentType || 'all', sortOrder: competencies.length });
+    setCategoryForm({ name: '', departmentType: prefillDepartmentType || 'Universal', sortOrder: competencies.length });
     setCategoryDialog({ open: true, mode: 'add' });
   };
 
   const openEditCategory = (cat: any) => {
-    setCategoryForm({ name: cat.name, departmentType: cat.departmentType || 'all', sortOrder: cat.sortOrder || 0 });
+    setCategoryForm({ name: cat.name, departmentType: cat.departmentType || 'Universal', sortOrder: cat.sortOrder || 0 });
     setCategoryDialog({ open: true, mode: 'edit', category: cat });
   };
 
@@ -853,7 +853,7 @@ export default function AdminTemplates() {
               ) : (() => {
                 const grouped: Record<string, any[]> = {};
                 competencies.forEach((cat: any) => {
-                  const key = cat.departmentType || 'all';
+                  const key = cat.departmentType || 'Universal';
                   if (!grouped[key]) grouped[key] = [];
                   grouped[key].push(cat);
                 });
@@ -863,14 +863,14 @@ export default function AdminTemplates() {
                   deptSortMap[d.name.toLowerCase()] = d.sortOrder ?? 999;
                 });
                 const sortedKeys = Object.keys(grouped).sort((a, b) => {
-                  if (a === 'all') return -1;
-                  if (b === 'all') return 1;
+                  if (a === 'Universal') return -1;
+                  if (b === 'Universal') return 1;
                   const aSort = deptSortMap[a] ?? deptSortMap[a.toLowerCase()] ?? 999;
                   const bSort = deptSortMap[b] ?? deptSortMap[b.toLowerCase()] ?? 999;
                   if (aSort !== bSort) return aSort - bSort;
                   return a.localeCompare(b);
                 });
-                const getDeptLabel = (key: string) => key === 'all' ? 'Universal' : key.charAt(0).toUpperCase() + key.slice(1);
+                const getDeptLabel = (key: string) => key;
                 const getDeptSkillCount = (cats: any[]) => cats.reduce((sum: number, c: any) => sum + (c.items || []).length, 0);
 
                 return (
@@ -1521,7 +1521,7 @@ export default function AdminTemplates() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Universal (All Departments)</SelectItem>
+                    <SelectItem value="Universal">Universal (All Departments)</SelectItem>
                     {departments
                       .sort((a: any, b: any) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
                       .map((dept: any) => (

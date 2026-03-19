@@ -221,24 +221,21 @@ export default function AdminRoles() {
     }
   };
 
-  const handleDelete = () => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
     if (!deleteTarget) return;
-    const childRoles = jobRoles.filter((r: any) => r.reportsTo === deleteTarget.id);
-    if (childRoles.length > 0) {
-      childRoles.forEach((child: any) => {
-        reorderJobRole.mutate({ id: child.id, reportsTo: deleteTarget.reportsTo ?? null });
-      });
+    const target = deleteTarget;
+    setIsDeleting(true);
+    try {
+      await deleteJobRole.mutateAsync(target.id);
+      toast({ title: 'Role deleted', description: `${target.title} has been deleted.` });
+      setDeleteTarget(null);
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to delete role', variant: 'destructive' });
+    } finally {
+      setIsDeleting(false);
     }
-    deleteJobRole.mutate(deleteTarget.id, {
-      onSuccess: () => {
-        toast({ title: 'Role deleted', description: `${deleteTarget.title} has been deleted.` });
-        setDeleteTarget(null);
-      },
-      onError: (err: any) => {
-        toast({ title: 'Error', description: err.message, variant: 'destructive' });
-        setDeleteTarget(null);
-      },
-    });
   };
 
   const moveRole = (roleId: number, direction: 'up' | 'down') => {
@@ -652,7 +649,7 @@ export default function AdminRoles() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open && !isDeleting) setDeleteTarget(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Job Role</AlertDialogTitle>
@@ -666,15 +663,16 @@ export default function AdminRoles() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-role">Cancel</AlertDialogCancel>
-            <AlertDialogAction
+            <AlertDialogCancel data-testid="button-cancel-delete-role" disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <Button
               onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
+              disabled={isDeleting}
               data-testid="button-confirm-delete-role"
             >
-              {deleteJobRole.isPending ? <Spinner className="w-4 h-4 mr-2" /> : null}
-              Delete
-            </AlertDialogAction>
+              {isDeleting ? <Spinner className="w-4 h-4 mr-2" /> : null}
+              {isDeleting ? 'Deleting…' : 'Delete'}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

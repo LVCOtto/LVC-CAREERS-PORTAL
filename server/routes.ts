@@ -570,8 +570,12 @@ export async function registerRoutes(
   });
 
   app.delete("/api/job-roles/:id", async (req, res) => {
-    await storage.deleteJobRole(Number(req.params.id));
-    res.status(204).send();
+    try {
+      await storage.deleteJobRole(Number(req.params.id));
+      res.status(204).send();
+    } catch (error: any) {
+      res.status(500).json({ message: error.message || "Failed to delete job role" });
+    }
   });
 
   app.get("/api/job-roles/:id/categories", async (req, res) => {

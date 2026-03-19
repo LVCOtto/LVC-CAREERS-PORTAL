@@ -759,11 +759,24 @@ export async function registerRoutes(
         filename = "certificates.csv";
       } else if (type === "job-roles") {
         const roles = await storage.getJobRoles();
-        csvContent = "ID,Title,Department,Summary,ReportsTo,SortOrder\n";
-        csvContent += roles.map(r =>
-          `${r.id},"${r.title}","${r.department}","${(r.summary || '').replace(/"/g, '""')}",${r.reportsTo ?? ''},${r.sortOrder}`
-        ).join("\n");
-        filename = "job-roles.csv";
+        const allUsers = await storage.getAllUsers();
+        const roleMap = new Map(roles.map(r => [r.id, r]));
+        csvContent = "Role Title,Department,Reports To,Colleague Name,Colleague Email\n";
+        const csvRows: string[] = [];
+        for (const role of roles) {
+          const reportsToRole = role.reportsTo ? roleMap.get(role.reportsTo) : null;
+          const reportsToTitle = reportsToRole ? reportsToRole.title : "";
+          const colleagues = allUsers.filter(u => u.jobRole === role.title);
+          if (colleagues.length === 0) {
+            csvRows.push(`"${role.title.replace(/"/g, '""')}","${role.department.replace(/"/g, '""')}","${reportsToTitle.replace(/"/g, '""')}","",""`);
+          } else {
+            for (const col of colleagues) {
+              csvRows.push(`"${role.title.replace(/"/g, '""')}","${role.department.replace(/"/g, '""')}","${reportsToTitle.replace(/"/g, '""')}","${(col.name || '').replace(/"/g, '""')}","${(col.email || '').replace(/"/g, '""')}"`);
+            }
+          }
+        }
+        csvContent += csvRows.join("\n");
+        filename = "job-roles-with-colleagues.csv";
       } else if (type === "competencies") {
         const { categories } = await storage.getAllCompetencyItemsWithCategories();
         csvContent = "category_name,category_department_type,category_sort_order,item_name,item_description,item_sort_order\n";
@@ -836,6 +849,7 @@ export async function registerRoutes(
     try {
       let created = 0;
       let skipped = 0;
+      let colleaguesUpdated = 0;
       const errors: string[] = [];
 
       if (type === "users") {
@@ -870,26 +884,80 @@ export async function registerRoutes(
           }
         }
       } else if (type === "job-roles") {
+        const allUsers = await storage.getAllUsers();
+        const existingRoles = await storage.getJobRoles();
+        const roleTitleToId = new Map<string, number>(existingRoles.map(r => [r.title, r.id]));
+        const deferredReportsTo: Array<{ roleTitle: string; reportsToTitle: string }> = [];
+
+        const getRoleTitle = (row: any) => row["role_title"] || row.title || "";
+        const getRoleDept = (row: any) => row.department || "";
+        const getRoleReportsTo = (row: any) => row["reports_to"] || row.reportsto || "";
+        const getColEmail = (row: any) => row["colleague_email"] || "";
+
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           try {
-            if (!row.title || !row.department) {
+            const title = getRoleTitle(row);
+            const department = getRoleDept(row);
+            if (!title || !department) {
               errors.push(`Row ${i + 1}: Missing required field (title or department)`);
               skipped++;
               continue;
             }
-            await storage.createJobRole({
-              title: row.title,
-              department: row.department,
-              summary: row.summary || "",
-              responsibilities: row.responsibilities ? JSON.parse(row.responsibilities) : [],
-              reportsTo: row.reportsto ? parseInt(row.reportsto) : null,
-              sortOrder: row.sortorder ? parseInt(row.sortorder) : 0,
-            });
-            created++;
+
+            let roleCreated = false;
+            if (!roleTitleToId.has(title)) {
+              const reportsToTitle = getRoleReportsTo(row);
+              let reportsToId: number | null = null;
+              if (reportsToTitle) {
+                const parentId = roleTitleToId.get(reportsToTitle);
+                if (parentId !== undefined) {
+                  reportsToId = parentId;
+                } else {
+                  deferredReportsTo.push({ roleTitle: title, reportsToTitle });
+                }
+              }
+              const newRole = await storage.createJobRole({
+                title,
+                department,
+                summary: row.summary || "",
+                responsibilities: row.responsibilities ? JSON.parse(row.responsibilities) : [],
+                reportsTo: reportsToId,
+                sortOrder: row.sortorder ? parseInt(row.sortorder) : 0,
+              });
+              roleTitleToId.set(title, newRole.id);
+              created++;
+              roleCreated = true;
+            }
+
+            const email = getColEmail(row);
+            if (email) {
+              const user = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+              if (user) {
+                await storage.updateUser(user.id, { jobRole: title, department });
+                colleaguesUpdated++;
+              } else {
+                errors.push(`Row ${i + 1}: No user found with email "${email}"`);
+                if (!roleCreated) skipped++;
+              }
+            } else if (!roleCreated) {
+              skipped++;
+            }
           } catch (e: any) {
-            errors.push(`Row ${i + 1} (${row.title || 'unknown'}): ${e.message}`);
+            errors.push(`Row ${i + 1} (${getRoleTitle(row) || 'unknown'}): ${e.message}`);
             skipped++;
+          }
+        }
+
+        for (const deferred of deferredReportsTo) {
+          const parentId = roleTitleToId.get(deferred.reportsToTitle);
+          const roleId = roleTitleToId.get(deferred.roleTitle);
+          if (parentId !== undefined && roleId !== undefined) {
+            try {
+              await storage.updateJobRole(roleId, { reportsTo: parentId });
+            } catch (e: any) {
+              errors.push(`Failed to set Reports To for "${deferred.roleTitle}": ${e.message}`);
+            }
           }
         }
       } else if (type === "competencies") {
@@ -1046,7 +1114,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Unknown import type" });
       }
 
-      res.json({ created, skipped, errors });
+      res.json({ created, skipped, colleaguesUpdated, errors });
     } catch (error) {
       res.status(500).json({ message: "Import failed" });
     }

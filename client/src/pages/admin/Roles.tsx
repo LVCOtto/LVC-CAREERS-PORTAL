@@ -709,10 +709,10 @@ export default function AdminRoles() {
         open={isImportOpen}
         onOpenChange={setIsImportOpen}
         title="Import Job Roles"
-        description="Upload a CSV file to bulk-create job roles."
-        expectedColumns={['title', 'department', 'summary']}
+        description="Upload a CSV file to import job roles and assign colleagues. Roles are created if new; colleague assignments are updated when a matching email is found."
+        expectedColumns={['Role Title', 'Department', 'Reports To', 'Colleague Name', 'Colleague Email']}
         onImport={(rows) => api.importCsv('job-roles', rows)}
-        onComplete={() => invalidate('job-roles')}
+        onComplete={() => { invalidate('job-roles'); invalidate('users'); }}
       />
     </Layout>
   );

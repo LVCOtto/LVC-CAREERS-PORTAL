@@ -10,7 +10,7 @@ interface CsvImportDialogProps {
   title: string;
   description: string;
   expectedColumns: string[];
-  onImport: (rows: Record<string, string>[]) => Promise<{ created: number; skipped: number; errors: string[] }>;
+  onImport: (rows: Record<string, string>[]) => Promise<{ created: number; skipped: number; colleaguesUpdated?: number; errors: string[] }>;
   onComplete: () => void;
 }
 
@@ -73,7 +73,7 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
   const [parsedRows, setParsedRows] = useState<Record<string, string>[]>([]);
   const [fileName, setFileName] = useState('');
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ created: number; skipped: number; errors: string[] } | null>(null);
+  const [result, setResult] = useState<{ created: number; skipped: number; colleaguesUpdated?: number; errors: string[] } | null>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,7 +94,7 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
     try {
       const res = await onImport(parsedRows);
       setResult(res);
-      if (res.created > 0) onComplete();
+      if (res.created > 0 || (res.colleaguesUpdated && res.colleaguesUpdated > 0)) onComplete();
     } catch (e: any) {
       setResult({ created: 0, skipped: parsedRows.length, errors: [e.message] });
     } finally {
@@ -209,7 +209,7 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 )}
                 <span className="text-sm font-medium">
-                  {result.created} imported, {result.skipped} skipped
+                  {result.created} imported, {result.skipped} skipped{result.colleaguesUpdated ? `, ${result.colleaguesUpdated} colleagues updated` : ''}
                 </span>
               </div>
               {result.errors.length > 0 && (

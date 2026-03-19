@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight, Building2, Users, User } from 'lucide-react';
 import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
-import { useUsers, useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment } from '@/lib/hooks';
+import { useUsers, useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment, useRenameDepartment } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -79,6 +79,7 @@ export default function AdminRoles() {
   const deleteJobRole = useDeleteJobRole();
   const reorderJobRole = useReorderJobRole();
   const updateDepartment = useUpdateDepartment();
+  const renameDepartment = useRenameDepartment();
   const [draggingDeptId, setDraggingDeptId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -153,6 +154,17 @@ export default function AdminRoles() {
   if (!currentUser || currentUser.role !== 'admin') {
     return null;
   }
+
+  const handleRenameDepartment = (deptId: number, newName: string) => {
+    renameDepartment.mutate({ id: deptId, name: newName }, {
+      onSuccess: () => {
+        toast({ title: 'Department renamed', description: `Department renamed to "${newName}".` });
+      },
+      onError: (err: any) => {
+        toast({ title: 'Rename failed', description: err?.message || 'Could not rename department.', variant: 'destructive' });
+      },
+    });
+  };
 
   const toggleDept = (dept: string) => {
     setCollapsedDepts(prev => {
@@ -519,12 +531,14 @@ export default function AdminRoles() {
                     key={department}
                     id={department}
                     department={department}
+                    deptId={deptId}
                     deptTree={deptTree}
                     count={count}
                     color={color}
                     isCollapsed={collapsedDepts.has(department)}
                     onToggle={() => toggleDept(department)}
                     onAddRole={() => openCreate(undefined, department)}
+                    onRename={handleRenameDepartment}
                     renderTreeNode={renderTreeNode}
                     isDragging={draggingDeptId === department}
                   />
@@ -707,23 +721,56 @@ export default function AdminRoles() {
 interface SortableDeptProps {
   id: string;
   department: string;
+  deptId: number | null;
   deptTree: any[];
   count: number;
   color: string | null;
   isCollapsed: boolean;
   onToggle: () => void;
   onAddRole: () => void;
+  onRename: (deptId: number, newName: string) => void;
   renderTreeNode: (node: any, depth: number, siblingCount: number, siblingIndex: number) => React.ReactNode;
   isDragging: boolean;
 }
 
-function SortableDepartmentCard({ id, department, deptTree, count, color, isCollapsed, onToggle, onAddRole, renderTreeNode, isDragging }: SortableDeptProps) {
+function SortableDepartmentCard({ id, department, deptId, deptTree, count, color, isCollapsed, onToggle, onAddRole, onRename, renderTreeNode, isDragging }: SortableDeptProps) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(department);
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+  };
+
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditName(department);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    const trimmed = editName.trim();
+    if (trimmed && trimmed !== department && deptId) {
+      onRename(deptId, trimmed);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName(department);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      handleCancelEdit();
+    }
   };
 
   return (
@@ -734,7 +781,7 @@ function SortableDepartmentCard({ id, department, deptTree, count, color, isColl
       data-testid={`dept-section-${department}`}
     >
       <div
-        className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
+        className="group/dept flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors select-none"
         onClick={onToggle}
         data-testid={`button-toggle-dept-${department}`}
       >
@@ -757,7 +804,34 @@ function SortableDepartmentCard({ id, department, deptTree, count, color, isColl
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">{department}</span>
+            {isEditing ? (
+              <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onBlur={handleSaveEdit}
+                  autoFocus
+                  className="h-7 text-sm font-semibold w-48"
+                  data-testid={`input-rename-dept-${department}`}
+                />
+              </div>
+            ) : (
+              <>
+                <span className="font-semibold text-sm">{department}</span>
+                {deptId && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 opacity-0 group-hover/dept:opacity-100 transition-opacity"
+                    onClick={handleStartEdit}
+                    data-testid={`button-rename-dept-${department}`}
+                  >
+                    <Edit className="w-3 h-3 text-muted-foreground" />
+                  </Button>
+                )}
+              </>
+            )}
             <Badge variant="secondary" className="text-xs">
               <Users className="w-3 h-3 mr-1" />
               {count} role{count !== 1 ? 's' : ''}

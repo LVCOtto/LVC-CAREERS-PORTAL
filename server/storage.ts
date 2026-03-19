@@ -94,6 +94,7 @@ export interface IStorage {
   getDepartments(): Promise<schema.Department[]>;
   createDepartment(data: schema.InsertDepartment): Promise<schema.Department>;
   updateDepartment(id: number, data: Partial<schema.InsertDepartment>): Promise<schema.Department | undefined>;
+  renameDepartment(id: number, newName: string): Promise<schema.Department | undefined>;
   deleteDepartment(id: number): Promise<void>;
 
   getJobRoleInductionSections(jobRoleId: number): Promise<string[]>;
@@ -544,6 +545,36 @@ export class DatabaseStorage implements IStorage {
       .set(data)
       .where(eq(schema.departmentsTable.id, id))
       .returning();
+    return updated;
+  }
+
+  async renameDepartment(id: number, newName: string) {
+    const [existing] = await db.select().from(schema.departmentsTable).where(eq(schema.departmentsTable.id, id));
+    if (!existing) return undefined;
+    const oldName = existing.name;
+    if (oldName === newName) return existing;
+
+    const [updated] = await db.update(schema.departmentsTable)
+      .set({ name: newName })
+      .where(eq(schema.departmentsTable.id, id))
+      .returning();
+
+    await db.update(schema.jobRoles)
+      .set({ department: newName })
+      .where(eq(schema.jobRoles.department, oldName));
+
+    await db.update(schema.competencyCategories)
+      .set({ departmentType: newName })
+      .where(eq(schema.competencyCategories.departmentType, oldName));
+
+    await db.update(schema.users)
+      .set({ department: newName })
+      .where(eq(schema.users.department, oldName));
+
+    await db.update(schema.careerNodes)
+      .set({ department: newName })
+      .where(eq(schema.careerNodes.department, oldName));
+
     return updated;
   }
 

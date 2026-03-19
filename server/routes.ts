@@ -647,6 +647,21 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/departments/:id/rename", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+    try {
+      const updated = await storage.renameDepartment(id, name.trim());
+      if (!updated) return res.status(404).json({ message: "Department not found" });
+      res.json(updated);
+    } catch (e: any) {
+      res.status(400).json({ message: e.message });
+    }
+  });
+
   app.patch("/api/departments/:id", async (req, res) => {
     const id = parseInt(req.params.id);
     const updated = await storage.updateDepartment(id, req.body);

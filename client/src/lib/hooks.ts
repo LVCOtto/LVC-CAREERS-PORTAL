@@ -403,6 +403,19 @@ export function useUpdateDepartment() {
   });
 }
 
+export function useRenameDepartment() {
+  return useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) => api.departments.rename(id, name),
+    onSuccess: () => {
+      invalidate("departments");
+      invalidate("job-roles");
+      invalidate("competencies");
+      invalidate("users");
+      invalidate("career-nodes");
+    },
+  });
+}
+
 export function useDeleteDepartment() {
   return useMutation({
     mutationFn: (id: number) => api.departments.delete(id),

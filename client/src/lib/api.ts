@@ -114,6 +114,7 @@ export const api = {
     list: () => apiFetch<any[]>("/departments"),
     create: (data: any) => apiFetch<any>("/departments", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/departments/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    rename: (id: number, name: string) => apiFetch<any>(`/departments/${id}/rename`, { method: "PATCH", body: JSON.stringify({ name }) }),
     delete: (id: number) => apiFetch<void>(`/departments/${id}`, { method: "DELETE" }),
   },
   inductionSectionSettings: {

@@ -554,28 +554,30 @@ export class DatabaseStorage implements IStorage {
     const oldName = existing.name;
     if (oldName === newName) return existing;
 
-    const [updated] = await db.update(schema.departmentsTable)
-      .set({ name: newName })
-      .where(eq(schema.departmentsTable.id, id))
-      .returning();
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(schema.departmentsTable)
+        .set({ name: newName })
+        .where(eq(schema.departmentsTable.id, id))
+        .returning();
 
-    await db.update(schema.jobRoles)
-      .set({ department: newName })
-      .where(eq(schema.jobRoles.department, oldName));
+      await tx.update(schema.jobRoles)
+        .set({ department: newName })
+        .where(eq(schema.jobRoles.department, oldName));
 
-    await db.update(schema.competencyCategories)
-      .set({ departmentType: newName })
-      .where(eq(schema.competencyCategories.departmentType, oldName));
+      await tx.update(schema.competencyCategories)
+        .set({ departmentType: newName })
+        .where(eq(schema.competencyCategories.departmentType, oldName));
 
-    await db.update(schema.users)
-      .set({ department: newName })
-      .where(eq(schema.users.department, oldName));
+      await tx.update(schema.users)
+        .set({ department: newName })
+        .where(eq(schema.users.department, oldName));
 
-    await db.update(schema.careerNodes)
-      .set({ department: newName })
-      .where(eq(schema.careerNodes.department, oldName));
+      await tx.update(schema.careerNodes)
+        .set({ department: newName })
+        .where(eq(schema.careerNodes.department, oldName));
 
-    return updated;
+      return updated;
+    });
   }
 
   async deleteDepartment(id: number) {

@@ -533,12 +533,13 @@ function InductionShareBar({ memberId, toast }: { memberId: string; toast: any }
   );
 }
 
-function InductionSectionView({ items, completeItem, currentUser, memberId, toast }: {
+function InductionSectionView({ items, completeItem, currentUser, memberId, toast, readOnly = false }: {
   items: any[];
   completeItem: any;
   currentUser: any;
   memberId: string;
   toast: any;
+  readOnly?: boolean;
 }) {
   const sections = Array.from(new Set(items.map((i: any) => i.section)));
 
@@ -583,13 +584,13 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
               <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead style={{ width: '24%' }}>Item</TableHead>
+                    <TableHead style={{ width: readOnly ? '30%' : '24%' }}>Item</TableHead>
                     <TableHead style={{ width: '12%' }}>Assigned To</TableHead>
-                    <TableHead style={{ width: '10%' }}>Status</TableHead>
+                    <TableHead style={{ width: readOnly ? '14%' : '10%' }}>Status</TableHead>
                     <TableHead style={{ width: '11%' }}>Target</TableHead>
                     <TableHead style={{ width: '11%' }}>Completed</TableHead>
-                    <TableHead style={{ width: '12%' }}>Signed Off</TableHead>
-                    <TableHead style={{ width: '20%' }} className="text-right">Actions</TableHead>
+                    <TableHead style={{ width: readOnly ? '14%' : '12%' }}>Signed Off</TableHead>
+                    {!readOnly && <TableHead style={{ width: '20%' }} className="text-right">Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -602,7 +603,11 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                         )}
                       </TableCell>
                       <TableCell>
-                        <AssignToInput item={item} completeItem={completeItem} toast={toast} />
+                        {readOnly ? (
+                          <span className="text-xs text-muted-foreground">{item.assignedTo || '-'}</span>
+                        ) : (
+                          <AssignToInput item={item} completeItem={completeItem} toast={toast} />
+                        )}
                       </TableCell>
                       <TableCell>
                         {item.signedOffBy ? (
@@ -629,6 +634,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                           </div>
                         ) : '-'}
                       </TableCell>
+                      {!readOnly && (
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           {!item.inProgress && !item.completed && (
@@ -773,6 +779,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                           )}
                         </div>
                       </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -1051,32 +1058,35 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                 </div>
               </div>
             )}
-            <div className={member?.requiresInduction === false ? 'opacity-50' : ''}>
-              <div className="flex items-center justify-between gap-2 mb-4">
-                <InductionShareBar memberId={memberId} toast={toast} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 shrink-0"
-                  data-testid="button-export-induction-pdf"
-                  onClick={() => {
-                    if (member && items.length > 0) {
-                      exportInductionPdf(member.name, member.jobRole || '', member.department || '', items);
-                      toast({ title: 'PDF exported', description: `Induction report for ${member.name} has been downloaded.` });
-                    }
-                  }}
-                  disabled={!items.length}
-                >
-                  <Download className="h-4 w-4" />
-                  Export PDF
-                </Button>
-              </div>
+            <div className={member?.requiresInduction === false ? 'opacity-60' : ''}>
+              {member?.requiresInduction !== false && (
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <InductionShareBar memberId={memberId} toast={toast} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 shrink-0"
+                    data-testid="button-export-induction-pdf"
+                    onClick={() => {
+                      if (member && items.length > 0) {
+                        exportInductionPdf(member.name, member.jobRole || '', member.department || '', items);
+                        toast({ title: 'PDF exported', description: `Induction report for ${member.name} has been downloaded.` });
+                      }
+                    }}
+                    disabled={!items.length}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export PDF
+                  </Button>
+                </div>
+              )}
               <InductionSectionView
                 items={items}
                 completeItem={completeItem}
                 currentUser={currentUser}
                 memberId={memberId}
                 toast={toast}
+                readOnly={member?.requiresInduction === false}
               />
             </div>
           </TabsContent>

@@ -933,42 +933,39 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Induction Progress</CardTitle>
-                {member?.requiresInduction === false ? (
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-600">Not Required</Badge>
-                ) : (
-                  instance && <StatusBadge status={instance.status} />
-                )}
+                <div className="flex items-center gap-2">
+                  {member?.requiresInduction === false && (
+                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Not Required
+                    </Badge>
+                  )}
+                  {instance && <StatusBadge status={instance.status} />}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              {member?.requiresInduction === false ? (
-                <div className="text-center py-4">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Induction is not required for this colleague.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-muted-foreground">
-                        {inductionProgress.completed} / {inductionProgress.total} items
-                      </span>
-                      <span className="font-medium">{inductionProgress.progressPercent}%</span>
-                    </div>
-                    <Progress value={inductionProgress.progressPercent} className="h-3" />
+              <div className={`space-y-4 ${member?.requiresInduction === false ? 'opacity-50' : ''}`}>
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-muted-foreground">
+                      {inductionProgress.completed} / {inductionProgress.total} items
+                    </span>
+                    <span className="font-medium">{inductionProgress.progressPercent}%</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-4 pt-2">
-                    <div className="text-center p-3 rounded-lg bg-muted/50">
-                      <p className="text-2xl font-bold">{inductionProgress.completed}</p>
-                      <p className="text-xs text-muted-foreground">Completed</p>
-                    </div>
-                    <div className="text-center p-3 rounded-lg bg-emerald-500/10">
-                      <p className="text-2xl font-bold text-emerald-700">{inductionProgress.signedOff}</p>
-                      <p className="text-xs text-muted-foreground">Signed Off</p>
-                    </div>
+                  <Progress value={inductionProgress.progressPercent} className="h-3" />
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="text-center p-3 rounded-lg bg-muted/50">
+                    <p className="text-2xl font-bold">{inductionProgress.completed}</p>
+                    <p className="text-xs text-muted-foreground">Completed</p>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-emerald-500/10">
+                    <p className="text-2xl font-bold text-emerald-700">{inductionProgress.signedOff}</p>
+                    <p className="text-xs text-muted-foreground">Signed Off</p>
                   </div>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
 
@@ -1045,46 +1042,43 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
           </TabsList>
 
           <TabsContent value="induction" className="mt-6">
-            {member && member.requiresInduction === false ? (
-              <Card className="border-border/50">
-                <CardContent className="py-12 text-center">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-                  <p className="font-medium text-lg" data-testid="text-induction-not-required">Induction Not Required</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    This colleague does not require an induction — they may be existing staff or have already completed it.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <InductionShareBar memberId={memberId} toast={toast} />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-2 shrink-0"
-                    data-testid="button-export-induction-pdf"
-                    onClick={() => {
-                      if (member && items.length > 0) {
-                        exportInductionPdf(member.name, member.jobRole || '', member.department || '', items);
-                        toast({ title: 'PDF exported', description: `Induction report for ${member.name} has been downloaded.` });
-                      }
-                    }}
-                    disabled={!items.length}
-                  >
-                    <Download className="h-4 w-4" />
-                    Export PDF
-                  </Button>
+            {member && member.requiresInduction === false && (
+              <div className="flex items-center gap-3 px-4 py-3 mb-4 rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800" data-testid="text-induction-not-required">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm text-emerald-800 dark:text-emerald-200">Induction Not Required</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400">This colleague does not require an induction. The record below is shown for reference only.</p>
                 </div>
-                <InductionSectionView
-                  items={items}
-                  completeItem={completeItem}
-                  currentUser={currentUser}
-                  memberId={memberId}
-                  toast={toast}
-                />
-              </>
+              </div>
             )}
+            <div className={member?.requiresInduction === false ? 'opacity-50' : ''}>
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <InductionShareBar memberId={memberId} toast={toast} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 shrink-0"
+                  data-testid="button-export-induction-pdf"
+                  onClick={() => {
+                    if (member && items.length > 0) {
+                      exportInductionPdf(member.name, member.jobRole || '', member.department || '', items);
+                      toast({ title: 'PDF exported', description: `Induction report for ${member.name} has been downloaded.` });
+                    }
+                  }}
+                  disabled={!items.length}
+                >
+                  <Download className="h-4 w-4" />
+                  Export PDF
+                </Button>
+              </div>
+              <InductionSectionView
+                items={items}
+                completeItem={completeItem}
+                currentUser={currentUser}
+                memberId={memberId}
+                toast={toast}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="training" className="mt-6">

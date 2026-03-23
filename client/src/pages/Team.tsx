@@ -621,10 +621,18 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
                         )}
                       </TableCell>
                       <TableCell>
-                        <TargetDateCell item={item} completeItem={completeItem} />
+                        {readOnly ? (
+                          <span className="text-sm text-muted-foreground">{item.targetDate ? new Date(item.targetDate).toLocaleDateString('en-GB') : '-'}</span>
+                        ) : (
+                          <TargetDateCell item={item} completeItem={completeItem} />
+                        )}
                       </TableCell>
                       <TableCell>
-                        <CompletedDateCell item={item} completeItem={completeItem} />
+                        {readOnly ? (
+                          <span className="text-sm text-muted-foreground">{item.completedDate ? new Date(item.completedDate).toLocaleDateString('en-GB') : '-'}</span>
+                        ) : (
+                          <CompletedDateCell item={item} completeItem={completeItem} />
+                        )}
                       </TableCell>
                       <TableCell>
                         {item.signedOffBy ? (

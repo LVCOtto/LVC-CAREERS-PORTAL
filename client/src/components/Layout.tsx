@@ -303,7 +303,7 @@ export function Layout({ children }: LayoutProps) {
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-2 py-1.5">
                 <p className="text-sm font-medium">{currentUser.name}</p>
-                <p className="text-xs text-muted-foreground">{currentUser.email}</p>
+                <p className="text-xs text-muted-foreground">{currentUser.email || ''}</p>
                 <span
                   className={cn(
                     'inline-block mt-1.5 px-2 py-0.5 rounded text-xs font-medium capitalize',

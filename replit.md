@@ -29,7 +29,7 @@ Employee training management system for LVC (cleaning equipment company) support
 - `client/src/pages/ArchitectStudio.tsx` - Architect Studio for portal customisation
 
 ### Database Tables
-- `users` - Colleagues, managers, admins, architects (varchar IDs like 'colleague-1'). Includes `requiresInduction` boolean flag — when false, Induction page/nav is hidden for that user
+- `users` - Colleagues, managers, admins, architects (varchar IDs like 'colleague-1'). Includes `requiresInduction` boolean flag — when false, Induction page/nav is hidden for that user. `activated` boolean — accounts without username/email/password are inactive and cannot log in. `email`, `username`, `password` are nullable to support importing users with just a name.
 - `induction_template_items` - Template checklist items
 - `induction_instances` - Per-user induction instances
 - `induction_item_completions` - Completion tracking per item

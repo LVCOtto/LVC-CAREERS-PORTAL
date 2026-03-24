@@ -33,13 +33,24 @@ export async function registerRoutes(
         .replace(/^-|-$/g, "");
       body.id = `${slug}-${Date.now().toString(36)}`;
     }
+    if (body.username && body.email && body.password) {
+      body.activated = true;
+    }
     const user = await storage.createUser(body);
     res.status(201).json(user);
   });
 
   app.patch("/api/users/:id", async (req, res) => {
-    const user = await storage.updateUser(req.params.id, req.body);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const existing = await storage.getUser(req.params.id);
+    if (!existing) return res.status(404).json({ message: "User not found" });
+    const data = { ...req.body };
+    const mergedUsername = data.username !== undefined ? data.username : existing.username;
+    const mergedEmail = data.email !== undefined ? data.email : existing.email;
+    const mergedPassword = data.password !== undefined ? data.password : existing.password;
+    if (mergedUsername && mergedEmail && mergedPassword) {
+      data.activated = true;
+    }
+    const user = await storage.updateUser(req.params.id, data);
     res.json(user);
   });
 
@@ -55,9 +66,13 @@ export async function registerRoutes(
 
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
+    if (!username) return res.status(401).json({ message: "Invalid credentials" });
     const user = await storage.getUserByUsername(username);
     if (!user || user.password !== password) {
       return res.status(401).json({ message: "Invalid credentials" });
+    }
+    if (!user.activated) {
+      return res.status(403).json({ message: "Account not yet activated — contact your administrator" });
     }
     res.json(user);
   });
@@ -736,9 +751,9 @@ export async function registerRoutes(
 
       if (type === "users") {
         const users = await storage.getAllUsers();
-        csvContent = "ID,Name,Email,Role,Job Role,Department,Manager ID,Start Date,Requires Induction\n";
+        csvContent = "ID,Name,Email,Username,Role,Job Role,Department,Manager ID,Start Date,Requires Induction,Activated\n";
         csvContent += users.map(u =>
-          `"${u.id}","${u.name}","${u.email}","${u.role}","${u.jobRole}","${u.department}","${u.managerId || ''}","${u.startDate}",${u.requiresInduction}`
+          `"${u.id}","${u.name}","${u.email || ''}","${u.username || ''}","${u.role}","${u.jobRole}","${u.department}","${u.managerId || ''}","${u.startDate}",${u.requiresInduction},${u.activated}`
         ).join("\n");
         filename = "users.csv";
       } else if (type === "training-records") {
@@ -856,26 +871,28 @@ export async function registerRoutes(
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           try {
-            if (!row.name || !row.email || !row.username) {
-              errors.push(`Row ${i + 1}: Missing required field (name, email, or username)`);
+            if (!row.name) {
+              errors.push(`Row ${i + 1}: Missing required field (name)`);
               skipped++;
               continue;
             }
             const slug = row.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
             const ri = row.requiresInduction || row.requires_induction || "";
             const requiresInduction = ri === "true" || ri === "yes" || ri === "1";
+            const hasCredentials = !!(row.username && row.email && row.password);
             await storage.createUser({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
-              username: row.username,
-              password: row.password || "password",
+              username: row.username || null,
+              password: row.password || null,
               name: row.name,
-              email: row.email,
+              email: row.email || null,
               role: row.role || "colleague",
               jobRole: row.jobRole || row.job_role || "",
               department: row.department || "",
               managerId: row.managerId || row.manager_id || null,
               startDate: row.startDate || row.start_date || new Date().toISOString().split("T")[0],
               requiresInduction,
+              activated: hasCredentials,
             });
             created++;
           } catch (e: any) {
@@ -932,7 +949,7 @@ export async function registerRoutes(
 
             const email = getColEmail(row);
             if (email) {
-              const user = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+              const user = allUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
               if (user) {
                 await storage.updateUser(user.id, { jobRole: title, department });
                 colleaguesUpdated++;

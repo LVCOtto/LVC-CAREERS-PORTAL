@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search, UserPlus, Edit, Trash2, Shield, Users as UsersIcon, User as UserIcon, Download, Upload } from 'lucide-react';
+import { Search, UserPlus, Edit, Trash2, Shield, Users as UsersIcon, User as UserIcon, Download, Upload, CircleDot, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useDepartments, useJobRoles } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
@@ -64,6 +64,8 @@ export default function AdminUsers() {
   const [editManagerId, setEditManagerId] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
   const [editRequiresInduction, setEditRequiresInduction] = useState(true);
+  const [editUsername, setEditUsername] = useState('');
+  const [editPassword, setEditPassword] = useState('');
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   const { data: users = [], isLoading } = useUsers();
@@ -83,25 +85,29 @@ export default function AdminUsers() {
     setEditManagerId(user.managerId || '');
     setEditStartDate(user.startDate || '');
     setEditRequiresInduction(user.requiresInduction !== false);
+    setEditUsername(user.username || '');
+    setEditPassword('');
     setIsEditDialogOpen(true);
   };
 
   const handleEditUser = async () => {
-    if (!editingUser || !editName.trim() || !editEmail.trim()) return;
+    if (!editingUser || !editName.trim()) return;
     try {
-      await updateUser.mutateAsync({
-        id: editingUser.id,
-        data: {
-          name: editName,
-          email: editEmail,
-          role: editRole,
-          jobRole: editJobRole,
-          department: editDepartment,
-          managerId: editManagerId || null,
-          startDate: editStartDate,
-          requiresInduction: editRequiresInduction,
-        },
-      });
+      const data: any = {
+        name: editName,
+        email: editEmail || null,
+        role: editRole,
+        jobRole: editJobRole,
+        department: editDepartment,
+        managerId: editManagerId || null,
+        startDate: editStartDate,
+        requiresInduction: editRequiresInduction,
+      };
+      if (!editingUser.activated) {
+        if (editUsername.trim()) data.username = editUsername;
+        if (editPassword.trim()) data.password = editPassword;
+      }
+      await updateUser.mutateAsync({ id: editingUser.id, data });
       toast({ title: 'User updated', description: 'User details have been saved.' });
       setIsEditDialogOpen(false);
       setEditingUser(null);
@@ -117,7 +123,7 @@ export default function AdminUsers() {
   const filteredUsers = users.filter(
     (user: any) =>
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.jobRole.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -148,13 +154,13 @@ export default function AdminUsers() {
   };
 
   const handleAddUser = async () => {
-    if (!newName.trim() || !newEmail.trim() || !newUsername.trim()) return;
+    if (!newName.trim()) return;
     try {
       await createUser.mutateAsync({
         name: newName,
-        email: newEmail,
-        username: newUsername,
-        password: newPassword || 'password',
+        email: newEmail || null,
+        username: newUsername || null,
+        password: newPassword || null,
         role: newRole,
         jobRole: newJobRole,
         department: newDepartment,
@@ -338,7 +344,7 @@ export default function AdminUsers() {
           <div className="flex justify-center py-12"><Spinner /></div>
         ) : (
           <>
-            <div className="grid md:grid-cols-4 gap-4">
+            <div className="grid md:grid-cols-5 gap-4">
               <Card className="border-border/50">
                 <CardContent className="pt-6">
                   <p className="text-3xl font-display font-bold">{users.length}</p>
@@ -347,10 +353,18 @@ export default function AdminUsers() {
               </Card>
               <Card className="border-border/50">
                 <CardContent className="pt-6">
-                  <p className="text-3xl font-display font-bold">
-                    {users.filter((u: any) => u.role === 'admin').length}
+                  <p className="text-3xl font-display font-bold text-emerald-600">
+                    {users.filter((u: any) => u.activated).length}
                   </p>
-                  <p className="text-sm text-muted-foreground">Administrators</p>
+                  <p className="text-sm text-muted-foreground">Active</p>
+                </CardContent>
+              </Card>
+              <Card className="border-border/50">
+                <CardContent className="pt-6">
+                  <p className="text-3xl font-display font-bold text-muted-foreground">
+                    {users.filter((u: any) => !u.activated).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Inactive</p>
                 </CardContent>
               </Card>
               <Card className="border-border/50">
@@ -397,6 +411,7 @@ export default function AdminUsers() {
                       <TableHead>Name</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Job Title</TableHead>
                       <TableHead>Department</TableHead>
                       <TableHead>Manager</TableHead>
@@ -407,8 +422,21 @@ export default function AdminUsers() {
                     {filteredUsers.map((user: any) => (
                       <TableRow key={user.id} data-testid={`user-row-${user.id}`}>
                         <TableCell className="font-medium">{user.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                        <TableCell className="text-muted-foreground">{user.email || <span className="text-xs italic">Not set</span>}</TableCell>
                         <TableCell>{getRoleBadge(user.role)}</TableCell>
+                        <TableCell data-testid={`status-${user.id}`}>
+                          {user.activated ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground gap-1">
+                              <CircleDot className="w-3 h-3" />
+                              Inactive
+                            </Badge>
+                          )}
+                        </TableCell>
                         <TableCell>{user.jobRole}</TableCell>
                         <TableCell>{user.department}</TableCell>
                         <TableCell>
@@ -444,9 +472,20 @@ export default function AdminUsers() {
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
               <DialogDescription>
-                Update user account details.
+                {editingUser && !editingUser.activated
+                  ? 'Fill in email, username and password to activate this account.'
+                  : 'Update user account details.'}
               </DialogDescription>
             </DialogHeader>
+            {editingUser && !editingUser.activated && (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800" data-testid="text-activation-notice">
+                <CircleDot className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <p className="font-medium text-sm text-amber-800 dark:text-amber-200">Account Inactive</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Provide email, username and password below to activate this account for login.</p>
+                </div>
+              </div>
+            )}
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Full Name</Label>
@@ -456,11 +495,22 @@ export default function AdminUsers() {
                 <Label htmlFor="edit-email">Email</Label>
                 <Input id="edit-email" type="email" placeholder="Enter email address" value={editEmail} onChange={e => setEditEmail(e.target.value)} data-testid="input-edit-user-email" />
               </div>
-              {editingUser && (
+              {editingUser && editingUser.activated ? (
                 <div className="space-y-2">
                   <Label>Username</Label>
                   <Input value={editingUser.username || ''} disabled className="bg-muted" data-testid="input-edit-user-username" />
                 </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-username">Username</Label>
+                    <Input id="edit-username" placeholder="Enter username" value={editUsername} onChange={e => setEditUsername(e.target.value)} data-testid="input-edit-user-username" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-password">Password</Label>
+                    <Input id="edit-password" type="password" placeholder="Enter password" value={editPassword} onChange={e => setEditPassword(e.target.value)} data-testid="input-edit-user-password" />
+                  </div>
+                </>
               )}
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Role</Label>
@@ -557,8 +607,8 @@ export default function AdminUsers() {
           open={isImportOpen}
           onOpenChange={setIsImportOpen}
           title="Import Users"
-          description="Upload a CSV to bulk-create user accounts. Existing usernames will be skipped. requiresInduction defaults to false (existing staff)."
-          expectedColumns={['name', 'email', 'username', 'password', 'role', 'jobRole', 'department', 'startDate', 'requiresInduction']}
+          description="Upload a CSV to bulk-create user accounts. Only 'name' is required — accounts without email/username/password will be created as inactive and can be activated later."
+          expectedColumns={['name', 'role', 'jobRole', 'department', 'email', 'username', 'password', 'startDate', 'requiresInduction']}
           onImport={(rows) => api.importCsv('users', rows)}
           onComplete={() => invalidate('users')}
         />

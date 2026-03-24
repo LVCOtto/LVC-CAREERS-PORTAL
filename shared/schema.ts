@@ -4,16 +4,17 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: varchar("id", { length: 50 }).primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  username: text("username").unique(),
+  password: text("password"),
   name: text("name").notNull(),
-  email: text("email").notNull(),
+  email: text("email"),
   role: text("role").notNull(),
   jobRole: text("job_role").notNull(),
   department: text("department").notNull(),
   managerId: varchar("manager_id", { length: 50 }),
   startDate: text("start_date").notNull(),
   requiresInduction: boolean("requires_induction").notNull().default(true),
+  activated: boolean("activated").notNull().default(false),
 });
 
 export const insertUserSchema = createInsertSchema(users);

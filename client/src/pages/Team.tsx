@@ -924,7 +924,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                 </div>
                 <div>
                   <p className="font-semibold" data-testid="text-name">{member.name}</p>
-                  <p className="text-sm text-muted-foreground" data-testid="text-email">{member.email}</p>
+                  <p className="text-sm text-muted-foreground" data-testid="text-email">{member.email || ''}</p>
                 </div>
               </div>
               <div className="space-y-3 pt-4 border-t">

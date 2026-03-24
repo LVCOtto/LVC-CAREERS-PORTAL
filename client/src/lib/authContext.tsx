@@ -5,15 +5,16 @@ export type UserRole = 'colleague' | 'manager' | 'admin' | 'architect';
 
 export interface User {
   id: string;
-  username: string;
+  username: string | null;
   name: string;
-  email: string;
+  email: string | null;
   role: UserRole;
   jobRole: string;
   department: string;
   managerId?: string | null;
   startDate: string;
   requiresInduction: boolean;
+  activated: boolean;
 }
 
 interface AuthContextType {

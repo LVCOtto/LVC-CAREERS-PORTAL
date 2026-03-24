@@ -93,7 +93,7 @@ export default function AdminUsers() {
   const handleEditUser = async () => {
     if (!editingUser || !editName.trim()) return;
     try {
-      const data: any = {
+      const data: Record<string, string | boolean | null> = {
         name: editName,
         email: editEmail || null,
         role: editRole,

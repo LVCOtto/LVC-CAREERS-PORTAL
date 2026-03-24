@@ -47,9 +47,8 @@ export async function registerRoutes(
     const mergedUsername = data.username !== undefined ? data.username : existing.username;
     const mergedEmail = data.email !== undefined ? data.email : existing.email;
     const mergedPassword = data.password !== undefined ? data.password : existing.password;
-    if (mergedUsername && mergedEmail && mergedPassword) {
-      data.activated = true;
-    }
+    const hasAllCredentials = !!(mergedUsername && mergedEmail && mergedPassword);
+    data.activated = hasAllCredentials;
     const user = await storage.updateUser(req.params.id, data);
     res.json(user);
   });

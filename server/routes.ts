@@ -68,11 +68,14 @@ export async function registerRoutes(
     const { username, password } = req.body;
     if (!username) return res.status(401).json({ message: "Invalid credentials" });
     const user = await storage.getUserByUsername(username);
-    if (!user || user.password !== password) {
+    if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
     if (!user.activated) {
       return res.status(403).json({ message: "Account not yet activated — contact your administrator" });
+    }
+    if (user.password !== password) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
     res.json(user);
   });

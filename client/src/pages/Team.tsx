@@ -1375,17 +1375,24 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                   <div className="flex items-center justify-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                   </div>
-                ) : memberMatrix && categories.length > 0 ? (
-                  <IndividualView
-                    name={memberMatrix.name}
-                    jobRole={memberMatrix.role}
-                    department={memberMatrix.department}
-                    ratings={memberMatrix.ratings}
-                    lastAssessment={memberMatrix.lastAssessment}
-                    categories={categories}
-                    showBackButton={false}
-                    compact
-                  />
+                ) : categories.length > 0 ? (
+                  <>
+                    {!memberMatrix && (
+                      <div className="mb-4 p-3 rounded-lg bg-muted/40 border text-sm text-muted-foreground">
+                        No self-assessment submitted yet — skill categories shown below are configured for this role.
+                      </div>
+                    )}
+                    <IndividualView
+                      name={member.name}
+                      jobRole={member.jobRole || ''}
+                      department={member.department}
+                      ratings={(memberMatrix?.ratings as Record<string, number>) || {}}
+                      lastAssessment={memberMatrix?.lastAssessment}
+                      categories={categories}
+                      showBackButton={false}
+                      compact
+                    />
+                  </>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-40" />

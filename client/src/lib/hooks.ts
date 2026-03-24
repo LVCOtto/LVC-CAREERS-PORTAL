@@ -340,6 +340,7 @@ export function useSetJobRoleCategories() {
     onSuccess: () => {
       invalidate("job-role-categories");
       invalidate("job-roles");
+      invalidate("competencies-for-role");
     },
   });
 }

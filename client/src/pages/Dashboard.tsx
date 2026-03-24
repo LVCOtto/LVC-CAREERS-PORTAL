@@ -14,6 +14,7 @@ import {
   useUserCertificates,
   useTeamMembers,
   useUsers,
+  useCompetenciesForRole,
 } from '@/lib/hooks';
 import {
   ClipboardCheck,
@@ -42,8 +43,9 @@ function ColleagueDashboard({ user }: { user: User }) {
   const { data: inductionData, isLoading: inductionLoading } = useInduction(user.id);
   const { data: trainingRecords = [], isLoading: trainingLoading } = useTrainingRecords(user.id);
   const { data: userCertificates = [], isLoading: certsLoading } = useUserCertificates(user.id);
+  const { data: roleCompetencies = [], isLoading: competenciesLoading } = useCompetenciesForRole(user.jobRole || undefined);
 
-  const isLoading = inductionLoading || trainingLoading || certsLoading;
+  const isLoading = inductionLoading || trainingLoading || certsLoading || competenciesLoading;
 
   if (isLoading) {
     return (
@@ -95,7 +97,7 @@ function ColleagueDashboard({ user }: { user: User }) {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-6 mt-8">
+          <div className={`grid gap-6 mt-8 ${user.requiresInduction ? 'grid-cols-3' : 'grid-cols-2'}`}>
             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
@@ -118,17 +120,19 @@ function ColleagueDashboard({ user }: { user: User }) {
                 </div>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
-                  <Trophy className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{inductionProgressPercent}%</p>
-                  <p className="text-sm text-white/70">Induction Progress</p>
+            {user.requiresInduction && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-white/20 flex items-center justify-center">
+                    <Trophy className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">{inductionProgressPercent}%</p>
+                    <p className="text-sm text-white/70">Induction Progress</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -149,55 +153,59 @@ function ColleagueDashboard({ user }: { user: User }) {
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Link href="/induction">
-              <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-induction-card">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${inductionProgressPercent === 100 ? 'bg-emerald-100' : 'bg-primary/10'}`}>
-                      <ClipboardCheck className={`h-6 w-6 ${inductionProgressPercent === 100 ? 'text-emerald-600' : 'text-primary'}`} />
+            {user.requiresInduction && (
+              <Link href="/induction">
+                <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-induction-card">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${inductionProgressPercent === 100 ? 'bg-emerald-100' : 'bg-primary/10'}`}>
+                        <ClipboardCheck className={`h-6 w-6 ${inductionProgressPercent === 100 ? 'text-emerald-600' : 'text-primary'}`} />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Induction & Onboarding</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {inductionProgressPercent === 100
+                            ? 'Completed - Great job!'
+                            : `${completedItems} of ${totalItems} items completed`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold">Induction & Onboarding</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {inductionProgressPercent === 100
-                          ? 'Completed - Great job!'
-                          : `${completedItems} of ${totalItems} items completed`}
-                      </p>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <Progress value={inductionProgressPercent} className="w-32 h-2" />
+                        <p className="text-sm text-muted-foreground mt-1">{inductionProgressPercent}%</p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <Progress value={inductionProgressPercent} className="w-32 h-2" />
-                      <p className="text-sm text-muted-foreground mt-1">{inductionProgressPercent}%</p>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            )}
 
-            <Link href="/training">
-              <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-training-card">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                      <Target className="h-6 w-6 text-purple-600" />
+            {roleCompetencies.length > 0 && (
+              <Link href="/training">
+                <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-training-card">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                        <Target className="h-6 w-6 text-purple-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold">Skills & Development</h3>
+                        <p className="text-sm text-muted-foreground">View your training matrix and skill levels</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold">Skills & Development</h3>
-                      <p className="text-sm text-muted-foreground">View your training matrix and skill levels</p>
+                    <div className="flex items-center gap-4">
+                      <Badge variant="secondary" className="gap-1">
+                        <GraduationCap className="h-3 w-3" />
+                        View Matrix
+                      </Badge>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <Badge variant="secondary" className="gap-1">
-                      <GraduationCap className="h-3 w-3" />
-                      View Matrix
-                    </Badge>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                   </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            )}
 
             <Link href="/milestones">
               <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-milestones-card">

@@ -194,7 +194,9 @@ export function IndividualView({
   compact?: boolean;
 }) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set([categories[0]?.slug]));
+  const [detailsExpanded, setDetailsExpanded] = useState(false);
   const overallAvg = calculateOverallAverage(ratings, categories);
+  const totalCompetencies = categories.reduce((count: number, category: any) => count + category.items.length, 0);
 
   const toggleCategory = (categorySlug: string) => {
     setExpandedCategories((prev) => {
@@ -266,18 +268,37 @@ export function IndividualView({
         })}
       </div>
 
-      <CompetencyLegend />
+      <div className="border rounded-xl overflow-hidden">
+        <button
+          onClick={() => setDetailsExpanded((prev) => !prev)}
+          className="w-full px-4 py-3 bg-muted/20 hover:bg-muted/35 transition-colors flex items-center justify-between"
+          data-testid="button-toggle-training-details"
+        >
+          <div className="flex items-center gap-2 text-left">
+            <span className="font-medium text-sm">Detailed competency results</span>
+            <Badge variant="secondary" className="text-xs">
+              {categories.length} categories • {totalCompetencies} skills
+            </Badge>
+          </div>
+          {detailsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
 
-      <div className="space-y-2">
-        {categories.map((category: any) => (
-          <CategorySection
-            key={category.slug}
-            category={category}
-            ratings={ratings}
-            expanded={expandedCategories.has(category.slug)}
-            onToggle={() => toggleCategory(category.slug)}
-          />
-        ))}
+        {detailsExpanded && (
+          <div className="border-t p-4 space-y-3 bg-background/80">
+            <CompetencyLegend />
+            <div className="space-y-2">
+              {categories.map((category: any) => (
+                <CategorySection
+                  key={category.slug}
+                  category={category}
+                  ratings={ratings}
+                  expanded={expandedCategories.has(category.slug)}
+                  onToggle={() => toggleCategory(category.slug)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

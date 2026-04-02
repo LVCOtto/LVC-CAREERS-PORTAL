@@ -4,13 +4,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Upload, FileText, AlertCircle, CheckCircle2, ArrowRight, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
+interface ImportResult {
+  created: number;
+  skipped: number;
+  colleaguesUpdated?: number;
+  accountsCreated?: number;
+  createdAccounts?: Array<{ name: string; email: string; temporaryPassword: string }>;
+  errors: string[];
+}
+
 interface CsvImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
   expectedColumns: string[];
-  onImport: (rows: Record<string, string>[]) => Promise<{ created: number; skipped: number; colleaguesUpdated?: number; errors: string[] }>;
+  onImport: (rows: Record<string, string>[]) => Promise<ImportResult>;
   onComplete: () => void;
 }
 
@@ -73,7 +82,7 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
   const [parsedRows, setParsedRows] = useState<Record<string, string>[]>([]);
   const [fileName, setFileName] = useState('');
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<{ created: number; skipped: number; colleaguesUpdated?: number; errors: string[] } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -94,7 +103,7 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
     try {
       const res = await onImport(parsedRows);
       setResult(res);
-      if (res.created > 0 || (res.colleaguesUpdated && res.colleaguesUpdated > 0)) onComplete();
+      if (res.created > 0 || (res.colleaguesUpdated && res.colleaguesUpdated > 0) || (res.accountsCreated && res.accountsCreated > 0)) onComplete();
     } catch (e: any) {
       setResult({ created: 0, skipped: parsedRows.length, errors: [e.message] });
     } finally {
@@ -208,10 +217,24 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 )}
-                <span className="text-sm font-medium">
-                  {result.created} imported, {result.skipped} skipped{result.colleaguesUpdated ? `, ${result.colleaguesUpdated} colleagues updated` : ''}
+                <span className="text-sm font-medium" data-testid="text-import-summary">
+                  {result.created} imported, {result.skipped} skipped{result.colleaguesUpdated ? `, ${result.colleaguesUpdated} colleagues updated` : ''}{result.accountsCreated ? `, ${result.accountsCreated} accounts created` : ''}
                 </span>
               </div>
+              {result.createdAccounts && result.createdAccounts.length > 0 && (
+                <div className="mt-2 mb-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3" data-testid="section-created-accounts">
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1.5">New accounts created — please note these temporary passwords:</p>
+                  <div className="space-y-1">
+                    {result.createdAccounts.map((account, i) => (
+                      <div key={i} className="text-xs flex items-center gap-2" data-testid={`row-created-account-${i}`}>
+                        <span className="font-medium text-blue-800 dark:text-blue-200">{account.name}</span>
+                        <span className="text-blue-600 dark:text-blue-400">({account.email})</span>
+                        <Badge variant="outline" className="text-xs font-mono bg-white dark:bg-blue-900" data-testid={`text-temp-password-${i}`}>{account.temporaryPassword}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {result.errors.length > 0 && (
                 <div className="text-xs text-amber-700 dark:text-amber-400 space-y-0.5 max-h-32 overflow-y-auto">
                   {result.errors.map((err, i) => <div key={i}>{err}</div>)}

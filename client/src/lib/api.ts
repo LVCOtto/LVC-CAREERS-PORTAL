@@ -134,7 +134,7 @@ export const api = {
     window.open(`${BASE}/export/${type}`, "_blank");
   },
   importCsv: (type: string, rows: any[]) =>
-    apiFetch<{ created: number; skipped: number; colleaguesUpdated?: number; errors: string[] }>(`/import/${type}`, {
+    apiFetch<{ created: number; skipped: number; colleaguesUpdated?: number; accountsCreated?: number; createdAccounts?: Array<{ name: string; email: string; temporaryPassword: string }>; errors: string[] }>(`/import/${type}`, {
       method: "POST",
       body: JSON.stringify({ rows }),
     }),

@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import multer from "multer";
 import { exportFullBackup } from "./backup";
 import { importFullBackup } from "./restore";
+import { randomInt } from "crypto";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -867,6 +868,8 @@ export async function registerRoutes(
       let created = 0;
       let skipped = 0;
       let colleaguesUpdated = 0;
+      let accountsCreated = 0;
+      const createdAccounts: Array<{ name: string; email: string; temporaryPassword: string }> = [];
       const errors: string[] = [];
 
       if (type === "users") {
@@ -956,8 +959,45 @@ export async function registerRoutes(
                 await storage.updateUser(user.id, { jobRole: title, department });
                 colleaguesUpdated++;
               } else {
-                errors.push(`Row ${i + 1}: No user found with email "${email}"`);
-                if (!roleCreated) skipped++;
+                const colleagueName = row["colleague_name"] || row.colleaguename || "";
+                if (colleagueName) {
+                  const nameParts = colleagueName.trim().split(/\s+/);
+                  const firstInitial = nameParts[0]?.[0]?.toUpperCase() || "U";
+                  const surname = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+                  const surnameFormatted = surname.charAt(0).toUpperCase() + surname.slice(1).toLowerCase();
+                  const randomDigits = randomInt(1000, 10000);
+                  const temporaryPassword = `${firstInitial}${surnameFormatted}${randomDigits}`;
+                  const usernameBase = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
+                  let username = usernameBase;
+                  const existingUsernames = new Set(allUsers.map(u => u.username));
+                  if (existingUsernames.has(username)) {
+                    let suffix = 1;
+                    while (existingUsernames.has(`${usernameBase}.${suffix}`)) suffix++;
+                    username = `${usernameBase}.${suffix}`;
+                  }
+                  const slug = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+                  const userId = `${slug}-${Date.now().toString(36)}${i}`;
+                  const today = new Date().toISOString().split("T")[0];
+                  await storage.createUser({
+                    id: userId,
+                    username,
+                    password: temporaryPassword,
+                    name: colleagueName,
+                    email: email,
+                    role: "colleague",
+                    jobRole: title,
+                    department: department,
+                    managerId: null,
+                    startDate: today,
+                    requiresInduction: true,
+                  });
+                  allUsers.push({ id: userId, username, password: temporaryPassword, name: colleagueName, email, role: "colleague", jobRole: title, department, managerId: null, startDate: today, requiresInduction: true });
+                  accountsCreated++;
+                  createdAccounts.push({ name: colleagueName, email, temporaryPassword });
+                } else {
+                  errors.push(`Row ${i + 1}: No user found with email "${email}" and no colleague name provided to create account`);
+                  if (!roleCreated) skipped++;
+                }
               }
             } else if (!roleCreated) {
               skipped++;
@@ -1133,7 +1173,7 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Unknown import type" });
       }
 
-      res.json({ created, skipped, colleaguesUpdated, errors });
+      res.json({ created, skipped, colleaguesUpdated, accountsCreated, createdAccounts, errors });
     } catch (error) {
       res.status(500).json({ message: "Import failed" });
     }

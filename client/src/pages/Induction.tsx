@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuth, User } from '@/lib/authContext';
 import { useInduction, useCompleteInductionItem } from '@/lib/hooks';
 import { Layout } from '@/components/Layout';
@@ -54,7 +54,23 @@ const sectionBadgeColors = [
 export default function Induction() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
-  const [sectionSignOffs, setSectionSignOffs] = useState<Record<string, { colleague: boolean; manager: boolean }>>({});
+
+  const signOffStorageKey = useMemo(() => {
+    if (!currentUser?.id) return '';
+    return `induction-section-signoffs:${currentUser.id}`;
+  }, [currentUser?.id]);
+
+  const [sectionSignOffs, setSectionSignOffs] = useState<Record<string, { colleague: boolean; manager: boolean }>>(() => {
+    if (typeof window === 'undefined' || !currentUser?.id) return {};
+    try {
+      const raw = localStorage.getItem(`induction-section-signoffs:${currentUser.id}`);
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as Record<string, { colleague: boolean; manager: boolean }>;
+      return parsed || {};
+    } catch {
+      return {};
+    }
+  });
 
   if (!currentUser) return null;
 
@@ -113,7 +129,7 @@ export default function Induction() {
       ...prev,
       [section]: { ...(prev[section] || { manager: false }), colleague: true },
     }));
-    toast({ title: 'Section Signed Off', description: 'You have acknowledged this section is sorted.' });
+    toast({ title: 'Section Signed Off', description: 'You have confirmed this section is fully complete and understood.' });
   };
 
   const handleSectionManagerSignOff = (section: string) => {
@@ -127,6 +143,11 @@ export default function Induction() {
   const getSectionItems = (section: string) => items.filter((item: any) => item.section === section);
 
   const sectionsFullySignedOff = sections.filter((s) => sectionSignOffs[s]?.manager && sectionSignOffs[s]?.colleague).length;
+
+  useEffect(() => {
+    if (!signOffStorageKey) return;
+    localStorage.setItem(signOffStorageKey, JSON.stringify(sectionSignOffs));
+  }, [signOffStorageKey, sectionSignOffs]);
 
   if (inductionComplete) {
     return (
@@ -167,7 +188,7 @@ export default function Induction() {
             <p className="text-muted-foreground mt-1">
               {isManager
                 ? 'Mark items complete and sign off each section when ready.'
-                : 'Your line manager is responsible for marking items complete. Sign off each section to acknowledge it is sorted.'}
+                : 'Your line manager marks items complete. Sign off each section to confirm all items are complete and understood.'}
             </p>
           </div>
           <Badge variant="outline" className="shrink-0">
@@ -342,7 +363,7 @@ export default function Induction() {
                           {isColleagueSigned && <CheckCircle2 className="w-4 h-4 text-green-600" />}
                         </div>
                         <p className="text-xs text-muted-foreground mb-3">
-                          {isColleagueSigned ? 'You acknowledged this section is sorted.' : 'Acknowledge this section is sorted.'}
+                          {isColleagueSigned ? 'You confirmed this section is complete and understood.' : 'Confirm this section is complete and understood.'}
                         </p>
                         {!isManager && !isColleagueSigned && (
                           <Button

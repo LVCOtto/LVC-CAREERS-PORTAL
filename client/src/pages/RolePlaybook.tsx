@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Spinner } from '@/components/ui/spinner';
 import { useAuth } from '@/lib/authContext';
 import { useJobRoles, useStandardsSurvey } from '@/lib/hooks';
+import { useToast } from '@/hooks/use-toast';
 import { FileText, Building2, Calendar, Hash, ClipboardList, CheckCircle2, MessageCircle, Circle, HelpCircle, XCircle, AlertCircle } from 'lucide-react';
 
 type AssessmentStatus = 'none' | 'no' | 'unsure' | 'yes';
@@ -75,19 +76,71 @@ function StatusSelector({
 
 export default function RolePlaybook() {
   const { currentUser } = useAuth();
+  const { toast } = useToast();
   const isManager = currentUser?.role === 'manager' || currentUser?.role === 'admin';
   
   const { data: jobRoles, isLoading: rolesLoading } = useJobRoles();
-  
-  const defaultRoleId = currentUser?.jobRole 
-    ? jobRoles?.find(role => role.title.toLowerCase() === currentUser.jobRole.toLowerCase())?.slug || (jobRoles?.[0]?.slug)
-    : (jobRoles?.[0]?.slug);
-  
-  const [selectedRoleId, setSelectedRoleId] = useState<string>(defaultRoleId || '');
+
+  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
   const [surveyStatuses, setSurveyStatuses] = useState<Record<string, AssessmentStatus>>({});
   const [feedbackResponses, setFeedbackResponses] = useState<Record<string, string>>({});
+  const [surveySubmittedAt, setSurveySubmittedAt] = useState<string | null>(null);
   
   const { data: surveyData } = useStandardsSurvey(selectedRoleId);
+
+  useEffect(() => {
+    if (!jobRoles || jobRoles.length === 0) return;
+
+    if (selectedRoleId && jobRoles.some(role => role.slug === selectedRoleId)) {
+      return;
+    }
+
+    const preferredRole = currentUser?.jobRole
+      ? jobRoles.find(role => role.title.toLowerCase() === currentUser.jobRole.toLowerCase())?.slug
+      : undefined;
+
+    setSelectedRoleId(preferredRole || jobRoles[0].slug);
+  }, [jobRoles, currentUser?.jobRole, selectedRoleId]);
+
+  const surveyStorageKey = useMemo(() => {
+    if (!currentUser?.id || !selectedRoleId) return '';
+    return `role-playbook-survey:${currentUser.id}:${selectedRoleId}`;
+  }, [currentUser?.id, selectedRoleId]);
+
+  useEffect(() => {
+    if (!surveyStorageKey) return;
+    try {
+      const raw = localStorage.getItem(surveyStorageKey);
+      if (!raw) {
+        setSurveyStatuses({});
+        setFeedbackResponses({});
+        setSurveySubmittedAt(null);
+        return;
+      }
+      const parsed = JSON.parse(raw) as {
+        statuses?: Record<string, AssessmentStatus>;
+        feedback?: Record<string, string>;
+        submittedAt?: string | null;
+      };
+      setSurveyStatuses(parsed.statuses || {});
+      setFeedbackResponses(parsed.feedback || {});
+      setSurveySubmittedAt(parsed.submittedAt || null);
+    } catch {
+      setSurveyStatuses({});
+      setFeedbackResponses({});
+      setSurveySubmittedAt(null);
+    }
+  }, [surveyStorageKey]);
+
+  useEffect(() => {
+    if (!surveyStorageKey) return;
+    const payload = JSON.stringify({
+      statuses: surveyStatuses,
+      feedback: feedbackResponses,
+      submittedAt: surveySubmittedAt,
+    });
+    localStorage.setItem(surveyStorageKey, payload);
+  }, [surveyStorageKey, surveyStatuses, feedbackResponses, surveySubmittedAt]);
   
   const currentRoleStandards = jobRoles?.find(role => role.slug === selectedRoleId);
   const currentSurvey = surveyData;
@@ -110,6 +163,26 @@ export default function RolePlaybook() {
       else if (status === 'yes') yes++;
     });
     return { no, unsure, yes, total: taskItems.length, completed: no + unsure + yes };
+  };
+
+  const handleSubmitSurvey = () => {
+    const surveyProgress = getSurveyProgress();
+
+    if (surveyProgress.total === 0 || surveyProgress.completed !== surveyProgress.total) {
+      toast({
+        title: 'Survey incomplete',
+        description: 'Please rate every checklist item before submitting.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    setSurveySubmittedAt(timestamp);
+    toast({
+      title: 'Survey submitted',
+      description: 'Your survey responses have been saved for this role.',
+    });
   };
 
   if (rolesLoading) {
@@ -378,13 +451,19 @@ export default function RolePlaybook() {
                           </>
                         )}
                       </div>
-                      <Button 
+                      <Button
+                        onClick={handleSubmitSurvey}
                         className="bg-primary hover:bg-primary/90"
-                        disabled={surveyProgress.completed === 0}
+                        disabled={surveyProgress.total === 0 || surveyProgress.completed !== surveyProgress.total}
                       >
                         Submit Survey
                       </Button>
                     </div>
+                    {surveySubmittedAt && (
+                      <p className="text-xs text-muted-foreground text-right">
+                        Last submitted: {new Date(surveySubmittedAt).toLocaleString('en-GB')}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-8">

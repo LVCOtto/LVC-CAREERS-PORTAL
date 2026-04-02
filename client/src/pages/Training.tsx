@@ -355,6 +355,19 @@ export default function Training() {
   const ratings: Record<string, number> = (matrixSubmission?.ratings as Record<string, number>) || {};
   const matrixStatus = matrixSubmission?.status || 'draft';
   const lastAssessment = matrixSubmission?.lastAssessment || undefined;
+  const nextReviewDate = matrixSubmission?.nextReviewDate
+    ? new Date(matrixSubmission.nextReviewDate + 'T00:00:00')
+    : null;
+  const daysUntilReview = nextReviewDate
+    ? Math.ceil((nextReviewDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const reviewTone = daysUntilReview === null
+    ? 'text-muted-foreground'
+    : daysUntilReview < 0
+      ? 'text-red-600'
+      : daysUntilReview <= 14
+        ? 'text-amber-600'
+        : 'text-muted-foreground';
 
   const openSelfAssessment = () => {
     if (matrixStatus === 'approved') {
@@ -437,36 +450,40 @@ export default function Training() {
 
   return (
     <Layout>
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-display font-bold">{getSetting('page.training.heading')}</h1>
-            <p className="text-muted-foreground mt-1">{getSetting('page.training.description')}</p>
-          </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" data-testid="button-training-help">
-                  <HelpCircle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-xs p-3">
-                <p className="font-semibold mb-2 text-sm">Rating Scale (0-4)</p>
-                <div className="space-y-1">
-                  {competencyLevels.map((level) => (
-                    <p key={level.value} className="text-xs">
-                      <span className="font-medium">{level.value}:</span> {level.label}
-                    </p>
-                  ))}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
+      <div className="mx-auto w-full max-w-6xl space-y-8 animate-fade-in">
+        <Card className="border-border/60 shadow-sm bg-gradient-to-br from-card to-muted/20">
+          <CardContent className="p-6 md:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-display font-bold">{getSetting('page.training.heading')}</h1>
+                <p className="text-muted-foreground mt-1 max-w-3xl">{getSetting('page.training.description')}</p>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" data-testid="button-training-help">
+                      <HelpCircle className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs p-3">
+                    <p className="font-semibold mb-2 text-sm">Rating Scale (0-4)</p>
+                    <div className="space-y-1">
+                      {competencyLevels.map((level) => (
+                        <p key={level.value} className="text-xs">
+                          <span className="font-medium">{level.value}:</span> {level.label}
+                        </p>
+                      ))}
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CardContent>
+        </Card>
 
-        <Card>
+        <Card className="border-border/60 shadow-sm">
           <CardHeader className="pb-3">
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+            <div className="flex flex-col gap-5">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
@@ -478,67 +495,75 @@ export default function Training() {
               </div>
 
               {isColleague && (
-                <div className="flex items-center gap-2">
-                  {matrixStatus === 'pending_review' && (
-                    <Badge variant="secondary" className="bg-amber-100 text-amber-800" data-testid="status-matrix-pending">
-                      Pending line manager sign-off
-                    </Badge>
-                  )}
-                  {matrixStatus === 'approved' && (
-                    <>
-                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-800" data-testid="status-matrix-approved">
-                        Approved
-                      </Badge>
-                      {matrixSubmission?.nextReviewDate && (
-                        <span className={`text-sm font-medium flex items-center gap-1.5 ${(() => {
-                          const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
-                          const daysUntil = Math.ceil((due.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                          return daysUntil < 0 ? 'text-red-600' : daysUntil <= 14 ? 'text-amber-600' : 'text-muted-foreground';
-                        })()}`} data-testid="text-next-assessment-due">
-                          <CalendarIcon className="w-4 h-4" />
-                          Next assessment due: {new Date(matrixSubmission.nextReviewDate + 'T00:00:00').toLocaleDateString('en-GB')}
-                          {(() => {
-                            const due = new Date(matrixSubmission.nextReviewDate + 'T00:00:00');
-                            const daysUntil = Math.ceil((due.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
-                            return daysUntil < 0 ? ' (overdue)' : daysUntil <= 14 ? ' (due soon)' : '';
-                          })()}
+                <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+                  <div className="rounded-xl border bg-muted/20 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {matrixStatus === 'pending_review' && (
+                        <Badge variant="secondary" className="bg-amber-100 text-amber-800" data-testid="status-matrix-pending">
+                          Pending line manager sign-off
+                        </Badge>
+                      )}
+                      {matrixStatus === 'approved' && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-800" data-testid="status-matrix-approved">
+                          Approved
+                        </Badge>
+                      )}
+                      {matrixStatus === 'draft' && (
+                        <Badge variant="secondary" className="bg-slate-100 text-slate-800" data-testid="status-matrix-draft">
+                          Draft
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {matrixSubmission?.submittedDate && (
+                        <span data-testid="text-colleague-submitted-date">
+                          Submitted: {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
                         </span>
                       )}
-                    </>
-                  )}
-                  {matrixStatus === 'draft' && (
-                    <Badge variant="secondary" className="bg-slate-100 text-slate-800" data-testid="status-matrix-draft">
-                      Draft
-                    </Badge>
-                  )}
+                      {matrixSubmission?.approvedDate && (
+                        <span data-testid="text-colleague-approved-date">
+                          Approved: {new Date(matrixSubmission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
+                          {approverUser ? ` by ${approverUser.name}` : ''}
+                        </span>
+                      )}
+                      {nextReviewDate && (
+                        <span className={`font-medium flex items-center gap-1 ${reviewTone}`} data-testid="text-next-assessment-due">
+                          <CalendarIcon className="w-3.5 h-3.5" />
+                          Next review: {nextReviewDate.toLocaleDateString('en-GB')}
+                          {daysUntilReview !== null && (daysUntilReview < 0 ? ' (overdue)' : daysUntilReview <= 14 ? ' (due soon)' : '')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
 
-                  {matrixSubmission?.submittedDate && (
-                    <span className="text-xs text-muted-foreground" data-testid="text-colleague-submitted-date">
-                      Submitted: {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
-                    </span>
-                  )}
-                  {matrixSubmission?.approvedDate && (
-                    <span className="text-xs text-muted-foreground" data-testid="text-colleague-approved-date">
-                      Approved: {new Date(matrixSubmission.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
-                      {approverUser ? ` by ${approverUser.name}` : ''}
-                    </span>
-                  )}
+                  <div className="flex flex-wrap gap-2 md:justify-end">
+                    <Button
+                      onClick={openSelfAssessment}
+                      className="gap-2"
+                      disabled={matrixStatus === 'pending_review'}
+                      data-testid="button-submit-matrix"
+                    >
+                      <Send className="h-4 w-4" />
+                      {matrixStatus === 'approved' ? 'Start new self-assessment' : 'Submit training matrix'}
+                    </Button>
 
-                  <Button
-                    onClick={openSelfAssessment}
-                    className="gap-2"
-                    disabled={matrixStatus === 'pending_review'}
-                    data-testid="button-submit-matrix"
-                  >
-                    <Send className="h-4 w-4" />
-                    {matrixStatus === 'approved' ? 'Start new self-assessment' : 'Submit training matrix'}
-                  </Button>
+                    <Button
+                      onClick={handleShareLink}
+                      variant="outline"
+                      className="gap-2"
+                      disabled={generateShareToken.isPending}
+                      data-testid="button-share-matrix"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share link
+                    </Button>
+                  </div>
                 </div>
               )}
-
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-1">
             <IndividualView
               name={currentUser.name}
               jobRole={currentUser.jobRole || 'Engineer'}

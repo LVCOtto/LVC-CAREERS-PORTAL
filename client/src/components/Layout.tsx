@@ -1,9 +1,8 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/lib/authContext';
 import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -29,6 +28,8 @@ import {
   BadgeCheck,
   Map,
   Paintbrush,
+  Menu,
+  X,
 } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
@@ -193,6 +194,7 @@ export function Layout({ children }: LayoutProps) {
   const { currentUser, logout } = useAuth();
   const { getSetting } = usePortalSettings();
   const [location] = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   if (!currentUser) {
     return <>{children}</>;
@@ -221,9 +223,55 @@ export function Layout({ children }: LayoutProps) {
 
   const sidebarTitle = getSetting('portal.sidebarTitle', 'Career Portal');
 
+  const filteredNavGroups = navGroups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+        if (!item.roles.includes(currentUser.role)) return false;
+        if (item.href === '/induction' && currentUser.requiresInduction === false) return false;
+        if (item.visibilityKey && getSetting(item.visibilityKey) === 'false') return false;
+        return true;
+      }),
+    }))
+    .filter(group => group.items.length > 0);
+
+  const renderNav = (onNavigate?: () => void) => (
+    <nav className="px-3 space-y-6">
+      {filteredNavGroups.map((group) => (
+        <div key={group.title}>
+          <h3 className="mb-2 px-3 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
+            {group.title}
+          </h3>
+          <div className="space-y-1">
+            {group.items.map(item => {
+              const label = item.labelKey ? getSetting(item.labelKey, item.defaultLabel) : item.defaultLabel;
+              return (
+                <Link key={item.href} href={item.href}>
+                  <div
+                    data-testid={`nav-${item.defaultLabel.toLowerCase().replace(/\s+/g, '-')}`}
+                    onClick={onNavigate}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer',
+                      location === item.href || (item.href === '/team' && location.startsWith('/team'))
+                        ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                        : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
+                    )}
+                  >
+                    {item.icon}
+                    {label}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
+
   return (
-    <div className="flex h-screen bg-background">
-      <aside className="w-64 bg-sidebar text-sidebar-foreground flex flex-col">
+    <div className="flex min-h-screen bg-background">
+      <aside className="hidden md:flex md:w-64 bg-sidebar text-sidebar-foreground flex-col">
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center gap-3 mb-2">
             <img src={lvcLogo} alt="LVC UK" className="h-12 w-auto" />
@@ -234,47 +282,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
 
         <ScrollArea className="flex-1 py-4">
-          <nav className="px-3 space-y-6">
-            {navGroups.map((group) => {
-              const filteredItems = group.items.filter(item => {
-                if (!item.roles.includes(currentUser.role)) return false;
-                if (item.href === '/induction' && currentUser.requiresInduction === false) return false;
-                if (item.visibilityKey && getSetting(item.visibilityKey) === 'false') return false;
-                return true;
-              });
-
-              if (filteredItems.length === 0) return null;
-
-              return (
-                <div key={group.title}>
-                  <h3 className="mb-2 px-3 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
-                    {group.title}
-                  </h3>
-                  <div className="space-y-1">
-                    {filteredItems.map(item => {
-                      const label = item.labelKey ? getSetting(item.labelKey, item.defaultLabel) : item.defaultLabel;
-                      return (
-                        <Link key={item.href} href={item.href}>
-                          <div
-                            data-testid={`nav-${item.defaultLabel.toLowerCase().replace(/\s+/g, '-')}`}
-                            className={cn(
-                              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer',
-                              location === item.href || (item.href === '/team' && location.startsWith('/team'))
-                                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                                : 'text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent'
-                            )}
-                          >
-                            {item.icon}
-                            {label}
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </nav>
+          {renderNav()}
         </ScrollArea>
 
         <div className="p-4 border-t border-sidebar-border">
@@ -327,8 +335,84 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </aside>
 
+      {mobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <button
+            className="flex-1 bg-black/50"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <aside className="w-[18rem] max-w-[85vw] bg-sidebar text-sidebar-foreground flex flex-col border-l border-sidebar-border">
+            <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
+              <div>
+                <img src={lvcLogo} alt="LVC UK" className="h-10 w-auto" />
+                <p className="text-xs text-sidebar-foreground/60 mt-1">{sidebarTitle}</p>
+              </div>
+              <button
+                aria-label="Close menu"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-md hover:bg-sidebar-accent"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <ScrollArea className="flex-1 py-4">
+              {renderNav(() => setMobileMenuOpen(false))}
+            </ScrollArea>
+            <div className="p-4 border-t border-sidebar-border">
+              <button
+                onClick={logout}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-sidebar-accent text-sidebar-accent-foreground hover:opacity-90"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
       <main className="flex-1 overflow-auto">
-        <div className="p-8">{children}</div>
+        <div className="md:hidden sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="p-2 rounded-md border border-border"
+                aria-label="Open navigation menu"
+                data-testid="button-open-mobile-nav"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <div>
+                <p className="text-sm font-semibold">{sidebarTitle}</p>
+                <p className="text-xs text-muted-foreground">{currentUser.name}</p>
+              </div>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-lg border border-border px-2 py-1">
+                  <Avatar className="h-7 w-7 bg-primary/15">
+                    <AvatarFallback className="text-xs font-medium">{getInitials(currentUser.name)}</AvatarFallback>
+                  </Avatar>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium">{currentUser.name}</p>
+                  <p className="text-xs text-muted-foreground">{currentUser.email || ''}</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive cursor-pointer">
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        <div className="p-4 md:p-8">{children}</div>
       </main>
     </div>
   );

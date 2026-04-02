@@ -48,7 +48,7 @@ export default function CareerMap() {
     const values = Object.values(ratings).filter((v): v is number => typeof v === 'number' && v > 0);
     if (values.length === 0) return null;
     const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
-    const maxRating = 5;
+    const maxRating = 4;
     return Math.round((avg / maxRating) * 100);
   }, [matrixData]);
 

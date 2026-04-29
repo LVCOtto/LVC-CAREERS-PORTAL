@@ -8,6 +8,23 @@ import { ensureAllJobRoles } from "./ensureJobRoles";
 import { migrateCompetencyDepartmentTypes, migrateActivateExistingUsers, migrateEngineeringDepartmentModel } from "./migrations";
 import { pool } from "./db";
 
+// Ensure the session store table exists. We do this explicitly because
+// connect-pg-simple's `createTableIfMissing` relies on a bundled SQL file
+// that esbuild does not include in the production bundle.
+async function ensureSessionTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "user_sessions" (
+      "sid" varchar NOT NULL COLLATE "default",
+      "sess" json NOT NULL,
+      "expire" timestamp(6) NOT NULL,
+      CONSTRAINT "user_sessions_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+    ) WITH (OIDS=FALSE);
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS "IDX_user_sessions_expire" ON "user_sessions" ("expire");`
+  );
+}
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -47,7 +64,6 @@ app.use(
     store: new PgSessionStore({
       pool,
       tableName: "user_sessions",
-      createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET || "dev-session-secret-change-me",
     resave: false,
@@ -87,6 +103,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  await ensureSessionTable();
   await ensureAllJobRoles();
   await migrateCompetencyDepartmentTypes();
   await migrateEngineeringDepartmentModel();

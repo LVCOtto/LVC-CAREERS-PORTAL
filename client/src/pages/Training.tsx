@@ -24,8 +24,19 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useUser, useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
+import { useUser, useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useTrainingMatrixHistory, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ReferenceLine,
+  ResponsiveContainer,
+} from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
+import { getCompetencyDepartmentType } from '@/lib/departmentClassification';
 
 const competencyColors = [
   'bg-gray-200 text-gray-600',
@@ -304,6 +315,148 @@ export function IndividualView({
   );
 }
 
+export function TrainingProgressChart({
+  userId,
+  categories,
+  nextReviewDate,
+}: {
+  userId: string;
+  categories: any[];
+  nextReviewDate?: string | null;
+}) {
+  const { data: history = [], isLoading } = useTrainingMatrixHistory(userId);
+
+  const chartData = useMemo(() => {
+    const points = (history as any[])
+      .filter((sub) => sub.status === 'approved' || sub.status === 'pending_review')
+      .map((sub) => ({
+        date: sub.lastAssessment || sub.submittedDate || '',
+        score: parseFloat(
+          calculateOverallAverage(sub.ratings as Record<string, number>, categories).toFixed(2)
+        ),
+        status: sub.status as string,
+        isNextReview: false,
+      }))
+      .filter((d) => d.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (nextReviewDate && !points.find((d) => d.date === nextReviewDate)) {
+      points.push({ date: nextReviewDate, score: null as any, status: 'upcoming', isNextReview: true });
+      points.sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    return points;
+  }, [history, categories, nextReviewDate]);
+
+  const hasRealData = chartData.some((d) => !d.isNextReview);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!hasRealData) {
+    return (
+      <p className="text-sm text-muted-foreground text-center py-8">
+        No submitted assessments yet. Submit your training matrix to start tracking progress.
+      </p>
+    );
+  }
+
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    try {
+      return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: '2-digit',
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const CustomDot = (props: any) => {
+    const { cx, cy, payload } = props;
+    if (payload.isNextReview || payload.score == null) return null;
+    const fill = payload.status === 'approved' ? '#10b981' : '#f59e0b';
+    return <circle cx={cx} cy={cy} r={5} fill={fill} stroke="white" strokeWidth={2} />;
+  };
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <LineChart data={chartData} margin={{ top: 12, right: 24, left: 0, bottom: 4 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatDate}
+          tick={{ fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          interval="preserveStartEnd"
+        />
+        <YAxis
+          domain={[0, 4]}
+          ticks={[0, 1, 2, 3, 4]}
+          tick={{ fontSize: 11 }}
+          tickLine={false}
+          axisLine={false}
+          width={24}
+        />
+        <RechartsTooltip
+          content={({ active, payload }) => {
+            if (active && payload?.length) {
+              const d = payload[0]?.payload;
+              if (!d || d.isNextReview) return null;
+              return (
+                <div className="rounded-lg border bg-background px-3 py-2 text-xs shadow-lg">
+                  <p className="font-medium mb-1">{formatDate(d.date)}</p>
+                  <p className="text-muted-foreground">
+                    Score:{' '}
+                    <span className="font-semibold text-foreground">
+                      {d.score?.toFixed(2)} / 4
+                    </span>
+                  </p>
+                  <p className="text-muted-foreground capitalize mt-0.5">
+                    {d.status === 'pending_review' ? 'Pending review' : d.status}
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          }}
+        />
+        {nextReviewDate && (
+          <ReferenceLine
+            x={nextReviewDate}
+            stroke="hsl(var(--primary))"
+            strokeDasharray="5 3"
+            strokeWidth={1.5}
+            label={{
+              value: 'Next review due',
+              position: 'insideTopRight',
+              fontSize: 10,
+              fill: 'hsl(var(--primary))',
+            }}
+          />
+        )}
+        <Line
+          type="monotone"
+          dataKey="score"
+          stroke="hsl(var(--primary))"
+          strokeWidth={2}
+          dot={<CustomDot />}
+          activeDot={{ r: 6, strokeWidth: 2 }}
+          connectNulls={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
 export default function Training() {
   const { currentUser } = useAuth();
   const { getSetting } = usePortalSettings();
@@ -316,8 +469,7 @@ export default function Training() {
   const [shareUrl, setShareUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const isEngineeringUser = (currentUser?.department || '').toLowerCase().includes('engineering');
-  const departmentType = isEngineeringUser ? 'engineering' : 'admin';
+  const departmentType = getCompetencyDepartmentType(currentUser);
 
   const { data: roleCategories, isLoading: roleLoading } = useCompetenciesForRole(currentUser?.jobRole);
   const { data: deptCategories = [], isLoading: deptLoading } = useCompetencies(departmentType);
@@ -596,6 +748,37 @@ export default function Training() {
             />
           </CardContent>
         </Card>
+
+        {categories.length > 0 && (
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="h-4 w-4 text-primary" />
+                Progress Timeline
+              </CardTitle>
+              <CardDescription>
+                Overall training matrix score across assessments.
+                <span className="ml-2 inline-flex items-center gap-2 text-xs">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                    Approved
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                    Pending review
+                  </span>
+                </span>
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TrainingProgressChart
+                userId={currentUser.id}
+                categories={categories}
+                nextReviewDate={matrixSubmission?.nextReviewDate}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
           <DialogContent className="max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col [display:flex]" data-testid="dialog-submit-matrix">

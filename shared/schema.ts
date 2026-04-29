@@ -56,6 +56,7 @@ export const inductionItemCompletions = pgTable("induction_item_completions", {
   inProgress: boolean("in_progress").notNull().default(false),
   completedDate: text("completed_date"),
   targetDate: text("target_date"),
+  reviewDate: text("review_date"),
   signedOffBy: varchar("signed_off_by", { length: 50 }),
   signedOffDate: text("signed_off_date"),
   assignedTo: varchar("assigned_to", { length: 100 }),
@@ -278,3 +279,34 @@ export const departmentsTable = pgTable("departments", {
 export const insertDepartmentSchema = createInsertSchema(departmentsTable).omit({ id: true });
 export type InsertDepartment = z.infer<typeof insertDepartmentSchema>;
 export type Department = typeof departmentsTable.$inferSelect;
+
+export const outlookIntegrations = pgTable("outlook_integrations", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).notNull().unique(),
+  accessToken: text("access_token").notNull(),
+  refreshToken: text("refresh_token").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  isEnabled: boolean("is_enabled").notNull().default(true),
+  createdDate: text("created_date").notNull(),
+  updatedDate: text("updated_date").notNull(),
+});
+
+export const insertOutlookIntegrationSchema = createInsertSchema(outlookIntegrations).omit({ id: true });
+export type InsertOutlookIntegration = z.infer<typeof insertOutlookIntegrationSchema>;
+export type OutlookIntegration = typeof outlookIntegrations.$inferSelect;
+
+export const calendarSyncLog = pgTable("calendar_sync_log", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).notNull(),
+  sourceType: text("source_type").notNull(), // "induction_category" or "training_matrix"
+  sourceId: varchar("source_id", { length: 100 }).notNull(),
+  outlookEventId: text("outlook_event_id").notNull(),
+  eventTitle: text("event_title").notNull(),
+  eventDate: text("event_date").notNull(),
+  syncedDate: text("synced_date").notNull(),
+  lastUpdated: text("last_updated").notNull(),
+});
+
+export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true });
+export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;
+export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;

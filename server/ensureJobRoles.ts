@@ -34,9 +34,7 @@ function parseCsvJobRoles(): Array<{ title: string; department: string }> {
 }
 
 const hardcodedExtras = [
-  { title: "Engineer", department: "Engineering", summary: "Responsible for technical operations and equipment maintenance", responsibilities: ["Maintain and repair technical equipment", "Follow safety protocols and procedures", "Document work completed and issues identified", "Collaborate with team members on complex projects", "Participate in continuous improvement initiatives"] },
-  { title: "Operations Coordinator", department: "Operations", summary: "Coordinates daily operations and supports team efficiency", responsibilities: ["Coordinate team schedules and assignments", "Manage inventory and supply ordering", "Process customer orders and service requests", "Prepare operational reports", "Support health and safety compliance"] },
-  { title: "Engineering Lead", department: "Engineering", summary: "Leads the engineering team and oversees technical standards", responsibilities: ["Manage engineering team performance", "Set technical standards and procedures", "Oversee major projects and installations", "Mentor and train junior engineers", "Ensure compliance with all regulations"] },
+  { title: "Engineer", department: "Service", summary: "Responsible for technical operations and equipment maintenance", responsibilities: ["Maintain and repair technical equipment", "Follow safety protocols and procedures", "Document work completed and issues identified", "Collaborate with team members on complex projects", "Participate in continuous improvement initiatives"] },
 ];
 
 export function getAllSeedRoles() {
@@ -97,6 +95,7 @@ export function getAllSeedRoles() {
 export async function ensureAllJobRoles() {
   try {
     await deduplicateExistingRoles();
+    await removeDeprecatedRoles();
 
     const allRoles = getAllSeedRoles();
     const existingRoles = await db.select().from(schema.jobRoles);
@@ -159,10 +158,40 @@ async function deduplicateExistingRoles() {
   }
 }
 
+async function removeDeprecatedRoles() {
+  const deprecatedRoleRemap: Record<string, string> = {
+    "operations coordinator": "Operations Manager",
+  };
+
+  const allRoles = await db.select().from(schema.jobRoles);
+  const byNormalized = new Map<string, typeof allRoles[number]>();
+  for (const role of allRoles) {
+    byNormalized.set(normalizeTitle(role.title).toLowerCase(), role);
+  }
+
+  for (const [deprecatedNormalized, replacementTitle] of Object.entries(deprecatedRoleRemap)) {
+    const deprecatedRole = byNormalized.get(deprecatedNormalized);
+    if (!deprecatedRole) continue;
+
+    const replacementRole = byNormalized.get(normalizeTitle(replacementTitle).toLowerCase());
+    if (replacementRole) {
+      await db.update(schema.jobRoleInductionSections)
+        .set({ jobRoleId: replacementRole.id })
+        .where(eq(schema.jobRoleInductionSections.jobRoleId, deprecatedRole.id));
+    }
+
+    await db.delete(schema.jobRoles).where(eq(schema.jobRoles.id, deprecatedRole.id));
+    console.log(`Removed deprecated job role: "${deprecatedRole.title}"`);
+  }
+}
+
 async function normalizeUserJobRoles() {
   const allRoles = await db.select().from(schema.jobRoles);
   const roleTitleSet = new Set(allRoles.map(r => r.title));
   const normalizedToCanonical = new Map<string, string>();
+  const deprecatedRoleRemap: Record<string, string> = {
+    "operations coordinator": "Operations Manager",
+  };
   for (const role of allRoles) {
     normalizedToCanonical.set(normalizeTitle(role.title).toLowerCase(), role.title);
   }
@@ -174,8 +203,8 @@ async function normalizeUserJobRoles() {
     if (roleTitleSet.has(user.jobRole)) continue;
 
     const normalized = normalizeTitle(user.jobRole).toLowerCase();
-    const canonical = normalizedToCanonical.get(normalized);
-    if (canonical && canonical !== user.jobRole) {
+    const canonical = deprecatedRoleRemap[normalized] || normalizedToCanonical.get(normalized);
+    if (canonical && roleTitleSet.has(canonical) && canonical !== user.jobRole) {
       await db.update(schema.users)
         .set({ jobRole: canonical })
         .where(eq(schema.users.id, user.id));

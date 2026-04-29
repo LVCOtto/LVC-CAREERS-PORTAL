@@ -1,28 +1,113 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
 import { exportFullBackup } from "./backup";
 import { importFullBackup } from "./restore";
 import { randomInt } from "crypto";
+import bcrypt from "bcryptjs";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+
+function sanitizeUser<T extends Record<string, any> | undefined>(user: T) {
+  if (!user) return user;
+  const { password: _password, ...safeUser } = user;
+  return safeUser;
+}
+
+function isPublicApiRoute(req: Request) {
+  const routePath = `${req.baseUrl}${req.path}`;
+  if (routePath === "/api/auth/login") return true;
+  if (req.method === "GET" && routePath.startsWith("/api/induction/shared/")) return true;
+  if (req.method === "GET" && routePath.startsWith("/api/training-matrix/shared/")) return true;
+  return false;
+}
+
+type AppRole = "colleague" | "manager" | "admin" | "architect";
+
+function isPrivilegedRole(role?: string): role is AppRole {
+  return role === "manager" || role === "admin" || role === "architect";
+}
+
+function isAdminWriteRoute(routePath: string, method: string) {
+  if (method === "GET") return false;
+  const adminWritePrefixes = [
+    "/api/import/",
+    "/api/export/",
+    "/api/portal-settings",
+    "/api/departments",
+    "/api/job-roles",
+    "/api/induction-section-settings",
+    "/api/induction-templates",
+    "/api/induction-sections/rename",
+    "/api/competency-categories",
+    "/api/competency-items",
+    "/api/standards-surveys",
+    "/api/certificate-definitions",
+    "/api/resources",
+  ];
+  return adminWritePrefixes.some((prefix) => routePath.startsWith(prefix));
+}
+
+function isAdminOnlyRoute(routePath: string) {
+  const adminOnlyPrefixes = [
+    "/api/import/",
+    "/api/export/",
+    "/api/portal-settings",
+    "/api/induction-section-settings",
+  ];
+  return adminOnlyPrefixes.some((prefix) => routePath.startsWith(prefix));
+}
+
+function canAccessUser(req: Request, targetUserId: string) {
+  return req.session.userId === targetUserId || isPrivilegedRole(req.session.role);
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  app.use("/api", (req, res, next) => {
+    if (isPublicApiRoute(req)) return next();
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const routePath = `${req.baseUrl}${req.path}`;
+    const role = req.session.role;
+
+    if (routePath.startsWith("/api/users") && !routePath.match(/^\/api\/users\/[^/]+\/team$/) && role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    if (routePath.match(/^\/api\/users\/[^/]+\/team$/) && !isPrivilegedRole(role)) {
+      return res.status(403).json({ message: "Manager access required" });
+    }
+    if (routePath === "/api/training-matrix" && req.method === "GET" && !isPrivilegedRole(role)) {
+      return res.status(403).json({ message: "Manager access required" });
+    }
+    if (routePath.startsWith("/api/training-matrix/shared/") && req.method === "PATCH" && !isPrivilegedRole(role)) {
+      return res.status(403).json({ message: "Manager access required" });
+    }
+    if (isAdminOnlyRoute(routePath) && role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    if (isAdminWriteRoute(routePath, req.method) && role !== "admin") {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    next();
+  });
 
   // ===== USERS =====
   app.get("/api/users", async (_req, res) => {
     const users = await storage.getAllUsers();
-    res.json(users);
+    res.json(users.map((user) => sanitizeUser(user)));
   });
 
   app.get("/api/users/:id", async (req, res) => {
     const user = await storage.getUser(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
-    res.json(user);
+    res.json(sanitizeUser(user));
   });
 
   app.post("/api/users", async (req, res) => {
@@ -37,21 +122,29 @@ export async function registerRoutes(
     if (body.username && body.email && body.password) {
       body.activated = true;
     }
+    if (body.password) {
+      body.password = await bcrypt.hash(body.password, 10);
+    }
     const user = await storage.createUser(body);
-    res.status(201).json(user);
+    res.status(201).json(sanitizeUser(user));
   });
 
   app.patch("/api/users/:id", async (req, res) => {
     const existing = await storage.getUser(req.params.id);
     if (!existing) return res.status(404).json({ message: "User not found" });
     const data = { ...req.body };
+    if (data.password === "") {
+      data.password = null;
+    } else if (typeof data.password === "string") {
+      data.password = await bcrypt.hash(data.password, 10);
+    }
     const mergedUsername = data.username !== undefined ? data.username : existing.username;
     const mergedEmail = data.email !== undefined ? data.email : existing.email;
     const mergedPassword = data.password !== undefined ? data.password : existing.password;
     const hasAllCredentials = !!(mergedUsername && mergedEmail && mergedPassword);
     data.activated = hasAllCredentials;
     const user = await storage.updateUser(req.params.id, data);
-    res.json(user);
+    res.json(sanitizeUser(user));
   });
 
   app.delete("/api/users/:id", async (req, res) => {
@@ -61,12 +154,12 @@ export async function registerRoutes(
 
   app.get("/api/users/:id/team", async (req, res) => {
     const members = await storage.getTeamMembers(req.params.id);
-    res.json(members);
+    res.json(members.map((member) => sanitizeUser(member)));
   });
 
   app.post("/api/auth/login", async (req, res) => {
     const { username, password } = req.body;
-    if (!username) return res.status(401).json({ message: "Invalid credentials" });
+    if (!username || !password) return res.status(401).json({ message: "Invalid credentials" });
     const user = await storage.getUserByUsername(username);
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -74,10 +167,41 @@ export async function registerRoutes(
     if (!user.activated) {
       return res.status(403).json({ message: "Account not yet activated — contact your administrator" });
     }
-    if (user.password !== password) {
+
+    let passwordMatches = false;
+    if (typeof user.password === "string" && user.password.startsWith("$2")) {
+      passwordMatches = await bcrypt.compare(password, user.password);
+    } else {
+      passwordMatches = user.password === password;
+      if (passwordMatches && user.password) {
+        const migratedHash = await bcrypt.hash(user.password, 10);
+        await storage.updateUser(user.id, { password: migratedHash });
+      }
+    }
+
+    if (!passwordMatches) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
-    res.json(user);
+
+    req.session.userId = user.id;
+    req.session.role = user.role;
+    res.json(sanitizeUser(user));
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ message: "Not authenticated" });
+    const user = await storage.getUser(req.session.userId);
+    if (!user) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    res.json(sanitizeUser(user));
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => {
+      res.status(204).send();
+    });
   });
 
   // ===== INDUCTION TEMPLATES =====
@@ -168,6 +292,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/induction/:userId", async (req, res) => {
+    if (!canAccessUser(req, req.params.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     let instance = await storage.getInductionInstance(req.params.userId);
     if (!instance) {
       instance = await storage.createInductionInstance({
@@ -204,7 +331,10 @@ export async function registerRoutes(
   });
 
   app.post("/api/induction/:userId/complete-item", async (req, res) => {
-    const { templateItemId, completed, inProgress, completedDate, targetDate, signedOffBy, signedOffDate, assignedTo } = req.body;
+    if (!canAccessUser(req, req.params.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const { templateItemId, completed, inProgress, completedDate, targetDate, reviewDate, signedOffBy, signedOffDate, assignedTo } = req.body;
     let instance = await storage.getInductionInstance(req.params.userId);
     if (!instance) {
       instance = await storage.createInductionInstance({
@@ -222,15 +352,37 @@ export async function registerRoutes(
       inProgress: inProgress ?? false,
       completedDate: completedDate || null,
       targetDate: targetDate !== undefined ? (targetDate || null) : undefined,
+      reviewDate: reviewDate !== undefined ? (reviewDate || null) : undefined,
       signedOffBy: signedOffBy || null,
       signedOffDate: signedOffDate || null,
       assignedTo: assignedTo !== undefined ? assignedTo : undefined,
     });
 
+    // Sync to Outlook if reviewDate was set
+    if (reviewDate && req.params.userId) {
+      try {
+        const allItems = await storage.getInductionTemplateItems();
+        const templateItem = allItems.find(item => item.id === templateItemId);
+        const { syncInductionReviewDate } = await import("./calendarSync");
+        await syncInductionReviewDate(
+          req.params.userId,
+          completion.id,
+          reviewDate,
+          templateItem?.title || `Category Review Item ${templateItemId}`
+        );
+      } catch (error) {
+        console.error("Failed to sync induction review to Outlook:", error);
+        // Don't fail the request if sync fails
+      }
+    }
+
     res.json(completion);
   });
 
   app.post("/api/induction/:userId/share", async (req, res) => {
+    if (!canAccessUser(req, req.params.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     let instance = await storage.getInductionInstance(req.params.userId);
     if (!instance) {
       instance = await storage.createInductionInstance({
@@ -313,11 +465,17 @@ export async function registerRoutes(
   });
 
   app.get("/api/training-matrix/history/:userId", async (req, res) => {
+    if (!canAccessUser(req, req.params.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const history = await storage.getTrainingMatrixHistory(req.params.userId);
     res.json(history);
   });
 
   app.get("/api/training-matrix/:userId", async (req, res) => {
+    if (!canAccessUser(req, req.params.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const submission = await storage.getTrainingMatrixSubmission(req.params.userId);
     res.json(submission || null);
   });
@@ -330,6 +488,18 @@ export async function registerRoutes(
   app.patch("/api/training-matrix/:id", async (req, res) => {
     const submission = await storage.updateTrainingMatrixSubmission(Number(req.params.id), req.body);
     if (!submission) return res.status(404).json({ message: "Not found" });
+    
+    // Sync to Outlook if nextReviewDate was updated
+    if (req.body.nextReviewDate && submission.userId) {
+      try {
+        const { syncTrainingMatrixReviewDate } = await import("./calendarSync");
+        await syncTrainingMatrixReviewDate(submission.userId, submission.id, req.body.nextReviewDate);
+      } catch (error) {
+        console.error("Failed to sync training matrix review to Outlook:", error);
+        // Don't fail the request if sync fails
+      }
+    }
+    
     res.json(submission);
   });
 
@@ -472,6 +642,12 @@ export async function registerRoutes(
   // ===== USER CERTIFICATES =====
   app.get("/api/user-certificates", async (req, res) => {
     const userId = req.query.userId as string | undefined;
+    if (userId && !canAccessUser(req, userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    if (!userId && !isPrivilegedRole(req.session.role)) {
+      return res.status(403).json({ message: "Manager access required" });
+    }
     const certs = await storage.getUserCertificates(userId);
     res.json(certs);
   });
@@ -488,6 +664,9 @@ export async function registerRoutes(
 
   // ===== CAREER MILESTONES =====
   app.get("/api/career-milestones/:userId", async (req, res) => {
+    if (!canAccessUser(req, req.params.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const milestones = await storage.getCareerMilestones(req.params.userId);
     res.json(milestones);
   });
@@ -522,6 +701,12 @@ export async function registerRoutes(
   // ===== TRAINING RECORDS =====
   app.get("/api/training-records", async (req, res) => {
     const userId = req.query.userId as string | undefined;
+    if (userId && !canAccessUser(req, userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    if (!userId && !isPrivilegedRole(req.session.role)) {
+      return res.status(403).json({ message: "Manager access required" });
+    }
     const records = await storage.getTrainingRecords(userId);
     res.json(records);
   });
@@ -885,10 +1070,11 @@ export async function registerRoutes(
             const ri = row.requiresInduction || row.requires_induction || "";
             const requiresInduction = ri === "true" || ri === "yes" || ri === "1";
             const hasCredentials = !!(row.username && row.email && row.password);
+            const hashedPassword = row.password ? await bcrypt.hash(row.password, 10) : null;
             await storage.createUser({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
               username: row.username || null,
-              password: row.password || null,
+              password: hashedPassword,
               name: row.name,
               email: row.email || null,
               role: row.role || "colleague",
@@ -978,10 +1164,11 @@ export async function registerRoutes(
                   const slug = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
                   const userId = `${slug}-${Date.now().toString(36)}${i}`;
                   const today = new Date().toISOString().split("T")[0];
+                  const hashedTempPassword = await bcrypt.hash(temporaryPassword, 10);
                   await storage.createUser({
                     id: userId,
                     username,
-                    password: temporaryPassword,
+                    password: hashedTempPassword,
                     name: colleagueName,
                     email: email,
                     role: "colleague",
@@ -991,7 +1178,7 @@ export async function registerRoutes(
                     startDate: today,
                     requiresInduction: true,
                   });
-                  allUsers.push({ id: userId, username, password: temporaryPassword, name: colleagueName, email, role: "colleague", jobRole: title, department, managerId: null, startDate: today, requiresInduction: true });
+                  allUsers.push({ id: userId, username, password: hashedTempPassword, name: colleagueName, email, role: "colleague", jobRole: title, department, managerId: null, startDate: today, requiresInduction: true, activated: true });
                   accountsCreated++;
                   createdAccounts.push({ name: colleagueName, email, temporaryPassword });
                 } else {
@@ -1176,6 +1363,147 @@ export async function registerRoutes(
       res.json({ created, skipped, colleaguesUpdated, accountsCreated, createdAccounts, errors });
     } catch (error) {
       res.status(500).json({ message: "Import failed" });
+    }
+  });
+
+  // ===== OUTLOOK CALENDAR INTEGRATION =====
+  app.get("/api/outlook/init-auth", async (req, res) => {
+    try {
+      const { initializeOutlookAuth, getAuthorizationUrl } = await import("./outlookAuth");
+      
+      const clientId = process.env.MICROSOFT_CLIENT_ID;
+      const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
+      const redirectUri = process.env.MICROSOFT_REDIRECT_URI || `${process.env.APP_URL || 'http://localhost:5000'}/api/outlook/callback`;
+
+      if (!clientId || !clientSecret) {
+        return res.status(400).json({ 
+          message: "Outlook integration not configured. Please set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET environment variables." 
+        });
+      }
+
+      initializeOutlookAuth({ clientId, clientSecret, redirectUri });
+
+      // Generate state token and store in session
+      const state = Math.random().toString(36).substring(7);
+      req.session.outlookState = state;
+
+      const authUrl = getAuthorizationUrl(state);
+      res.json({ authUrl });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/outlook/callback", async (req, res) => {
+    try {
+      const { code, state } = req.query;
+      
+      if (!code || !state) {
+        return res.status(400).json({ message: "Missing code or state parameter" });
+      }
+
+      if (state !== req.session.outlookState) {
+        return res.status(400).json({ message: "Invalid state parameter" });
+      }
+
+      const { exchangeCodeForToken, getAuthConfig } = await import("./outlookAuth");
+      const { db } = await import("./db");
+      const { outlookIntegrations } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const token = await exchangeCodeForToken(code as string);
+      
+      // Store or update integration
+      const existing = await db.query.outlookIntegrations.findFirst({
+        where: eq(outlookIntegrations.userId, req.session.userId),
+      });
+
+      if (existing) {
+        await db
+          .update(outlookIntegrations)
+          .set({
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            expiresAt: token.expiresAt,
+            isEnabled: true,
+            updatedDate: new Date().toISOString(),
+          })
+          .where(eq(outlookIntegrations.userId, req.session.userId));
+      } else {
+        await db.insert(outlookIntegrations).values({
+          userId: req.session.userId,
+          accessToken: token.accessToken,
+          refreshToken: token.refreshToken,
+          expiresAt: token.expiresAt,
+          isEnabled: true,
+          createdDate: new Date().toISOString(),
+          updatedDate: new Date().toISOString(),
+        });
+      }
+
+      // Redirect to a success page or back to settings
+      res.redirect("/");
+    } catch (error: any) {
+      console.error("Outlook callback error:", error);
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.get("/api/outlook/status", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    try {
+      const { db } = await import("./db");
+      const { outlookIntegrations } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      const integration = await db.query.outlookIntegrations.findFirst({
+        where: eq(outlookIntegrations.userId, req.session.userId),
+      });
+
+      res.json({
+        connected: !!integration && integration.isEnabled,
+        email: integration ? "Connected to Outlook" : null,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/outlook/disconnect", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    try {
+      const { db } = await import("./db");
+      const { outlookIntegrations } = await import("../shared/schema");
+      const { eq } = await import("drizzle-orm");
+
+      await db
+        .update(outlookIntegrations)
+        .set({ isEnabled: false })
+        .where(eq(outlookIntegrations.userId, req.session.userId));
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post("/api/outlook/sync-all", async (req, res) => {
+    if (!req.session.userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    try {
+      const { syncAllUserEvents } = await import("./calendarSync");
+      await syncAllUserEvents(req.session.userId);
+      res.json({ success: true, message: "All events synced to Outlook" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
   });
 

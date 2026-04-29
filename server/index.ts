@@ -1,16 +1,32 @@
 import express, { type Request, Response, NextFunction } from "express";
+import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { ensureAllJobRoles } from "./ensureJobRoles";
-import { migrateCompetencyDepartmentTypes, migrateActivateExistingUsers } from "./migrations";
+import { migrateCompetencyDepartmentTypes, migrateActivateExistingUsers, migrateEngineeringDepartmentModel } from "./migrations";
+import { pool } from "./db";
 
 const app = express();
 const httpServer = createServer(app);
 
+// Required when running behind Railway / any HTTPS reverse proxy so that
+// `secure` cookies are honoured and req.protocol reflects the original scheme.
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
+  }
+}
+
+declare module "express-session" {
+  interface SessionData {
+    userId?: string;
+    role?: string;
   }
 }
 
@@ -23,6 +39,27 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+const PgSessionStore = connectPgSimple(session);
+
+app.use(
+  session({
+    store: new PgSessionStore({
+      pool,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || "dev-session-secret-change-me",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 1000 * 60 * 60 * 12,
+    },
+  }),
+);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -38,23 +75,11 @@ export function log(message: string, source = "express") {
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
 
   res.on("finish", () => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      log(logLine);
+      log(`${req.method} ${path} ${res.statusCode} in ${duration}ms`);
     }
   });
 
@@ -64,6 +89,7 @@ app.use((req, res, next) => {
 (async () => {
   await ensureAllJobRoles();
   await migrateCompetencyDepartmentTypes();
+  await migrateEngineeringDepartmentModel();
   await migrateActivateExistingUsers();
   await registerRoutes(httpServer, app);
 

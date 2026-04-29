@@ -22,7 +22,7 @@ export const roleDefinitions: Record<string, RoleDefinition> = {
   'field-service-engineer': {
     id: 'field-service-engineer',
     title: 'Field Service Engineer',
-    department: 'Engineering',
+    department: 'Service',
     version: '2.3',
     lastReviewed: '2025-12-01',
     sections: [
@@ -306,7 +306,7 @@ export const roleDefinitions: Record<string, RoleDefinition> = {
   'workshop-manager': {
     id: 'workshop-manager',
     title: 'Workshop Manager / Senior Service Engineer',
-    department: 'Engineering',
+    department: 'Workshop',
     version: '1.9',
     lastReviewed: '2025-11-28',
     sections: [

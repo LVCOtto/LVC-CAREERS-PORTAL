@@ -4,6 +4,7 @@ const BASE = "/api";
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {
+    credentials: "same-origin",
     headers: { "Content-Type": "application/json" },
     ...options,
   });
@@ -27,6 +28,8 @@ export const api = {
   auth: {
     login: (username: string, password: string) =>
       apiFetch<any>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+    me: () => apiFetch<any>("/auth/me"),
+    logout: () => apiFetch<void>("/auth/logout", { method: "POST" }),
   },
   inductionTemplates: {
     list: () => apiFetch<any[]>("/induction-templates"),

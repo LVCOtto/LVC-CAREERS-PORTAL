@@ -833,7 +833,7 @@ export default function AdminTemplates() {
                     <Upload className="h-4 w-4" />
                     Import
                   </Button>
-                  <Button onClick={openAddCategory} data-testid="button-add-skill-category">
+                  <Button onClick={() => openAddCategory()} data-testid="button-add-skill-category">
                     <Plus className="w-4 h-4 mr-2" />
                     New Category
                   </Button>

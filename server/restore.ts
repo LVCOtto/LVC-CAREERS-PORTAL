@@ -48,43 +48,41 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
   const summary: Record<string, number> = {};
   const errors: string[] = [];
 
-  const importFile = async (filename: string, fn: (rows: Record<string, string>[]) => Promise<number>) => {
-    if (!files[filename]) return;
-    try {
-      const rows = parseCsv(files[filename]);
-      if (rows.length === 0) return;
-      const count = await fn(rows);
-      summary[filename] = count;
-    } catch (err: any) {
-      errors.push(`${filename}: ${err.message}`);
-    }
-  };
+  try {
+    await db.transaction(async (tx) => {
+      const importFile = async (filename: string, fn: (rows: Record<string, string>[]) => Promise<number>) => {
+        if (!files[filename]) return;
+        const rows = parseCsv(files[filename]);
+        if (rows.length === 0) return;
+        const count = await fn(rows);
+        summary[filename] = count;
+      };
 
-  await db.delete(schema.inductionItemCompletions).execute();
-  await db.delete(schema.inductionInstances).execute();
-  await db.delete(schema.trainingMatrixSubmissions).execute();
-  await db.delete(schema.userCertificates).execute();
-  await db.delete(schema.trainingRecords).execute();
-  await db.delete(schema.careerMilestones).execute();
-  await db.delete(schema.standardsSurveyItems).execute();
-  await db.delete(schema.standardsSurveyRoles).execute();
-  await db.delete(schema.competencyItems).execute();
-  await db.delete(schema.competencyCategories).execute();
-  await db.delete(schema.jobRoleCategories).execute();
-  await db.delete(schema.jobRoleInductionSections).execute();
-  await db.delete(schema.inductionSectionSettings).execute();
-  await db.delete(schema.jobRoles).execute();
-  await db.delete(schema.certificateDefinitions).execute();
-  await db.delete(schema.careerNodes).execute();
-  await db.delete(schema.inductionTemplateItems).execute();
-  await db.delete(schema.users).execute();
-  await db.delete(schema.departmentsTable).execute();
-  await db.delete(schema.resources).execute();
-  await db.delete(schema.portalSettings).execute();
+      await tx.delete(schema.inductionItemCompletions).execute();
+      await tx.delete(schema.inductionInstances).execute();
+      await tx.delete(schema.trainingMatrixSubmissions).execute();
+      await tx.delete(schema.userCertificates).execute();
+      await tx.delete(schema.trainingRecords).execute();
+      await tx.delete(schema.careerMilestones).execute();
+      await tx.delete(schema.standardsSurveyItems).execute();
+      await tx.delete(schema.standardsSurveyRoles).execute();
+      await tx.delete(schema.competencyItems).execute();
+      await tx.delete(schema.competencyCategories).execute();
+      await tx.delete(schema.jobRoleCategories).execute();
+      await tx.delete(schema.jobRoleInductionSections).execute();
+      await tx.delete(schema.inductionSectionSettings).execute();
+      await tx.delete(schema.jobRoles).execute();
+      await tx.delete(schema.certificateDefinitions).execute();
+      await tx.delete(schema.careerNodes).execute();
+      await tx.delete(schema.inductionTemplateItems).execute();
+      await tx.delete(schema.users).execute();
+      await tx.delete(schema.departmentsTable).execute();
+      await tx.delete(schema.resources).execute();
+      await tx.delete(schema.portalSettings).execute();
 
-  await importFile("portal-settings.csv", async (rows) => {
+      await importFile("portal-settings.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.portalSettings).values({
+      await tx.insert(schema.portalSettings).values({
         id: toInt(r.id),
         key: r.key,
         value: r.value,
@@ -94,9 +92,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("departments.csv", async (rows) => {
+      await importFile("departments.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.departmentsTable).values({
+      await tx.insert(schema.departmentsTable).values({
         id: toInt(r.id),
         name: r.name,
         parentId: toIntOrNull(r.parentId),
@@ -107,9 +105,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("resources.csv", async (rows) => {
+      await importFile("resources.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.resources).values({
+      await tx.insert(schema.resources).values({
         id: toInt(r.id),
         title: r.title,
         description: r.description || "",
@@ -121,9 +119,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("users.csv", async (rows) => {
+      await importFile("users.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.users).values({
+      await tx.insert(schema.users).values({
         id: r.id,
         username: r.username,
         password: r.password,
@@ -135,14 +133,15 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         managerId: r.managerId || null,
         startDate: r.startDate,
         requiresInduction: toBool(r.requiresInduction),
+        activated: toBool(r.activated),
       }).onConflictDoNothing();
     }
     return rows.length;
   });
 
-  await importFile("job-roles.csv", async (rows) => {
+      await importFile("job-roles.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.jobRoles).values({
+      await tx.insert(schema.jobRoles).values({
         id: toInt(r.id),
         title: r.title,
         department: r.department,
@@ -155,9 +154,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("certificate-definitions.csv", async (rows) => {
+      await importFile("certificate-definitions.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.certificateDefinitions).values({
+      await tx.insert(schema.certificateDefinitions).values({
         id: toInt(r.id),
         name: r.name,
         description: r.description || "",
@@ -171,9 +170,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("induction-templates.csv", async (rows) => {
+      await importFile("induction-templates.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.inductionTemplateItems).values({
+      await tx.insert(schema.inductionTemplateItems).values({
         id: toInt(r.id),
         slug: r.slug,
         section: r.section,
@@ -186,9 +185,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("career-nodes.csv", async (rows) => {
+      await importFile("career-nodes.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.careerNodes).values({
+      await tx.insert(schema.careerNodes).values({
         id: toInt(r.id),
         slug: r.slug,
         title: r.title,
@@ -196,16 +195,15 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         level: toInt(r.level),
         department: r.department || "",
         requirements: parseJson(r.requirements, []),
-        x: toInt(r.x),
-        y: toInt(r.y),
+        nextSteps: parseJson(r.nextSteps, []),
       }).onConflictDoNothing();
     }
     return rows.length;
   });
 
-  await importFile("standards-survey-roles.csv", async (rows) => {
+      await importFile("standards-survey-roles.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.standardsSurveyRoles).values({
+      await tx.insert(schema.standardsSurveyRoles).values({
         id: toInt(r.id),
         roleSlug: r.roleSlug,
         roleTitle: r.roleTitle,
@@ -214,9 +212,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("induction-section-settings.csv", async (rows) => {
+      await importFile("induction-section-settings.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.inductionSectionSettings).values({
+      await tx.insert(schema.inductionSectionSettings).values({
         id: toInt(r.id),
         sectionName: r.sectionName,
         isUniversal: toBool(r.isUniversal),
@@ -225,9 +223,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("competency-categories.csv", async (rows) => {
+      await importFile("competency-categories.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.competencyCategories).values({
+      await tx.insert(schema.competencyCategories).values({
         id: toInt(r.id),
         slug: r.slug,
         name: r.name,
@@ -238,9 +236,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("job-role-categories.csv", async (rows) => {
+      await importFile("job-role-categories.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.jobRoleCategories).values({
+      await tx.insert(schema.jobRoleCategories).values({
         id: toInt(r.id),
         jobRoleId: toInt(r.jobRoleId),
         categoryId: toInt(r.categoryId),
@@ -249,9 +247,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("job-role-induction-sections.csv", async (rows) => {
+      await importFile("job-role-induction-sections.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.jobRoleInductionSections).values({
+      await tx.insert(schema.jobRoleInductionSections).values({
         id: toInt(r.id),
         jobRoleId: toInt(r.jobRoleId),
         sectionName: r.sectionName,
@@ -260,9 +258,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("competency-items.csv", async (rows) => {
+      await importFile("competency-items.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.competencyItems).values({
+      await tx.insert(schema.competencyItems).values({
         id: toInt(r.id),
         categoryId: toInt(r.categoryId),
         slug: r.slug,
@@ -274,9 +272,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("standards-survey-items.csv", async (rows) => {
+      await importFile("standards-survey-items.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.standardsSurveyItems).values({
+      await tx.insert(schema.standardsSurveyItems).values({
         id: toInt(r.id),
         surveyRoleId: toInt(r.surveyRoleId),
         text: r.text,
@@ -287,9 +285,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("induction-instances.csv", async (rows) => {
+      await importFile("induction-instances.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.inductionInstances).values({
+      await tx.insert(schema.inductionInstances).values({
         id: toInt(r.id),
         userId: r.userId,
         templateName: r.templateName,
@@ -301,9 +299,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("training-matrix-submissions.csv", async (rows) => {
+      await importFile("training-matrix-submissions.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.trainingMatrixSubmissions).values({
+      await tx.insert(schema.trainingMatrixSubmissions).values({
         id: toInt(r.id),
         userId: r.userId,
         status: r.status,
@@ -317,24 +315,24 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  await importFile("user-certificates.csv", async (rows) => {
+      await importFile("user-certificates.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.userCertificates).values({
+      await tx.insert(schema.userCertificates).values({
         id: toInt(r.id),
         userId: r.userId,
         definitionId: toInt(r.definitionId),
         issueDate: r.issueDate,
         expiryDate: r.expiryDate || null,
         status: r.status,
-        fileUrl: r.fileUrl || null,
+        credentialId: r.credentialId || null,
       }).onConflictDoNothing();
     }
     return rows.length;
   });
 
-  await importFile("training-records.csv", async (rows) => {
+      await importFile("training-records.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.trainingRecords).values({
+      await tx.insert(schema.trainingRecords).values({
         id: toInt(r.id),
         userId: r.userId,
         requirementName: r.requirementName,
@@ -342,30 +340,27 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         completedDate: r.completedDate || null,
         expiresDate: r.expiresDate || null,
         status: r.status,
-        notes: r.notes || null,
       }).onConflictDoNothing();
     }
     return rows.length;
   });
 
-  await importFile("career-milestones.csv", async (rows) => {
+      await importFile("career-milestones.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.careerMilestones).values({
+      await tx.insert(schema.careerMilestones).values({
         id: toInt(r.id),
         userId: r.userId,
         title: r.title,
         description: r.description || "",
         date: r.date,
-        type: r.type,
-        icon: r.icon || "",
       }).onConflictDoNothing();
     }
     return rows.length;
   });
 
-  await importFile("induction-completions.csv", async (rows) => {
+      await importFile("induction-completions.csv", async (rows) => {
     for (const r of rows) {
-      await db.insert(schema.inductionItemCompletions).values({
+      await tx.insert(schema.inductionItemCompletions).values({
         id: toInt(r.id),
         instanceId: toInt(r.instanceId),
         templateItemId: toInt(r.templateItemId),
@@ -381,7 +376,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     return rows.length;
   });
 
-  const seqTables = [
+      const seqTables = [
     "users", "induction_template_items", "induction_instances", "induction_item_completions",
     "competency_categories", "competency_items", "training_matrix_submissions",
     "certificate_definitions", "user_certificates", "training_records",
@@ -389,10 +384,14 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     "career_nodes", "career_milestones", "standards_survey_roles", "standards_survey_items",
     "resources", "departments", "portal_settings",
   ];
-  for (const table of seqTables) {
-    try {
-      await db.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('${table}', 'id'), COALESCE((SELECT MAX(id) FROM ${table}), 0) + 1, false)`));
-    } catch {}
+      for (const table of seqTables) {
+        try {
+          await tx.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('${table}', 'id'), COALESCE((SELECT MAX(id) FROM ${table}), 0) + 1, false)`));
+        } catch {}
+      }
+    });
+  } catch (err: any) {
+    errors.push(err?.message || "Restore transaction failed");
   }
 
   return { success: errors.length === 0, summary, errors };

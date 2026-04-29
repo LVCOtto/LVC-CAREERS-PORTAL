@@ -25,7 +25,7 @@ export interface RoleDefinition {
 export const engineerRoleDefinition: RoleDefinition = {
   id: 'role-engineer',
   title: 'Service Engineer',
-  department: 'Engineering',
+  department: 'Service / Workshop',
   reportsTo: 'Operations Manager',
   overview: 'As a Service Engineer at LVC, you are responsible for the repair, maintenance, and servicing of industrial cleaning machines. You represent LVC to our customers and are expected to deliver high-quality workmanship while adhering to all safety protocols and company procedures.',
   sections: [
@@ -175,7 +175,12 @@ export const adminRoleDefinition: RoleDefinition = {
 };
 
 export function getRoleForDepartment(department: string): RoleDefinition {
-  if (department === 'Engineering') {
+  const normalizedDepartment = (department || '').trim().toLowerCase();
+  if (
+    normalizedDepartment === 'engineering' ||
+    normalizedDepartment.includes('service') ||
+    normalizedDepartment.includes('workshop')
+  ) {
     return engineerRoleDefinition;
   }
   return adminRoleDefinition;

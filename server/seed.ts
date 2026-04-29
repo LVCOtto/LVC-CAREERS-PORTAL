@@ -15,13 +15,13 @@ async function seed() {
   await db.insert(schema.users).values([
     { id: "admin-1", username: "admin", password: "admin", name: "Sarah Mitchell", email: "sarah.mitchell@lvc.com", role: "admin", jobRole: "HR Director", department: "Human Resources", startDate: "2019-03-15", activated: true },
     { id: "manager-1", username: "manager1", password: "manager", name: "James Wilson", email: "james.wilson@lvc.com", role: "manager", jobRole: "Operations Manager", department: "Operations", startDate: "2020-06-01", activated: true },
-    { id: "manager-2", username: "manager2", password: "manager", name: "Emma Thompson", email: "emma.thompson@lvc.com", role: "manager", jobRole: "Engineering Lead", department: "Engineering", startDate: "2020-09-14", activated: true },
-    { id: "colleague-1", username: "colleague1", password: "colleague", name: "Michael Chen", email: "michael.chen@lvc.com", role: "colleague", jobRole: "Engineer", department: "Engineering", managerId: "manager-2", startDate: "2024-11-01", activated: true },
-    { id: "colleague-2", username: "colleague2", password: "colleague", name: "Sophie Williams", email: "sophie.williams@lvc.com", role: "colleague", jobRole: "Engineer", department: "Engineering", managerId: "manager-2", startDate: "2024-08-15", activated: true },
-    { id: "colleague-3", username: "colleague3", password: "colleague", name: "David Brown", email: "david.brown@lvc.com", role: "colleague", jobRole: "Operations Coordinator", department: "Operations", managerId: "manager-1", startDate: "2024-10-01", activated: true },
-    { id: "colleague-4", username: "colleague4", password: "colleague", name: "Lisa Martinez", email: "lisa.martinez@lvc.com", role: "colleague", jobRole: "Operations Coordinator", department: "Operations", managerId: "manager-1", startDate: "2023-05-20", activated: true },
-    { id: "colleague-5", username: "colleague5", password: "colleague", name: "Tom Harris", email: "tom.harris@lvc.com", role: "colleague", jobRole: "Engineer", department: "Engineering", managerId: "manager-2", startDate: "2024-01-08", activated: true },
-    { id: "colleague-6", username: "colleague6", password: "colleague", name: "Rachel Green", email: "rachel.green@lvc.com", role: "colleague", jobRole: "Operations Coordinator", department: "Operations", managerId: "manager-1", startDate: "2024-12-02", activated: true },
+    { id: "manager-2", username: "manager2", password: "manager", name: "Emma Thompson", email: "emma.thompson@lvc.com", role: "manager", jobRole: "Engineer", department: "Service", startDate: "2020-09-14", activated: true },
+    { id: "colleague-1", username: "colleague1", password: "colleague", name: "Michael Chen", email: "michael.chen@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-11-01", activated: true },
+    { id: "colleague-2", username: "colleague2", password: "colleague", name: "Sophie Williams", email: "sophie.williams@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-08-15", activated: true },
+    { id: "colleague-3", username: "colleague3", password: "colleague", name: "David Brown", email: "david.brown@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2024-10-01", activated: true },
+    { id: "colleague-4", username: "colleague4", password: "colleague", name: "Lisa Martinez", email: "lisa.martinez@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2023-05-20", activated: true },
+    { id: "colleague-5", username: "colleague5", password: "colleague", name: "Tom Harris", email: "tom.harris@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-01-08", activated: true },
+    { id: "colleague-6", username: "colleague6", password: "colleague", name: "Rachel Green", email: "rachel.green@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2024-12-02", activated: true },
     { id: "architect-1", username: "architect", password: "architect", name: "Portal Architect", email: "architect@lvc.com", role: "architect", jobRole: "Portal Architect", department: "IT", startDate: "2024-01-01", requiresInduction: false, activated: true },
   ]);
   console.log("Users seeded");
@@ -293,17 +293,17 @@ async function seed() {
   console.log("Certificates seeded");
 
   await db.insert(schema.careerMilestones).values([
-    { userId: "colleague-1", title: "Joined LVC", date: "2024-11-01", description: "Started as Engineer in the Engineering department" },
+    { userId: "colleague-1", title: "Joined LVC", date: "2024-11-01", description: "Started as Engineer in the Service department" },
     { userId: "colleague-1", title: "Completed Induction", date: "2024-11-15", description: "Successfully completed initial onboarding program" },
   ]);
 
   await db.insert(schema.careerNodes).values([
-    { slug: "trainee-engineer", title: "Trainee Engineer", description: "Entry level role focusing on learning core equipment and safety.", department: "Engineering", level: 1, requirements: [], nextSteps: ["field-service-engineer"] },
-    { slug: "field-service-engineer", title: "Field Service Engineer", description: "Independent role managing own van stock and customer visits.", department: "Engineering", level: 2, requirements: [{ description: "Pressure Washer Operations" }, { description: "Health & Safety First (Gold)" }], nextSteps: ["senior-engineer", "specialist-technician"] },
-    { slug: "senior-engineer", title: "Senior Service Engineer", description: "Experienced engineer handling complex repairs and mentoring juniors.", department: "Engineering", level: 3, requirements: [{ description: "Scrubber Dryer Technician (Silver)" }, { description: "Equipment Diagnostics" }], nextSteps: ["workshop-manager", "engineering-lead"] },
-    { slug: "specialist-technician", title: "Specialist Technician", description: "Subject matter expert in specific complex machinery types.", department: "Engineering", level: 3, requirements: [{ description: "Industrial Floor Care (Bronze)" }], nextSteps: ["engineering-lead"] },
-    { slug: "engineering-lead", title: "Engineering Team Lead", description: "Leadership role managing a team of engineers and KPIs.", department: "Engineering", level: 4, requirements: [{ description: "Team Leadership (Silver)" }, { description: "Customer Service Excellence (Gold)" }], nextSteps: ["operations-manager"] },
-    { slug: "workshop-manager", title: "Workshop Manager", description: "Responsible for workshop operations, logistics and safety.", department: "Engineering", level: 4, requirements: [{ description: "Team Leadership" }], nextSteps: ["operations-manager"] },
+    { slug: "trainee-engineer", title: "Trainee Engineer", description: "Entry level role focusing on learning core equipment and safety.", department: "Service", level: 1, requirements: [], nextSteps: ["field-service-engineer"] },
+    { slug: "field-service-engineer", title: "Field Service Engineer", description: "Independent role managing own van stock and customer visits.", department: "Service", level: 2, requirements: [{ description: "Pressure Washer Operations" }, { description: "Health & Safety First (Gold)" }], nextSteps: ["senior-engineer", "specialist-technician"] },
+    { slug: "senior-engineer", title: "Senior Service Engineer", description: "Experienced engineer handling complex repairs and mentoring juniors.", department: "Service", level: 3, requirements: [{ description: "Scrubber Dryer Technician (Silver)" }, { description: "Equipment Diagnostics" }], nextSteps: ["workshop-manager", "engineering-lead"] },
+    { slug: "specialist-technician", title: "Specialist Technician", description: "Subject matter expert in specific complex machinery types.", department: "Service", level: 3, requirements: [{ description: "Industrial Floor Care (Bronze)" }], nextSteps: ["engineering-lead"] },
+    { slug: "engineering-lead", title: "Engineering Team Lead", description: "Leadership role managing a team of engineers and KPIs.", department: "Service", level: 4, requirements: [{ description: "Team Leadership (Silver)" }, { description: "Customer Service Excellence (Gold)" }], nextSteps: ["operations-manager"] },
+    { slug: "workshop-manager", title: "Workshop Manager", description: "Responsible for workshop operations, logistics and safety.", department: "Workshop", level: 4, requirements: [{ description: "Team Leadership" }], nextSteps: ["operations-manager"] },
     { slug: "operations-manager", title: "Operations Manager", description: "Senior leadership role overseeing multiple departments.", department: "Operations", level: 5, requirements: [{ description: "5+ years experience" }], nextSteps: [] },
   ]);
   console.log("Career data seeded");
@@ -427,7 +427,7 @@ async function seed() {
   const deptData = [
     { name: 'Directors', color: 'bg-slate-600', sortOrder: 0 },
     { name: 'Operations', color: 'bg-emerald-600', sortOrder: 1 },
-    { name: 'Engineering', color: 'bg-blue-600', sortOrder: 2 },
+    { name: 'Service', color: 'bg-blue-600', sortOrder: 2 },
     { name: 'Service Coordination', color: 'bg-amber-600', sortOrder: 3 },
     { name: 'Warehouse & Logistics', color: 'bg-orange-600', sortOrder: 4 },
     { name: 'Hire Department', color: 'bg-teal-600', sortOrder: 5 },
@@ -444,7 +444,7 @@ async function seed() {
     insertedDepts[d.name] = row.id;
   }
   const deptParents: Record<string, string> = {
-    'Operations': 'Directors', 'Engineering': 'Operations', 'Service Coordination': 'Operations',
+    'Operations': 'Directors', 'Service': 'Operations', 'Service Coordination': 'Operations',
     'Warehouse & Logistics': 'Operations', 'Hire Department': 'Operations', 'Workshop': 'Operations',
     'Sales & Product Support': 'Directors', 'Accounts': 'Directors', 'H&S / HR / Quality': 'Directors',
     'IT & Procurement': 'Directors', 'Human Resources': 'Directors',

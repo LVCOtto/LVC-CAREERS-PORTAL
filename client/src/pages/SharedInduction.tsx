@@ -140,7 +140,7 @@ export default function SharedInduction() {
           </CardContent>
         </Card>
 
-        {sections.map((section: string, sectionIndex: number) => {
+        {(sections as string[]).map((section: string, sectionIndex: number) => {
           const sectionItems = items.filter((i: any) => i.section === section);
           const sCompleted = sectionItems.filter((i: any) => i.completed).length;
           const sSignedOff = sectionItems.filter((i: any) => i.signedOffBy).length;

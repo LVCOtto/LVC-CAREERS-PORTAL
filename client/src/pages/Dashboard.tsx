@@ -182,7 +182,7 @@ function ColleagueDashboard({ user }: { user: User }) {
               </Link>
             )}
 
-            {roleCompetencies.length > 0 && (
+            {(roleCompetencies?.length ?? 0) > 0 && (
               <Link href="/training">
                 <div className="p-4 rounded-lg border hover:bg-muted/50 transition-colors cursor-pointer group" data-testid="link-training-card">
                   <div className="flex items-center justify-between">

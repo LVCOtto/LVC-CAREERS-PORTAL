@@ -28,7 +28,7 @@ export interface OrgMember {
 export const departments: Department[] = [
   { id: 'dept-exec', name: 'Directors', color: 'bg-slate-600' },
   { id: 'dept-ops', name: 'Operations', parentId: 'dept-exec', color: 'bg-emerald-600' },
-  { id: 'dept-eng', name: 'Engineering', parentId: 'dept-ops', color: 'bg-blue-600' },
+  { id: 'dept-eng', name: 'Service', parentId: 'dept-ops', color: 'bg-blue-600' },
   { id: 'dept-service', name: 'Service Coordination', parentId: 'dept-ops', color: 'bg-amber-600' },
   { id: 'dept-warehouse', name: 'Warehouse & Logistics', parentId: 'dept-ops', color: 'bg-orange-600' },
   { id: 'dept-hire', name: 'Hire Department', parentId: 'dept-ops', color: 'bg-teal-600' },
@@ -53,7 +53,7 @@ export const jobRoles: JobRole[] = [
   { id: 'role-service-coord', title: 'Service Co-Ordinator', departmentId: 'dept-service', level: 'senior', reportsToRoleId: 'role-ops-mgr' },
   { id: 'role-service-coord-asst', title: 'Service Coordinator Assistant', departmentId: 'dept-service', level: 'mid', reportsToRoleId: 'role-service-coord' },
   
-  // Engineering Team
+  // Service Department Engineers
   { id: 'role-senior-eng', title: 'Senior Service Engineer', departmentId: 'dept-eng', level: 'senior', reportsToRoleId: 'role-ops-mgr' },
   { id: 'role-field-eng', title: 'Field Service Engineer', departmentId: 'dept-eng', level: 'mid', reportsToRoleId: 'role-senior-eng' },
   { id: 'role-service-eng', title: 'Service Engineer', departmentId: 'dept-eng', level: 'mid', reportsToRoleId: 'role-senior-eng' },
@@ -106,16 +106,16 @@ export const orgMembers: OrgMember[] = [
   { id: 'mem-6', name: '[Service Co-Ordinator - TBC]', jobRoleId: 'role-service-coord', departmentId: 'dept-service', managerId: 'mem-5', email: 'service.coord@lvc.co.uk', startDate: '2017-01-01' },
   { id: 'mem-7', name: '[Service Coordinator Assistant - TBC]', jobRoleId: 'role-service-coord-asst', departmentId: 'dept-service', managerId: 'mem-6', email: 'service.asst@lvc.co.uk', startDate: '2020-01-01' },
   
-  // Engineering Team - Senior Engineers
+  // Service Department - Senior Engineers
   { id: 'mem-8', name: '[Senior Service Engineer 1 - TBC]', jobRoleId: 'role-senior-eng', departmentId: 'dept-eng', managerId: 'mem-5', email: 'senior.eng1@lvc.co.uk', startDate: '2016-01-01' },
   { id: 'mem-9', name: '[Senior Service Engineer 2 - TBC]', jobRoleId: 'role-senior-eng', departmentId: 'dept-eng', managerId: 'mem-5', email: 'senior.eng2@lvc.co.uk', startDate: '2017-01-01' },
   { id: 'mem-10', name: '[Senior Service Engineer 3 - TBC]', jobRoleId: 'role-senior-eng', departmentId: 'dept-eng', managerId: 'mem-5', email: 'senior.eng3@lvc.co.uk', startDate: '2018-01-01' },
   
-  // Engineering Team - Service Engineers
+  // Service Department - Service Engineers
   { id: 'mem-11', name: '[Service Engineer 1 - TBC]', jobRoleId: 'role-service-eng', departmentId: 'dept-eng', managerId: 'mem-8', email: 'service.eng1@lvc.co.uk', startDate: '2019-01-01' },
   { id: 'mem-12', name: '[Service Engineer 2 - TBC]', jobRoleId: 'role-service-eng', departmentId: 'dept-eng', managerId: 'mem-8', email: 'service.eng2@lvc.co.uk', startDate: '2020-01-01' },
   
-  // Engineering Team - Field Engineers
+  // Service Department - Field Engineers
   { id: 'mem-13', name: '[Field Service Engineer 1 - TBC]', jobRoleId: 'role-field-eng', departmentId: 'dept-eng', managerId: 'mem-8', email: 'field.eng1@lvc.co.uk', startDate: '2019-01-01' },
   { id: 'mem-14', name: '[Field Service Engineer 2 - TBC]', jobRoleId: 'role-field-eng', departmentId: 'dept-eng', managerId: 'mem-9', email: 'field.eng2@lvc.co.uk', startDate: '2020-01-01' },
   { id: 'mem-15', name: '[Field Service Engineer 3 - TBC]', jobRoleId: 'role-field-eng', departmentId: 'dept-eng', managerId: 'mem-10', email: 'field.eng3@lvc.co.uk', startDate: '2021-01-01' },

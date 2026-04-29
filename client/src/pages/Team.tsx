@@ -34,7 +34,8 @@ import {
   useUpdateTrainingMatrix,
   useGenerateShareToken,
 } from '@/lib/hooks';
-import { IndividualView } from '@/pages/Training';
+import { getCompetencyDepartmentType } from '@/lib/departmentClassification';
+import { IndividualView, TrainingProgressChart } from '@/pages/Training';
 import {
   ArrowLeft,
   User as UserIcon,
@@ -811,7 +812,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { data: approverUser } = useUser(matrixSubmission?.approvedBy || '');
   const { data: roleCompetencies, isLoading: roleCompLoading } = useCompetenciesForRole(member?.jobRole);
   const { data: deptCompetencies, isLoading: deptCompLoading } = useCompetencies(
-    member?.department?.toLowerCase().includes('engineering') ? 'engineering' : 'admin'
+    getCompetencyDepartmentType(member)
   );
   const competencies = roleCompetencies || deptCompetencies;
   const competenciesLoading = roleCompLoading || deptCompLoading;
@@ -1392,6 +1393,29 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                       showBackButton={false}
                       compact
                     />
+                    <div className="mt-6">
+                      <p className="text-sm font-medium mb-1 flex items-center gap-2">
+                        Progress Timeline
+                      </p>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Overall score across assessments.
+                        <span className="ml-2 inline-flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                            Approved
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                            Pending review
+                          </span>
+                        </span>
+                      </p>
+                      <TrainingProgressChart
+                        userId={memberId}
+                        categories={categories}
+                        nextReviewDate={matrixSubmission?.nextReviewDate}
+                      />
+                    </div>
                   </>
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">

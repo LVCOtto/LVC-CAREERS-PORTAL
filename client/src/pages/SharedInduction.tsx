@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { useRoute } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
 import { usePortalSettings } from '@/lib/portalSettingsContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useSharedInduction, useUpdateSharedInductionItem } from '@/lib/hooks';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { StatusBadge } from '@/components/StatusBadge';
 import {
@@ -48,16 +50,33 @@ export default function SharedInduction() {
   const token = params?.token || '';
   const { getSetting } = usePortalSettings();
   const portalName = getSetting('portal.title') || 'Training Portal';
+  const [pendingItemId, setPendingItemId] = useState<number | null>(null);
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['/api/induction/shared', token],
-    queryFn: async () => {
-      const res = await fetch(`/api/induction/shared/${token}`);
-      if (!res.ok) throw new Error('Induction not found');
-      return res.json();
-    },
-    enabled: !!token,
-  });
+  const { data, isLoading, error } = useSharedInduction(token);
+  const updateSharedItem = useUpdateSharedInductionItem();
+
+  const handleToggleComplete = async (item: any) => {
+    setPendingItemId(item.id);
+    try {
+      await updateSharedItem.mutateAsync({
+        token,
+        templateItemId: item.id,
+        data: item.completed
+          ? {
+              completed: false,
+              inProgress: false,
+              completedDate: null,
+            }
+          : {
+              completed: true,
+              inProgress: false,
+              completedDate: new Date().toISOString().slice(0, 10),
+            },
+      });
+    } finally {
+      setPendingItemId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -93,7 +112,7 @@ export default function SharedInduction() {
       <div className="border-b bg-card">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <p className="text-xs text-muted-foreground uppercase tracking-wide">{portalName}</p>
-          <p className="text-xs text-muted-foreground mt-1">Read-only induction progress view</p>
+          <p className="text-xs text-muted-foreground mt-1">Collaborative progress view (manager sign-off remains portal-only)</p>
         </div>
       </div>
 
@@ -180,11 +199,12 @@ export default function SharedInduction() {
                   <TableHeader>
                     <TableRow>
                       <TableHead style={{ width: '5%' }}></TableHead>
-                      <TableHead style={{ width: '33%' }}>Item</TableHead>
+                      <TableHead style={{ width: '28%' }}>Item</TableHead>
                       <TableHead style={{ width: '15%' }}>Assigned To</TableHead>
-                      <TableHead style={{ width: '15%' }}>Status</TableHead>
-                      <TableHead style={{ width: '15%' }}>Completed</TableHead>
-                      <TableHead style={{ width: '17%' }}>Signed Off</TableHead>
+                      <TableHead style={{ width: '13%' }}>Status</TableHead>
+                      <TableHead style={{ width: '13%' }}>Completed</TableHead>
+                      <TableHead style={{ width: '16%' }}>Signed Off</TableHead>
+                      <TableHead style={{ width: '10%' }} className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -233,6 +253,27 @@ export default function SharedInduction() {
                               <p className="text-xs text-muted-foreground">by {item.signedOffBy}</p>
                             </div>
                           ) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {item.signedOffBy ? (
+                            <span className="text-xs text-muted-foreground">Manager signed off</span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant={item.completed ? 'outline' : 'default'}
+                              onClick={() => handleToggleComplete(item)}
+                              disabled={pendingItemId === item.id || updateSharedItem.isPending}
+                              data-testid={`button-shared-toggle-complete-${item.id}`}
+                            >
+                              {pendingItemId === item.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : item.completed ? (
+                                'Undo complete'
+                              ) : (
+                                'Mark complete'
+                              )}
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

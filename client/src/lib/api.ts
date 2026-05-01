@@ -41,6 +41,9 @@ export const api = {
     get: (userId: string) => apiFetch<any>(`/induction/${userId}`),
     completeItem: (userId: string, data: any) =>
       apiFetch<any>(`/induction/${userId}/complete-item`, { method: "POST", body: JSON.stringify(data) }),
+    getShared: (token: string) => apiFetch<any>(`/induction/shared/${token}`),
+    updateSharedItem: (token: string, templateItemId: number, data: any) =>
+      apiFetch<any>(`/induction/shared/${token}/items/${templateItemId}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   competencies: {
     list: (departmentType?: string) => apiFetch<any[]>(`/competencies${departmentType ? `?departmentType=${departmentType}` : ""}`),

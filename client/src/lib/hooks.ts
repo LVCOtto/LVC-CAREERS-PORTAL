@@ -21,10 +21,26 @@ export function useInduction(userId: string) {
   return useQuery({ queryKey: ["induction", userId], queryFn: () => api.induction.get(userId), enabled: !!userId });
 }
 
+export function useSharedInduction(token: string) {
+  return useQuery({
+    queryKey: ["shared-induction", token],
+    queryFn: () => api.induction.getShared(token),
+    enabled: !!token,
+  });
+}
+
 export function useCompleteInductionItem(userId: string) {
   return useMutation({
     mutationFn: (data: any) => api.induction.completeItem(userId, data),
     onSuccess: () => invalidate("induction"),
+  });
+}
+
+export function useUpdateSharedInductionItem() {
+  return useMutation({
+    mutationFn: ({ token, templateItemId, data }: { token: string; templateItemId: number; data: any }) =>
+      api.induction.updateSharedItem(token, templateItemId, data),
+    onSuccess: () => invalidate("shared-induction"),
   });
 }
 

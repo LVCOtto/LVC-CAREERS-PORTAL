@@ -17,8 +17,13 @@ function sanitizeUser<T extends Record<string, any> | undefined>(user: T) {
 
 function isPublicApiRoute(req: Request) {
   const routePath = `${req.baseUrl}${req.path}`;
+  const isSharedInductionItemPatch =
+    req.method === "PATCH" &&
+    /^\/api\/induction\/shared\/[^/]+\/items\/\d+$/.test(routePath);
+
   if (routePath === "/api/auth/login") return true;
   if (req.method === "GET" && routePath.startsWith("/api/induction/shared/")) return true;
+  if (isSharedInductionItemPatch) return true;
   if (req.method === "GET" && routePath.startsWith("/api/training-matrix/shared/")) return true;
   return false;
 }
@@ -335,6 +340,12 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Forbidden" });
     }
     const { templateItemId, completed, inProgress, completedDate, targetDate, reviewDate, signedOffBy, signedOffDate, assignedTo } = req.body;
+
+    const isSignOffChange = signedOffBy !== undefined || signedOffDate !== undefined;
+    if (isSignOffChange && !isPrivilegedRole(req.session.role)) {
+      return res.status(403).json({ message: "Manager access required for sign-off" });
+    }
+
     let instance = await storage.getInductionInstance(req.params.userId);
     if (!instance) {
       instance = await storage.createInductionInstance({
@@ -375,6 +386,87 @@ export async function registerRoutes(
         // Don't fail the request if sync fails
       }
     }
+
+    res.json(completion);
+  });
+
+  app.patch("/api/induction/shared/:token/items/:templateItemId", async (req, res) => {
+    const instance = await storage.getInductionByShareToken(req.params.token);
+    if (!instance) return res.status(404).json({ message: "Not found" });
+
+    const templateItemId = Number(req.params.templateItemId);
+    if (Number.isNaN(templateItemId)) {
+      return res.status(400).json({ message: "Invalid template item id" });
+    }
+
+    const forbiddenSharedFields = [
+      "signedOffBy",
+      "signedOffDate",
+      "assignedTo",
+      "targetDate",
+      "reviewDate",
+      "instanceId",
+      "templateItemId",
+    ];
+
+    const hasForbiddenField = forbiddenSharedFields.some((field) => req.body[field] !== undefined);
+    if (hasForbiddenField) {
+      return res.status(403).json({ message: "Sign-off and manager fields are portal-only" });
+    }
+
+    const user = await storage.getUser(instance.userId);
+    let templateItems = await storage.getInductionTemplateItems();
+    if (user?.jobRole) {
+      const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
+      templateItems = templateItems.filter((item) => allowedSections.includes(item.section));
+    }
+
+    const templateItem = templateItems.find((item) => item.id === templateItemId);
+    if (!templateItem) {
+      return res.status(404).json({ message: "Template item not found" });
+    }
+
+    const completions = await storage.getInductionCompletions(instance.id);
+    const existing = completions.find((c) => c.templateItemId === templateItemId);
+    if (existing?.signedOffBy) {
+      return res.status(409).json({ message: "Item is already signed off by manager and cannot be edited from shared link" });
+    }
+
+    const hasCompleted = req.body.completed !== undefined;
+    const hasInProgress = req.body.inProgress !== undefined;
+    const hasCompletedDate = req.body.completedDate !== undefined;
+    if (!hasCompleted && !hasInProgress && !hasCompletedDate) {
+      return res.status(400).json({ message: "No editable fields provided" });
+    }
+
+    if (hasCompleted && typeof req.body.completed !== "boolean") {
+      return res.status(400).json({ message: "completed must be boolean" });
+    }
+    if (hasInProgress && typeof req.body.inProgress !== "boolean") {
+      return res.status(400).json({ message: "inProgress must be boolean" });
+    }
+    if (hasCompletedDate && req.body.completedDate !== null && typeof req.body.completedDate !== "string") {
+      return res.status(400).json({ message: "completedDate must be a string or null" });
+    }
+
+    const completed = hasCompleted ? req.body.completed : (existing?.completed ?? false);
+    const inProgress = hasInProgress ? req.body.inProgress : (existing?.inProgress ?? false);
+    const completedDate = completed
+      ? (hasCompletedDate ? req.body.completedDate : (existing?.completedDate ?? new Date().toISOString().slice(0, 10)))
+      : null;
+
+    const completion = await storage.upsertInductionCompletion({
+      instanceId: instance.id,
+      templateItemId,
+      completed,
+      inProgress,
+      completedDate,
+      targetDate: existing?.targetDate ?? null,
+      reviewDate: existing?.reviewDate ?? null,
+      signedOffBy: null,
+      signedOffDate: null,
+      assignedTo: existing?.assignedTo ?? null,
+    });
 
     res.json(completion);
   });

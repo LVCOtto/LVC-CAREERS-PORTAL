@@ -20,7 +20,8 @@ export interface User {
 interface AuthContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
-  login: (username: string, password: string) => Promise<void>;
+  requestCode: (email: string) => Promise<void>;
+  verifyCode: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -45,8 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (username: string, password: string) => {
-    const user = await api.auth.login(username, password);
+  const requestCode = async (email: string) => {
+    await api.auth.requestCode(email);
+  };
+
+  const verifyCode = async (email: string, code: string) => {
+    const user = await api.auth.verifyCode(email, code);
     setCurrentUser(user as User);
   };
 
@@ -64,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         currentUser,
         setCurrentUser,
-        login,
+        requestCode,
+        verifyCode,
         logout,
         isAuthenticated: currentUser !== null,
       }}

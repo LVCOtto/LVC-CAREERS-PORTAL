@@ -310,3 +310,21 @@ export const calendarSyncLog = pgTable("calendar_sync_log", {
 export const insertCalendarSyncLogSchema = createInsertSchema(calendarSyncLog).omit({ id: true });
 export type InsertCalendarSyncLog = z.infer<typeof insertCalendarSyncLogSchema>;
 export type CalendarSyncLog = typeof calendarSyncLog.$inferSelect;
+
+// One-time email auth codes (passwordless login)
+export const emailAuthCodes = pgTable("email_auth_codes", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 50 }).notNull(),
+  email: text("email").notNull(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  attemptCount: integer("attempt_count").notNull().default(0),
+  consumedAt: text("consumed_at"),
+  createdAt: text("created_at").notNull(),
+  requestIp: text("request_ip"),
+  userAgent: text("user_agent"),
+});
+
+export const insertEmailAuthCodeSchema = createInsertSchema(emailAuthCodes).omit({ id: true });
+export type InsertEmailAuthCode = z.infer<typeof insertEmailAuthCodeSchema>;
+export type EmailAuthCode = typeof emailAuthCodes.$inferSelect;

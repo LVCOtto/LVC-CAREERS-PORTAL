@@ -1,4 +1,4 @@
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, isNull, ne, sql } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 
@@ -102,6 +102,14 @@ export interface IStorage {
   getInductionSectionSettings(): Promise<schema.InductionSectionSetting[]>;
   upsertInductionSectionSetting(sectionName: string, isUniversal: boolean): Promise<schema.InductionSectionSetting>;
   getInductionSectionsForUser(jobRoleTitle: string): Promise<string[]>;
+
+  // Passwordless email auth
+  getUserByEmail(email: string): Promise<schema.User | undefined>;
+  createEmailAuthCode(data: schema.InsertEmailAuthCode): Promise<schema.EmailAuthCode>;
+  getLatestActiveEmailAuthCode(userId: string): Promise<schema.EmailAuthCode | undefined>;
+  incrementEmailAuthCodeAttempts(id: number): Promise<void>;
+  consumeEmailAuthCode(id: number): Promise<void>;
+  invalidatePreviousEmailAuthCodes(userId: string, exceptId: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -113,6 +121,51 @@ export class DatabaseStorage implements IStorage {
   async getUserByUsername(username: string) {
     const [user] = await db.select().from(schema.users).where(eq(schema.users.username, username));
     return user;
+  }
+
+  async getUserByEmail(email: string) {
+    const normalized = email.trim().toLowerCase();
+    const [user] = await db.select().from(schema.users)
+      .where(sql`lower(${schema.users.email}) = ${normalized}`);
+    return user;
+  }
+
+  async createEmailAuthCode(data: schema.InsertEmailAuthCode) {
+    const [created] = await db.insert(schema.emailAuthCodes).values(data).returning();
+    return created;
+  }
+
+  async getLatestActiveEmailAuthCode(userId: string) {
+    const [code] = await db.select().from(schema.emailAuthCodes)
+      .where(and(
+        eq(schema.emailAuthCodes.userId, userId),
+        isNull(schema.emailAuthCodes.consumedAt),
+      ))
+      .orderBy(desc(schema.emailAuthCodes.id))
+      .limit(1);
+    return code;
+  }
+
+  async incrementEmailAuthCodeAttempts(id: number) {
+    await db.update(schema.emailAuthCodes)
+      .set({ attemptCount: sql`${schema.emailAuthCodes.attemptCount} + 1` })
+      .where(eq(schema.emailAuthCodes.id, id));
+  }
+
+  async consumeEmailAuthCode(id: number) {
+    await db.update(schema.emailAuthCodes)
+      .set({ consumedAt: new Date().toISOString() })
+      .where(eq(schema.emailAuthCodes.id, id));
+  }
+
+  async invalidatePreviousEmailAuthCodes(userId: string, exceptId: number) {
+    await db.update(schema.emailAuthCodes)
+      .set({ consumedAt: new Date().toISOString() })
+      .where(and(
+        eq(schema.emailAuthCodes.userId, userId),
+        isNull(schema.emailAuthCodes.consumedAt),
+        ne(schema.emailAuthCodes.id, exceptId),
+      ));
   }
 
   async getAllUsers() {

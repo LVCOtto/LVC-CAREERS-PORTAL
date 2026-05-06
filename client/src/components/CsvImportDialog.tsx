@@ -9,7 +9,7 @@ interface ImportResult {
   skipped: number;
   colleaguesUpdated?: number;
   accountsCreated?: number;
-  createdAccounts?: Array<{ name: string; email: string; temporaryPassword: string }>;
+  createdAccounts?: Array<{ name: string; email: string }>;
   errors: string[];
 }
 
@@ -223,13 +223,12 @@ export function CsvImportDialog({ open, onOpenChange, title, description, expect
               </div>
               {result.createdAccounts && result.createdAccounts.length > 0 && (
                 <div className="mt-2 mb-2 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-md p-3" data-testid="section-created-accounts">
-                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1.5">New accounts created — please note these temporary passwords:</p>
+                  <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1.5">New portal accounts created — they can sign in with their work email:</p>
                   <div className="space-y-1">
                     {result.createdAccounts.map((account, i) => (
                       <div key={i} className="text-xs flex items-center gap-2" data-testid={`row-created-account-${i}`}>
                         <span className="font-medium text-blue-800 dark:text-blue-200">{account.name}</span>
                         <span className="text-blue-600 dark:text-blue-400">({account.email})</span>
-                        <Badge variant="outline" className="text-xs font-mono bg-white dark:bg-blue-900" data-testid={`text-temp-password-${i}`}>{account.temporaryPassword}</Badge>
                       </div>
                     ))}
                   </div>

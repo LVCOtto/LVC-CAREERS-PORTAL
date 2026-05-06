@@ -21,6 +21,7 @@ export async function migrateCompetencyDepartmentTypes() {
 }
 
 export async function migrateActivateExistingUsers() {
+  // With passwordless auth, activation requires only username + email (no password needed)
   await db.update(users)
     .set({ activated: true })
     .where(
@@ -28,7 +29,6 @@ export async function migrateActivateExistingUsers() {
         eq(users.activated, false),
         isNotNull(users.username),
         isNotNull(users.email),
-        isNotNull(users.password)
       )
     );
 }

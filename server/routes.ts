@@ -21,7 +21,8 @@ function isPublicApiRoute(req: Request) {
     req.method === "PATCH" &&
     /^\/api\/induction\/shared\/[^/]+\/items\/\d+$/.test(routePath);
 
-  if (routePath === "/api/auth/login") return true;
+  if (routePath === "/api/auth/request-code") return true;
+  if (routePath === "/api/auth/verify-code") return true;
   if (req.method === "GET" && routePath.startsWith("/api/induction/shared/")) return true;
   if (isSharedInductionItemPatch) return true;
   if (req.method === "GET" && routePath.startsWith("/api/training-matrix/shared/")) return true;
@@ -66,6 +67,25 @@ function isAdminOnlyRoute(routePath: string) {
 
 function canAccessUser(req: Request, targetUserId: string) {
   return req.session.userId === targetUserId || isPrivilegedRole(req.session.role);
+}
+
+// ---------------------------------------------------------------------------
+// Simple in-memory rate limiter for auth endpoints
+// ---------------------------------------------------------------------------
+const _authRateLimitStore = new Map<string, { count: number; windowStart: number }>();
+const _RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const _RATE_LIMIT_MAX = 5;
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = _authRateLimitStore.get(key);
+  if (!entry || now - entry.windowStart > _RATE_LIMIT_WINDOW_MS) {
+    _authRateLimitStore.set(key, { count: 1, windowStart: now });
+    return true;
+  }
+  if (entry.count >= _RATE_LIMIT_MAX) return false;
+  entry.count++;
+  return true;
 }
 
 export async function registerRoutes(
@@ -124,7 +144,7 @@ export async function registerRoutes(
         .replace(/^-|-$/g, "");
       body.id = `${slug}-${Date.now().toString(36)}`;
     }
-    if (body.username && body.email && body.password) {
+    if (body.username && body.email) {
       body.activated = true;
     }
     if (body.password) {
@@ -145,8 +165,8 @@ export async function registerRoutes(
     }
     const mergedUsername = data.username !== undefined ? data.username : existing.username;
     const mergedEmail = data.email !== undefined ? data.email : existing.email;
-    const mergedPassword = data.password !== undefined ? data.password : existing.password;
-    const hasAllCredentials = !!(mergedUsername && mergedEmail && mergedPassword);
+    // Activation requires username + email only; password is legacy/optional
+    const hasAllCredentials = !!(mergedUsername && mergedEmail);
     data.activated = hasAllCredentials;
     const user = await storage.updateUser(req.params.id, data);
     res.json(sanitizeUser(user));
@@ -162,35 +182,118 @@ export async function registerRoutes(
     res.json(members.map((member) => sanitizeUser(member)));
   });
 
-  app.post("/api/auth/login", async (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(401).json({ message: "Invalid credentials" });
-    const user = await storage.getUserByUsername(username);
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    if (!user.activated) {
-      return res.status(403).json({ message: "Account not yet activated — contact your administrator" });
+  // POST /api/auth/request-code — step 1: send a one-time code to the user's email
+  app.post("/api/auth/request-code", async (req, res) => {
+    const ip = (req.ip || req.socket?.remoteAddress || "unknown").toString();
+    if (!checkRateLimit(`ip:${ip}`)) {
+      return res.status(429).json({ message: "Too many requests. Please wait a moment and try again." });
     }
 
-    let passwordMatches = false;
-    if (typeof user.password === "string" && user.password.startsWith("$2")) {
-      passwordMatches = await bcrypt.compare(password, user.password);
-    } else {
-      passwordMatches = user.password === password;
-      if (passwordMatches && user.password) {
-        const migratedHash = await bcrypt.hash(user.password, 10);
-        await storage.updateUser(user.id, { password: migratedHash });
+    const rawEmail = req.body?.email;
+    if (!rawEmail || typeof rawEmail !== "string") {
+      return res.status(400).json({ message: "Email is required" });
+    }
+    const email = rawEmail.trim().toLowerCase();
+
+    // Always return the same response regardless of whether the email exists
+    // to prevent email enumeration attacks
+    const GENERIC_OK = { message: "If that email is registered, a sign-in code has been sent." };
+
+    try {
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.activated) return res.json(GENERIC_OK);
+
+      // Per-user rate limit (separate from IP limit)
+      if (!checkRateLimit(`user:${user.id}`)) return res.json(GENERIC_OK);
+
+      const code = String(randomInt(100000, 1000000)); // 6-digit code
+      const codeHash = await bcrypt.hash(code, 10);
+      const ttlMinutes = parseInt(process.env.AUTH_CODE_TTL_MINUTES || "10", 10);
+      const expiresAt = new Date(Date.now() + ttlMinutes * 60_000).toISOString();
+
+      const authCode = await storage.createEmailAuthCode({
+        userId: user.id,
+        email,
+        codeHash,
+        expiresAt,
+        attemptCount: 0,
+        consumedAt: null,
+        createdAt: new Date().toISOString(),
+        requestIp: ip,
+        userAgent: (req.headers["user-agent"] as string) || null,
+      });
+
+      // Invalidate any previous unused codes for this user
+      await storage.invalidatePreviousEmailAuthCodes(user.id, authCode.id);
+
+      const { sendAuthCodeEmail } = await import("./email");
+      await sendAuthCodeEmail({ to: email, recipientName: user.name, code });
+
+      return res.json(GENERIC_OK);
+    } catch (err: any) {
+      console.error("[auth] request-code error:", err.message);
+      // Still return the generic response so failures don't leak info
+      return res.json(GENERIC_OK);
+    }
+  });
+
+  // POST /api/auth/verify-code — step 2: verify the code and establish a session
+  app.post("/api/auth/verify-code", async (req, res) => {
+    const ip = (req.ip || req.socket?.remoteAddress || "unknown").toString();
+    if (!checkRateLimit(`verify:${ip}`)) {
+      return res.status(429).json({ message: "Too many requests. Please wait a moment and try again." });
+    }
+
+    const rawEmail = req.body?.email;
+    const rawCode = req.body?.code;
+    if (!rawEmail || !rawCode || typeof rawEmail !== "string" || typeof rawCode !== "string") {
+      return res.status(400).json({ message: "Email and code are required" });
+    }
+    const email = rawEmail.trim().toLowerCase();
+    const code = rawCode.trim();
+
+    try {
+      const user = await storage.getUserByEmail(email);
+      if (!user || !user.activated) {
+        return res.status(401).json({ message: "Invalid or expired code" });
       }
-    }
 
-    if (!passwordMatches) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
+      const authCode = await storage.getLatestActiveEmailAuthCode(user.id);
+      if (!authCode) {
+        return res.status(401).json({ message: "Invalid or expired code" });
+      }
 
-    req.session.userId = user.id;
-    req.session.role = user.role;
-    res.json(sanitizeUser(user));
+      if (new Date(authCode.expiresAt) < new Date()) {
+        return res.status(401).json({ message: "Code has expired. Please request a new one." });
+      }
+
+      const MAX_ATTEMPTS = 5;
+      if (authCode.attemptCount >= MAX_ATTEMPTS) {
+        return res.status(401).json({ message: "Code has been locked after too many attempts. Please request a new one." });
+      }
+
+      const isValid = await bcrypt.compare(code, authCode.codeHash);
+      if (!isValid) {
+        await storage.incrementEmailAuthCodeAttempts(authCode.id);
+        return res.status(401).json({ message: "Invalid or expired code" });
+      }
+
+      // Consume the code so it cannot be reused
+      await storage.consumeEmailAuthCode(authCode.id);
+
+      // Regenerate session to prevent session-fixation attacks
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err) => (err ? reject(err) : resolve()));
+      });
+
+      req.session.userId = user.id;
+      req.session.role = user.role;
+
+      return res.json(sanitizeUser(user));
+    } catch (err: any) {
+      console.error("[auth] verify-code error:", err.message);
+      return res.status(500).json({ message: "An error occurred. Please try again." });
+    }
   });
 
   app.get("/api/auth/me", async (req, res) => {
@@ -1146,7 +1249,7 @@ export async function registerRoutes(
       let skipped = 0;
       let colleaguesUpdated = 0;
       let accountsCreated = 0;
-      const createdAccounts: Array<{ name: string; email: string; temporaryPassword: string }> = [];
+      const createdAccounts: Array<{ name: string; email: string }> = [];
       const errors: string[] = [];
 
       if (type === "users") {
@@ -1161,7 +1264,7 @@ export async function registerRoutes(
             const slug = row.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
             const ri = row.requiresInduction || row.requires_induction || "";
             const requiresInduction = ri === "true" || ri === "yes" || ri === "1";
-            const hasCredentials = !!(row.username && row.email && row.password);
+            const hasCredentials = !!(row.username && row.email);
             const hashedPassword = row.password ? await bcrypt.hash(row.password, 10) : null;
             await storage.createUser({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
@@ -1239,12 +1342,6 @@ export async function registerRoutes(
               } else {
                 const colleagueName = row["colleague_name"] || row.colleaguename || "";
                 if (colleagueName) {
-                  const nameParts = colleagueName.trim().split(/\s+/);
-                  const firstInitial = nameParts[0]?.[0]?.toUpperCase() || "U";
-                  const surname = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
-                  const surnameFormatted = surname.charAt(0).toUpperCase() + surname.slice(1).toLowerCase();
-                  const randomDigits = randomInt(1000, 10000);
-                  const temporaryPassword = `${firstInitial}${surnameFormatted}${randomDigits}`;
                   const usernameBase = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
                   let username = usernameBase;
                   const existingUsernames = new Set(allUsers.map(u => u.username));
@@ -1256,11 +1353,10 @@ export async function registerRoutes(
                   const slug = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
                   const userId = `${slug}-${Date.now().toString(36)}${i}`;
                   const today = new Date().toISOString().split("T")[0];
-                  const hashedTempPassword = await bcrypt.hash(temporaryPassword, 10);
                   await storage.createUser({
                     id: userId,
                     username,
-                    password: hashedTempPassword,
+                    password: null,
                     name: colleagueName,
                     email: email,
                     role: "colleague",
@@ -1269,10 +1365,11 @@ export async function registerRoutes(
                     managerId: null,
                     startDate: today,
                     requiresInduction: true,
+                    activated: true,
                   });
-                  allUsers.push({ id: userId, username, password: hashedTempPassword, name: colleagueName, email, role: "colleague", jobRole: title, department, managerId: null, startDate: today, requiresInduction: true, activated: true });
+                  allUsers.push({ id: userId, username, password: null, name: colleagueName, email, role: "colleague", jobRole: title, department, managerId: null, startDate: today, requiresInduction: true, activated: true });
                   accountsCreated++;
-                  createdAccounts.push({ name: colleagueName, email, temporaryPassword });
+                  createdAccounts.push({ name: colleagueName, email });
                 } else {
                   errors.push(`Row ${i + 1}: No user found with email "${email}" and no colleague name provided to create account`);
                   if (!roleCreated) skipped++;

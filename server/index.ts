@@ -25,6 +25,29 @@ async function ensureSessionTable() {
   );
 }
 
+async function ensureEmailAuthCodesTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "email_auth_codes" (
+      "id" serial PRIMARY KEY,
+      "user_id" varchar(50) NOT NULL,
+      "email" text NOT NULL,
+      "code_hash" text NOT NULL,
+      "expires_at" text NOT NULL,
+      "attempt_count" integer NOT NULL DEFAULT 0,
+      "consumed_at" text,
+      "created_at" text NOT NULL,
+      "request_ip" text,
+      "user_agent" text
+    );
+  `);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS "IDX_email_auth_codes_user_id" ON "email_auth_codes" ("user_id");`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS "IDX_email_auth_codes_email" ON "email_auth_codes" ("email");`
+  );
+}
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -59,6 +82,9 @@ app.use(express.urlencoded({ extended: false }));
 
 const PgSessionStore = connectPgSimple(session);
 
+const sessionMaxAgeMs =
+  parseInt(process.env.SESSION_MAX_AGE_HOURS || "12", 10) * 60 * 60 * 1000;
+
 app.use(
   session({
     store: new PgSessionStore({
@@ -72,7 +98,7 @@ app.use(
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 12,
+      maxAge: sessionMaxAgeMs,
     },
   }),
 );
@@ -104,6 +130,7 @@ app.use((req, res, next) => {
 
 (async () => {
   await ensureSessionTable();
+  await ensureEmailAuthCodesTable();
   await ensureAllJobRoles();
   await migrateCompetencyDepartmentTypes();
   await migrateEngineeringDepartmentModel();

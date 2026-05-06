@@ -26,8 +26,10 @@ export const api = {
     team: (managerId: string) => apiFetch<any[]>(`/users/${managerId}/team`),
   },
   auth: {
-    login: (username: string, password: string) =>
-      apiFetch<any>("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
+    requestCode: (email: string) =>
+      apiFetch<{ message: string }>("/auth/request-code", { method: "POST", body: JSON.stringify({ email }) }),
+    verifyCode: (email: string, code: string) =>
+      apiFetch<any>("/auth/verify-code", { method: "POST", body: JSON.stringify({ email, code }) }),
     me: () => apiFetch<any>("/auth/me"),
     logout: () => apiFetch<void>("/auth/logout", { method: "POST" }),
   },
@@ -140,7 +142,7 @@ export const api = {
     window.open(`${BASE}/export/${type}`, "_blank");
   },
   importCsv: (type: string, rows: any[]) =>
-    apiFetch<{ created: number; skipped: number; colleaguesUpdated?: number; accountsCreated?: number; createdAccounts?: Array<{ name: string; email: string; temporaryPassword: string }>; errors: string[] }>(`/import/${type}`, {
+    apiFetch<{ created: number; skipped: number; colleaguesUpdated?: number; accountsCreated?: number; createdAccounts?: Array<{ name: string; email: string }>; errors: string[] }>(`/import/${type}`,
       method: "POST",
       body: JSON.stringify({ rows }),
     }),

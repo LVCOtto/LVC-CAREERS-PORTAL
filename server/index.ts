@@ -83,7 +83,7 @@ app.use(express.urlencoded({ extended: false }));
 const PgSessionStore = connectPgSimple(session);
 
 const sessionMaxAgeMs =
-  parseInt(process.env.SESSION_MAX_AGE_HOURS || "12", 10) * 60 * 60 * 1000;
+  parseInt(process.env.SESSION_MAX_AGE_HOURS || "24", 10) * 60 * 60 * 1000;
 
 app.use(
   session({

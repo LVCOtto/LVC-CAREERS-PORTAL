@@ -6,20 +6,29 @@ interface SendAuthCodeOptions {
   code: string;
 }
 
-export async function sendAuthCodeEmail({ to, recipientName, code }: SendAuthCodeOptions): Promise<void> {
+interface SendAuthCodeResult {
+  mode: "logged" | "sent";
+  providerId?: string;
+  fromAddress?: string;
+}
+
+export async function sendAuthCodeEmail({ to, recipientName, code }: SendAuthCodeOptions): Promise<SendAuthCodeResult> {
   const apiKey = process.env.RESEND_API_KEY;
+  const fromAddress = process.env.EMAIL_FROM || "LVC Careers Portal <onboarding@resend.dev>";
+  const portalName = process.env.PORTAL_NAME || "LVC Careers Portal";
 
   // Development fallback: log to console when no API key is configured
   if (!apiKey) {
     if (process.env.NODE_ENV !== "production") {
       console.log(`[DEV] Sign-in code for ${to}: ${code}`);
-      return;
+      return { mode: "logged", fromAddress };
     }
     throw new Error("RESEND_API_KEY is not configured");
   }
 
-  const fromAddress = process.env.EMAIL_FROM || "LVC Careers Portal <onboarding@resend.dev>";
-  const portalName = process.env.PORTAL_NAME || "LVC Careers Portal";
+  if (process.env.NODE_ENV === "production" && !process.env.EMAIL_FROM) {
+    console.warn("[auth] EMAIL_FROM is not configured; using onboarding@resend.dev test sender");
+  }
 
   const htmlBody = `<!DOCTYPE html>
 <html lang="en">
@@ -86,4 +95,11 @@ export async function sendAuthCodeEmail({ to, recipientName, code }: SendAuthCod
     const errorBody = await response.json().catch(() => ({})) as any;
     throw new Error(`Email delivery failed (${response.status}): ${errorBody.message || response.statusText}`);
   }
+
+  const responseBody = await response.json().catch(() => ({})) as { id?: string };
+  return {
+    mode: "sent",
+    providerId: responseBody.id,
+    fromAddress,
+  };
 }

@@ -227,7 +227,15 @@ export async function registerRoutes(
       await storage.invalidatePreviousEmailAuthCodes(user.id, authCode.id);
 
       const { sendAuthCodeEmail } = await import("./email");
-      await sendAuthCodeEmail({ to: email, recipientName: user.name, code });
+      const delivery = await sendAuthCodeEmail({ to: email, recipientName: user.name, code });
+
+      if (delivery.mode === "logged") {
+        console.warn(`[auth] OTP for ${email} was logged locally, not emailed. Add RESEND_API_KEY to enable delivery.`);
+      } else {
+        console.log(
+          `[auth] OTP email sent to ${email} via ${delivery.fromAddress || "configured sender"}${delivery.providerId ? ` (resend id: ${delivery.providerId})` : ""}`
+        );
+      }
 
       return res.json(GENERIC_OK);
     } catch (err: any) {

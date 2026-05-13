@@ -88,6 +88,12 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
+function normalizeEmail(email: unknown): string | null {
+  if (typeof email !== "string") return null;
+  const normalized = email.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -136,7 +142,16 @@ export async function registerRoutes(
   });
 
   app.post("/api/users", async (req, res) => {
-    const body = req.body;
+    const body = { ...req.body };
+    body.email = normalizeEmail(body.email);
+
+    if (body.email) {
+      const existingByEmail = await storage.getUserByEmail(body.email);
+      if (existingByEmail) {
+        return res.status(409).json({ message: "Email is already used by another user" });
+      }
+    }
+
     if (!body.id) {
       const slug = (body.name || "user")
         .toLowerCase()
@@ -158,6 +173,15 @@ export async function registerRoutes(
     const existing = await storage.getUser(req.params.id);
     if (!existing) return res.status(404).json({ message: "User not found" });
     const data = { ...req.body };
+    if (data.email !== undefined) {
+      data.email = normalizeEmail(data.email);
+      if (data.email) {
+        const existingByEmail = await storage.getUserByEmail(data.email);
+        if (existingByEmail && existingByEmail.id !== existing.id) {
+          return res.status(409).json({ message: "Email is already used by another user" });
+        }
+      }
+    }
     if (data.password === "") {
       data.password = null;
     } else if (typeof data.password === "string") {
@@ -1272,14 +1296,23 @@ export async function registerRoutes(
             const slug = row.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
             const ri = row.requiresInduction || row.requires_induction || "";
             const requiresInduction = ri === "true" || ri === "yes" || ri === "1";
-            const hasCredentials = !!(row.username && row.email);
+            const normalizedEmail = normalizeEmail(row.email);
+            if (normalizedEmail) {
+              const existingByEmail = await storage.getUserByEmail(normalizedEmail);
+              if (existingByEmail) {
+                errors.push(`Row ${i + 1} (${row.name}): Email \"${normalizedEmail}\" already exists`);
+                skipped++;
+                continue;
+              }
+            }
+            const hasCredentials = !!(row.username && normalizedEmail);
             const hashedPassword = row.password ? await bcrypt.hash(row.password, 10) : null;
             await storage.createUser({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
               username: row.username || null,
               password: hashedPassword,
               name: row.name,
-              email: row.email || null,
+              email: normalizedEmail,
               role: row.role || "colleague",
               jobRole: row.jobRole || row.job_role || "",
               department: row.department || "",
@@ -1341,7 +1374,7 @@ export async function registerRoutes(
               roleCreated = true;
             }
 
-            const email = getColEmail(row);
+            const email = normalizeEmail(getColEmail(row));
             if (email) {
               const user = allUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
               if (user) {
@@ -1366,7 +1399,7 @@ export async function registerRoutes(
                     username,
                     password: null,
                     name: colleagueName,
-                    email: email,
+                    email,
                     role: "colleague",
                     jobRole: title,
                     department: department,

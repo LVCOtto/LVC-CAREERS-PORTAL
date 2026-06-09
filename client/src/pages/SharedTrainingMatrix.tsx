@@ -66,7 +66,7 @@ export default function SharedTrainingMatrix() {
 
   if (localRatings === null && categories.length > 0 && submission) {
     setLocalRatings({ ...existingRatings });
-    setExpandedCategories(new Set(categories.map((c: any) => c.slug)));
+    setExpandedCategories(new Set());
   }
 
   const totalItems = useMemo(() => {

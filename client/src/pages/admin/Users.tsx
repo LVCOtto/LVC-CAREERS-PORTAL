@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth, User } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Search, UserPlus, Edit, Trash2, Shield, Users as UsersIcon, User as UserIcon, Download, Upload, CircleDot, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useDepartments, useJobRoles } from '@/lib/hooks';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useJobRoles } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -45,8 +45,6 @@ export default function AdminUsers() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
-  const [newUsername, setNewUsername] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState('colleague');
   const [newJobRole, setNewJobRole] = useState('');
   const [newDepartment, setNewDepartment] = useState('');
@@ -64,16 +62,17 @@ export default function AdminUsers() {
   const [editManagerId, setEditManagerId] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
   const [editRequiresInduction, setEditRequiresInduction] = useState(true);
-  const [editUsername, setEditUsername] = useState('');
-  const [editPassword, setEditPassword] = useState('');
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   const { data: users = [], isLoading } = useUsers();
-  const { data: departmentsList } = useDepartments();
   const { data: jobRolesList = [] } = useJobRoles();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(jobRolesList.map((role: any) => role.department?.trim()).filter(Boolean))),
+    [jobRolesList]
+  );
 
   const openEditDialog = (user: any) => {
     setEditingUser(user);
@@ -85,8 +84,6 @@ export default function AdminUsers() {
     setEditManagerId(user.managerId || '');
     setEditStartDate(user.startDate || '');
     setEditRequiresInduction(user.requiresInduction !== false);
-    setEditUsername(user.username || '');
-    setEditPassword('');
     setIsEditDialogOpen(true);
   };
 
@@ -103,10 +100,6 @@ export default function AdminUsers() {
         startDate: editStartDate,
         requiresInduction: editRequiresInduction,
       };
-      if (!editingUser.activated) {
-        if (editUsername.trim()) data.username = editUsername;
-        if (editPassword.trim()) data.password = editPassword;
-      }
       await updateUser.mutateAsync({ id: editingUser.id, data });
       toast({ title: 'User updated', description: 'User details have been saved.' });
       setIsEditDialogOpen(false);
@@ -159,8 +152,6 @@ export default function AdminUsers() {
       await createUser.mutateAsync({
         name: newName,
         email: newEmail || null,
-        username: newUsername || null,
-        password: newPassword || null,
         role: newRole,
         jobRole: newJobRole,
         department: newDepartment,
@@ -172,8 +163,6 @@ export default function AdminUsers() {
       setIsAddDialogOpen(false);
       setNewName('');
       setNewEmail('');
-      setNewUsername('');
-      setNewPassword('');
       setNewRole('colleague');
       setNewJobRole('');
       setNewDepartment('');
@@ -240,14 +229,6 @@ export default function AdminUsers() {
                   <Input id="email" type="email" placeholder="Enter email address" value={newEmail} onChange={e => setNewEmail(e.target.value)} data-testid="input-user-email" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
-                  <Input id="username" placeholder="Enter username" value={newUsername} onChange={e => setNewUsername(e.target.value)} data-testid="input-user-username" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="Enter password" value={newPassword} onChange={e => setNewPassword(e.target.value)} data-testid="input-user-password" />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
                   <Select value={newRole} onValueChange={setNewRole}>
                     <SelectTrigger data-testid="select-user-role">
@@ -287,8 +268,8 @@ export default function AdminUsers() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Select department</SelectItem>
-                      {(departmentsList || []).map((d: any) => (
-                        <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                      {departmentOptions.map((department) => (
+                        <SelectItem key={department} value={department}>{department}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -473,7 +454,7 @@ export default function AdminUsers() {
               <DialogTitle>Edit User</DialogTitle>
               <DialogDescription>
                 {editingUser && !editingUser.activated
-                  ? 'Fill in email, username and password to activate this account.'
+                  ? 'Add an email address to enable OTP sign-in for this account.'
                   : 'Update user account details.'}
               </DialogDescription>
             </DialogHeader>
@@ -482,7 +463,7 @@ export default function AdminUsers() {
                 <CircleDot className="w-5 h-5 text-amber-500 shrink-0" />
                 <div>
                   <p className="font-medium text-sm text-amber-800 dark:text-amber-200">Account Inactive</p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400">Provide email, username and password below to activate this account for login.</p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">Add an email address below to activate this account for OTP login.</p>
                 </div>
               </div>
             )}
@@ -495,23 +476,6 @@ export default function AdminUsers() {
                 <Label htmlFor="edit-email">Email</Label>
                 <Input id="edit-email" type="email" placeholder="Enter email address" value={editEmail} onChange={e => setEditEmail(e.target.value)} data-testid="input-edit-user-email" />
               </div>
-              {editingUser && editingUser.activated ? (
-                <div className="space-y-2">
-                  <Label>Username</Label>
-                  <Input value={editingUser.username || ''} disabled className="bg-muted" data-testid="input-edit-user-username" />
-                </div>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-username">Username</Label>
-                    <Input id="edit-username" placeholder="Enter username" value={editUsername} onChange={e => setEditUsername(e.target.value)} data-testid="input-edit-user-username" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-password">Password</Label>
-                    <Input id="edit-password" type="password" placeholder="Enter password" value={editPassword} onChange={e => setEditPassword(e.target.value)} data-testid="input-edit-user-password" />
-                  </div>
-                </>
-              )}
               <div className="space-y-2">
                 <Label htmlFor="edit-role">Role</Label>
                 <Select value={editRole} onValueChange={setEditRole}>
@@ -552,8 +516,8 @@ export default function AdminUsers() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">Select department</SelectItem>
-                    {(departmentsList || []).map((d: any) => (
-                      <SelectItem key={d.id} value={d.name}>{d.name}</SelectItem>
+                    {departmentOptions.map((department) => (
+                      <SelectItem key={department} value={department}>{department}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -607,8 +571,8 @@ export default function AdminUsers() {
           open={isImportOpen}
           onOpenChange={setIsImportOpen}
           title="Import Users"
-          description="Upload a CSV to bulk-create user accounts. Only 'name' is required — accounts without email/username/password will be created as inactive and can be activated later."
-          expectedColumns={['name', 'role', 'jobRole', 'department', 'email', 'username', 'password', 'startDate', 'requiresInduction']}
+          description="Upload a CSV to bulk-create user accounts. Only 'name' is required — accounts without an email address will be created as inactive and can be activated later."
+          expectedColumns={['name', 'role', 'jobRole', 'department', 'email', 'startDate', 'requiresInduction']}
           onImport={(rows) => api.importCsv('users', rows)}
           onComplete={() => invalidate('users')}
         />

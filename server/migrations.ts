@@ -21,13 +21,12 @@ export async function migrateCompetencyDepartmentTypes() {
 }
 
 export async function migrateActivateExistingUsers() {
-  // With passwordless auth, activation requires only username + email (no password needed)
+  // With OTP-only auth, activation requires only an email address.
   await db.update(users)
     .set({ activated: true })
     .where(
       and(
         eq(users.activated, false),
-        isNotNull(users.username),
         isNotNull(users.email),
       )
     );

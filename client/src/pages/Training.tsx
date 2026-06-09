@@ -204,7 +204,7 @@ export function IndividualView({
   showBackButton?: boolean;
   compact?: boolean;
 }) {
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set([categories[0]?.slug]));
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const overallAvg = calculateOverallAverage(ratings, categories);
   const totalCompetencies = categories.reduce((count: number, category: any) => count + category.items.length, 0);
@@ -548,7 +548,7 @@ export default function Training() {
     } else {
       setDialogRatings({ ...ratings });
     }
-    setDialogExpandedCategories(new Set(categories.map((c: any) => c.slug)));
+    setDialogExpandedCategories(new Set());
     setIsSubmitOpen(true);
   };
 

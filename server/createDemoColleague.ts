@@ -3,18 +3,18 @@ import { db } from "./db";
 import * as schema from "@shared/schema";
 
 const DEMO_USER_ID = "demo-colleague-1";
-const DEMO_USERNAME = "demo.colleague";
 const DEMO_MANAGER_ID = "demo-manager-1";
-const DEMO_MANAGER_USERNAME = "demo.manager";
+const DEMO_MANAGER_EMAIL = "demo.manager@lvc-demo.local";
+const DEMO_USER_EMAIL = "demo.colleague@lvc-demo.local";
 const SOURCE_COLLEAGUE_NAME = "Adrian Barber";
 
 async function upsertDemoManager() {
   const managerPayload: schema.InsertUser = {
     id: DEMO_MANAGER_ID,
-    username: DEMO_MANAGER_USERNAME,
-    password: "Demo123!",
+    username: null,
+    password: null,
     name: "Demo Manager",
-    email: "demo.manager@lvc-demo.local",
+    email: DEMO_MANAGER_EMAIL,
     role: "manager",
     jobRole: "Line Manager",
     department: "Workshop",
@@ -24,16 +24,16 @@ async function upsertDemoManager() {
     activated: true,
   };
 
-  const [existingByUsername] = await db
+  const [existingByEmail] = await db
     .select()
     .from(schema.users)
-    .where(eq(schema.users.username, DEMO_MANAGER_USERNAME));
+    .where(eq(schema.users.email, DEMO_MANAGER_EMAIL));
 
-  if (existingByUsername) {
+  if (existingByEmail) {
     await db.update(schema.users)
       .set({
-        username: managerPayload.username,
-        password: managerPayload.password,
+        username: null,
+        password: null,
         name: managerPayload.name,
         email: managerPayload.email,
         role: managerPayload.role,
@@ -44,9 +44,9 @@ async function upsertDemoManager() {
         requiresInduction: managerPayload.requiresInduction,
         activated: true,
       })
-      .where(eq(schema.users.id, existingByUsername.id));
+      .where(eq(schema.users.id, existingByEmail.id));
 
-    return existingByUsername.id;
+    return existingByEmail.id;
   }
 
   const [existingById] = await db
@@ -57,8 +57,8 @@ async function upsertDemoManager() {
   if (existingById) {
     await db.update(schema.users)
       .set({
-        username: managerPayload.username,
-        password: managerPayload.password,
+        username: null,
+        password: null,
         name: managerPayload.name,
         email: managerPayload.email,
         role: managerPayload.role,
@@ -81,10 +81,10 @@ async function upsertDemoManager() {
 async function upsertDemoUser(managerId: string) {
   const demoPayload: schema.InsertUser = {
     id: DEMO_USER_ID,
-    username: DEMO_USERNAME,
-    password: "Demo123!",
+    username: null,
+    password: null,
     name: "Demo Colleague",
-    email: "demo.colleague@lvc-demo.local",
+    email: DEMO_USER_EMAIL,
     role: "colleague",
     jobRole: "Workshop Engineer",
     department: "Workshop",
@@ -94,16 +94,16 @@ async function upsertDemoUser(managerId: string) {
     activated: true,
   };
 
-  const [existingByUsername] = await db
+  const [existingByEmail] = await db
     .select()
     .from(schema.users)
-    .where(eq(schema.users.username, DEMO_USERNAME));
+    .where(eq(schema.users.email, DEMO_USER_EMAIL));
 
-  if (existingByUsername) {
+  if (existingByEmail) {
     await db.update(schema.users)
       .set({
-        username: DEMO_USERNAME,
-        password: demoPayload.password,
+        username: null,
+        password: null,
         name: demoPayload.name,
         email: demoPayload.email,
         role: demoPayload.role,
@@ -114,9 +114,9 @@ async function upsertDemoUser(managerId: string) {
         requiresInduction: demoPayload.requiresInduction,
         activated: true,
       })
-      .where(eq(schema.users.id, existingByUsername.id));
+      .where(eq(schema.users.id, existingByEmail.id));
 
-    return existingByUsername.id;
+    return existingByEmail.id;
   }
 
   const [existingById] = await db
@@ -127,8 +127,8 @@ async function upsertDemoUser(managerId: string) {
   if (existingById) {
     await db.update(schema.users)
       .set({
-        username: DEMO_USERNAME,
-        password: demoPayload.password,
+        username: null,
+        password: null,
         name: demoPayload.name,
         email: demoPayload.email,
         role: demoPayload.role,
@@ -297,11 +297,9 @@ async function main() {
   await ensureDemoInductionJourney(userId);
 
   console.log("Demo colleague is ready.");
-  console.log("Username: demo.colleague");
-  console.log("Password: Demo123!");
+  console.log(`Email: ${DEMO_USER_EMAIL}`);
   console.log("Demo manager is ready.");
-  console.log("Username: demo.manager");
-  console.log("Password: Demo123!");
+  console.log(`Email: ${DEMO_MANAGER_EMAIL}`);
 }
 
 main()

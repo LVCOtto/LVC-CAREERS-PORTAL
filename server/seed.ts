@@ -13,16 +13,16 @@ async function seed() {
   }
 
   await db.insert(schema.users).values([
-    { id: "admin-1", username: "admin", password: "admin", name: "Sarah Mitchell", email: "sarah.mitchell@lvc.com", role: "admin", jobRole: "HR Director", department: "Human Resources", startDate: "2019-03-15", activated: true },
-    { id: "manager-1", username: "manager1", password: "manager", name: "James Wilson", email: "james.wilson@lvc.com", role: "manager", jobRole: "Operations Manager", department: "Operations", startDate: "2020-06-01", activated: true },
-    { id: "manager-2", username: "manager2", password: "manager", name: "Emma Thompson", email: "emma.thompson@lvc.com", role: "manager", jobRole: "Engineer", department: "Service", startDate: "2020-09-14", activated: true },
-    { id: "colleague-1", username: "colleague1", password: "colleague", name: "Michael Chen", email: "michael.chen@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-11-01", activated: true },
-    { id: "colleague-2", username: "colleague2", password: "colleague", name: "Sophie Williams", email: "sophie.williams@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-08-15", activated: true },
-    { id: "colleague-3", username: "colleague3", password: "colleague", name: "David Brown", email: "david.brown@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2024-10-01", activated: true },
-    { id: "colleague-4", username: "colleague4", password: "colleague", name: "Lisa Martinez", email: "lisa.martinez@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2023-05-20", activated: true },
-    { id: "colleague-5", username: "colleague5", password: "colleague", name: "Tom Harris", email: "tom.harris@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-01-08", activated: true },
-    { id: "colleague-6", username: "colleague6", password: "colleague", name: "Rachel Green", email: "rachel.green@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2024-12-02", activated: true },
-    { id: "architect-1", username: "architect", password: "architect", name: "Portal Architect", email: "architect@lvc.com", role: "architect", jobRole: "Portal Architect", department: "IT", startDate: "2024-01-01", requiresInduction: false, activated: true },
+    { id: "admin-1", username: null, password: null, name: "Sarah Mitchell", email: "sarah.mitchell@lvc.com", role: "admin", jobRole: "HR Director", department: "Human Resources", startDate: "2019-03-15", activated: true },
+    { id: "manager-1", username: null, password: null, name: "James Wilson", email: "james.wilson@lvc.com", role: "manager", jobRole: "Operations Manager", department: "Operations", startDate: "2020-06-01", activated: true },
+    { id: "manager-2", username: null, password: null, name: "Emma Thompson", email: "emma.thompson@lvc.com", role: "manager", jobRole: "Engineer", department: "Service", startDate: "2020-09-14", activated: true },
+    { id: "colleague-1", username: null, password: null, name: "Michael Chen", email: "michael.chen@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-11-01", activated: true },
+    { id: "colleague-2", username: null, password: null, name: "Sophie Williams", email: "sophie.williams@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-08-15", activated: true },
+    { id: "colleague-3", username: null, password: null, name: "David Brown", email: "david.brown@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2024-10-01", activated: true },
+    { id: "colleague-4", username: null, password: null, name: "Lisa Martinez", email: "lisa.martinez@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2023-05-20", activated: true },
+    { id: "colleague-5", username: null, password: null, name: "Tom Harris", email: "tom.harris@lvc.com", role: "colleague", jobRole: "Engineer", department: "Service", managerId: "manager-2", startDate: "2024-01-08", activated: true },
+    { id: "colleague-6", username: null, password: null, name: "Rachel Green", email: "rachel.green@lvc.com", role: "colleague", jobRole: "Operations Manager", department: "Operations", managerId: "manager-1", startDate: "2024-12-02", activated: true },
+    { id: "architect-1", username: null, password: null, name: "Portal Architect", email: "architect@lvc.com", role: "architect", jobRole: "Portal Architect", department: "IT", startDate: "2024-01-01", requiresInduction: false, activated: true },
   ]);
   console.log("Users seeded");
 

@@ -28,9 +28,9 @@ export async function exportFullBackup(res: Response) {
 
   const users = await db.select().from(schema.users);
   archive.append(toCsv(
-    ["id", "username", "password", "name", "email", "role", "jobRoleId", "jobRole", "departmentId", "department", "managerId", "startDate", "requiresInduction", "activated"],
+    ["id", "name", "email", "role", "jobRoleId", "jobRole", "departmentId", "department", "managerId", "startDate", "requiresInduction", "activated"],
     users,
-    (u) => [u.id, u.username, u.password, u.name, u.email, u.role, u.jobRoleId != null ? String(u.jobRoleId) : "", u.jobRole, u.departmentId != null ? String(u.departmentId) : "", u.department, u.managerId || "", u.startDate, String(u.requiresInduction), String(u.activated)]
+    (u) => [u.id, u.name, u.email, u.role, u.jobRoleId != null ? String(u.jobRoleId) : "", u.jobRole, u.departmentId != null ? String(u.departmentId) : "", u.department, u.managerId || "", u.startDate, String(u.requiresInduction), String(u.activated)]
   ), { name: "users.csv" });
 
   const inductionTemplates = await db.select().from(schema.inductionTemplateItems);

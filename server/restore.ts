@@ -123,8 +123,8 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     for (const r of rows) {
       await tx.insert(schema.users).values({
         id: r.id,
-        username: r.username,
-        password: r.password,
+        username: null,
+        password: null,
         name: r.name,
         email: r.email,
         role: r.role,

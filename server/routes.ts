@@ -281,6 +281,8 @@ export async function registerRoutes(
   app.post("/api/users", async (req, res) => {
     const body = await normalizeUserRelationships(req.body);
     body.email = normalizeEmail(body.email);
+    delete body.username;
+    delete body.password;
 
     if (body.email) {
       const existingByEmail = await storage.getUserByEmail(body.email);
@@ -296,12 +298,9 @@ export async function registerRoutes(
         .replace(/^-|-$/g, "");
       body.id = `${slug}-${Date.now().toString(36)}`;
     }
-    if (body.username && body.email) {
-      body.activated = true;
-    }
-    if (body.password) {
-      body.password = await bcrypt.hash(body.password, 10);
-    }
+    body.username = null;
+    body.password = null;
+    body.activated = !!body.email;
     const user = await storage.createUser(body);
     res.status(201).json(sanitizeUser(user));
   });
@@ -310,6 +309,7 @@ export async function registerRoutes(
     const existing = await storage.getUser(req.params.id);
     if (!existing) return res.status(404).json({ message: "User not found" });
     const data = await normalizeUserRelationships(req.body);
+    delete data.username;
     if (data.email !== undefined) {
       data.email = normalizeEmail(data.email);
       if (data.email) {
@@ -319,16 +319,11 @@ export async function registerRoutes(
         }
       }
     }
-    if (data.password === "") {
-      data.password = null;
-    } else if (typeof data.password === "string") {
-      data.password = await bcrypt.hash(data.password, 10);
-    }
-    const mergedUsername = data.username !== undefined ? data.username : existing.username;
+    delete data.password;
+    data.username = null;
+    data.password = null;
     const mergedEmail = data.email !== undefined ? data.email : existing.email;
-    // Activation requires username + email only; password is legacy/optional
-    const hasAllCredentials = !!(mergedUsername && mergedEmail);
-    data.activated = hasAllCredentials;
+    data.activated = !!mergedEmail;
     const user = await storage.updateUser(req.params.id, data);
     res.json(sanitizeUser(user));
   });
@@ -1377,9 +1372,9 @@ export async function registerRoutes(
 
       if (type === "users") {
         const users = await storage.getAllUsers();
-        csvContent = "ID,Name,Email,Username,Role,Job Role,Department,Manager ID,Start Date,Requires Induction,Activated\n";
+        csvContent = "ID,Name,Email,Role,Job Role,Department,Manager ID,Start Date,Requires Induction,Activated\n";
         csvContent += users.map(u =>
-          `"${u.id}","${u.name}","${u.email || ''}","${u.username || ''}","${u.role}","${u.jobRole}","${u.department}","${u.managerId || ''}","${u.startDate}",${u.requiresInduction},${u.activated}`
+          `"${u.id}","${u.name}","${u.email || ''}","${u.role}","${u.jobRole}","${u.department}","${u.managerId || ''}","${u.startDate}",${u.requiresInduction},${u.activated}`
         ).join("\n");
         filename = "users.csv";
       } else if (type === "training-records") {
@@ -1517,12 +1512,11 @@ export async function registerRoutes(
                 continue;
               }
             }
-            const hasCredentials = !!(row.username && normalizedEmail);
-            const hashedPassword = row.password ? await bcrypt.hash(row.password, 10) : null;
+            const hasCredentials = !!normalizedEmail;
             const userData = await normalizeUserRelationships({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
-              username: row.username || null,
-              password: hashedPassword,
+              username: null,
+              password: null,
               name: row.name,
               email: normalizedEmail,
               role: row.role || "colleague",
@@ -1597,20 +1591,12 @@ export async function registerRoutes(
               } else {
                 const colleagueName = row["colleague_name"] || row.colleaguename || "";
                 if (colleagueName) {
-                  const usernameBase = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "");
-                  let username = usernameBase;
-                  const existingUsernames = new Set(allUsers.map(u => u.username));
-                  if (existingUsernames.has(username)) {
-                    let suffix = 1;
-                    while (existingUsernames.has(`${usernameBase}.${suffix}`)) suffix++;
-                    username = `${usernameBase}.${suffix}`;
-                  }
                   const slug = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
                   const userId = `${slug}-${Date.now().toString(36)}${i}`;
                   const today = new Date().toISOString().split("T")[0];
                   const userData = await normalizeUserRelationships({
                     id: userId,
-                    username,
+                    username: null,
                     password: null,
                     name: colleagueName,
                     email,
@@ -1625,7 +1611,7 @@ export async function registerRoutes(
                   await storage.createUser(userData);
                   allUsers.push({
                     id: userId,
-                    username,
+                    username: null,
                     password: null,
                     name: colleagueName,
                     email,

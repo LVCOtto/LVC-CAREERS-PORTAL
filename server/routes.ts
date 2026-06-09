@@ -1,3 +1,4 @@
+import { getAllSeedRoles, markSeedRoleAsDeleted } from "./ensureJobRoles";
 import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
@@ -1195,6 +1196,11 @@ export async function registerRoutes(
         return res.status(400).json({ message: `Cannot delete: ${assignedUsers.length} user(s) are assigned to this job role` });
       }
       await storage.deleteJobRole(id);
+      const seedRoleKeys = new Set(getAllSeedRoles().map((seedRole) => seedRole.title.trim().replace(/\s+/g, " ").toLowerCase()));
+      const roleKey = role.title.trim().replace(/\s+/g, " ").toLowerCase();
+      if (seedRoleKeys.has(roleKey)) {
+        await markSeedRoleAsDeleted(role.title);
+      }
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to delete job role" });

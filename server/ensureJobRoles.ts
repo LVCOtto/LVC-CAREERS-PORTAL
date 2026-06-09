@@ -3,6 +3,8 @@ import * as schema from "@shared/schema";
 import { eq } from "drizzle-orm";
 import * as fs from "fs";
 import * as path from "path";
+export const DELETED_SEED_JOB_ROLES_SETTING_KEY = "jobRoles.deletedSeedRoles";
+const DELETED_SEED_JOB_ROLES_CATEGORY = "job-roles";
 
 function normalizeTitle(title: string): string {
   return title.trim().replace(/\s+/g, " ");
@@ -92,34 +94,80 @@ export function getAllSeedRoles() {
   return allRoles;
 }
 
+function normalizeRoleKey(title: string): string {
+  return normalizeTitle(title).toLowerCase();
+}
+
+export async function getDeletedSeedRoleKeys(): Promise<Set<string>> {
+  const [setting] = await db.select().from(schema.portalSettings)
+    .where(eq(schema.portalSettings.key, DELETED_SEED_JOB_ROLES_SETTING_KEY));
+
+  if (!setting?.value) return new Set();
+
+  try {
+    const parsed = JSON.parse(setting.value);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((value): value is string => typeof value === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+export async function markSeedRoleAsDeleted(title: string) {
+  const deletedKeys = await getDeletedSeedRoleKeys();
+  deletedKeys.add(normalizeRoleKey(title));
+
+  const value = JSON.stringify(Array.from(deletedKeys).sort());
+  const [existing] = await db.select().from(schema.portalSettings)
+    .where(eq(schema.portalSettings.key, DELETED_SEED_JOB_ROLES_SETTING_KEY));
+
+  if (existing) {
+    await db.update(schema.portalSettings)
+      .set({ value, category: DELETED_SEED_JOB_ROLES_CATEGORY })
+      .where(eq(schema.portalSettings.key, DELETED_SEED_JOB_ROLES_SETTING_KEY));
+    return;
+  }
+
+  await db.insert(schema.portalSettings).values({
+    key: DELETED_SEED_JOB_ROLES_SETTING_KEY,
+    value,
+    category: DELETED_SEED_JOB_ROLES_CATEGORY,
+  });
+}
+
 export async function ensureAllJobRoles() {
   try {
     await deduplicateExistingRoles();
     await removeDeprecatedRoles();
 
-    const allRoles = getAllSeedRoles();
     const existingRoles = await db.select().from(schema.jobRoles);
-    const existingNormalized = new Map<string, string>();
-    for (const r of existingRoles) {
-      existingNormalized.set(normalizeTitle(r.title).toLowerCase(), r.title);
-    }
-
-    let inserted = 0;
-    for (const role of allRoles) {
-      const key = normalizeTitle(role.title).toLowerCase();
-      if (!existingNormalized.has(key)) {
-        await db.insert(schema.jobRoles).values({
-          title: role.title,
-          department: role.department,
-          summary: role.summary,
-          responsibilities: role.responsibilities || [],
-        }).onConflictDoNothing();
-        existingNormalized.set(key, role.title);
-        inserted++;
+    if (process.env.SEED_MISSING_JOB_ROLES === "true") {
+      const deletedSeedRoleKeys = await getDeletedSeedRoleKeys();
+      const allRoles = getAllSeedRoles().filter((role) => !deletedSeedRoleKeys.has(normalizeRoleKey(role.title)));
+      const existingNormalized = new Map<string, string>();
+      for (const r of existingRoles) {
+        existingNormalized.set(normalizeRoleKey(r.title), r.title);
       }
-    }
-    if (inserted > 0) {
-      console.log(`Ensured all job roles exist: ${inserted} new roles added`);
+
+      let inserted = 0;
+      for (const role of allRoles) {
+        const key = normalizeRoleKey(role.title);
+        if (!existingNormalized.has(key)) {
+          await db.insert(schema.jobRoles).values({
+            title: role.title,
+            department: role.department,
+            summary: role.summary,
+            responsibilities: role.responsibilities || [],
+          }).onConflictDoNothing();
+          existingNormalized.set(key, role.title);
+          inserted++;
+        }
+      }
+      if (inserted > 0) {
+        console.log(`Seeded ${inserted} missing job role(s) from startup seed data`);
+      }
+    } else if (existingRoles.length === 0) {
+      console.warn("Job roles table is empty. Startup auto-seeding is disabled; set SEED_MISSING_JOB_ROLES=true to restore seed roles.");
     }
 
     await normalizeUserJobRoles();

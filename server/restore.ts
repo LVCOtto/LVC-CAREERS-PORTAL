@@ -128,7 +128,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         name: r.name,
         email: r.email,
         role: r.role,
+        jobRoleId: toIntOrNull(r.jobRoleId),
         jobRole: r.jobRole || "",
+        departmentId: toIntOrNull(r.departmentId),
         department: r.department || "",
         managerId: r.managerId || null,
         startDate: r.startDate,
@@ -144,6 +146,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
       await tx.insert(schema.jobRoles).values({
         id: toInt(r.id),
         title: r.title,
+        departmentId: toIntOrNull(r.departmentId),
         department: r.department,
         summary: r.summary || "",
         responsibilities: parseJson(r.responsibilities, []),
@@ -192,7 +195,9 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         slug: r.slug,
         title: r.title,
         description: r.description || "",
+        jobRoleId: toIntOrNull(r.jobRoleId),
         level: toInt(r.level),
+        departmentId: toIntOrNull(r.departmentId),
         department: r.department || "",
         requirements: parseJson(r.requirements, []),
         nextSteps: parseJson(r.nextSteps, []),
@@ -205,6 +210,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
     for (const r of rows) {
       await tx.insert(schema.standardsSurveyRoles).values({
         id: toInt(r.id),
+        jobRoleId: toIntOrNull(r.jobRoleId),
         roleSlug: r.roleSlug,
         roleTitle: r.roleTitle,
       }).onConflictDoNothing();
@@ -229,6 +235,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         id: toInt(r.id),
         slug: r.slug,
         name: r.name,
+        departmentId: toIntOrNull(r.departmentId),
         departmentType: r.departmentType,
         sortOrder: toInt(r.sortOrder),
       }).onConflictDoNothing();
@@ -306,9 +313,11 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         userId: r.userId,
         status: r.status,
         ratings: parseJson(r.ratings, {}),
+        lastAssessment: r.lastAssessment || null,
         submittedDate: r.submittedDate || null,
         approvedBy: r.approvedBy || null,
         approvedDate: r.approvedDate || null,
+        nextReviewDate: r.nextReviewDate || null,
         shareToken: r.shareToken || null,
       }).onConflictDoNothing();
     }
@@ -368,6 +377,7 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
         inProgress: toBool(r.inProgress),
         completedDate: r.completedDate || null,
         targetDate: r.targetDate || null,
+        reviewDate: r.reviewDate || null,
         signedOffBy: r.signedOffBy || null,
         signedOffDate: r.signedOffDate || null,
         assignedTo: r.assignedTo || null,

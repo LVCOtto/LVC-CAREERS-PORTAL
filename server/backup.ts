@@ -28,9 +28,9 @@ export async function exportFullBackup(res: Response) {
 
   const users = await db.select().from(schema.users);
   archive.append(toCsv(
-    ["id", "username", "password", "name", "email", "role", "jobRole", "department", "managerId", "startDate", "requiresInduction", "activated"],
+    ["id", "username", "password", "name", "email", "role", "jobRoleId", "jobRole", "departmentId", "department", "managerId", "startDate", "requiresInduction", "activated"],
     users,
-    (u) => [u.id, u.username, u.password, u.name, u.email, u.role, u.jobRole, u.department, u.managerId || "", u.startDate, String(u.requiresInduction), String(u.activated)]
+    (u) => [u.id, u.username, u.password, u.name, u.email, u.role, u.jobRoleId != null ? String(u.jobRoleId) : "", u.jobRole, u.departmentId != null ? String(u.departmentId) : "", u.department, u.managerId || "", u.startDate, String(u.requiresInduction), String(u.activated)]
   ), { name: "users.csv" });
 
   const inductionTemplates = await db.select().from(schema.inductionTemplateItems);
@@ -49,16 +49,16 @@ export async function exportFullBackup(res: Response) {
 
   const inductionCompletions = await db.select().from(schema.inductionItemCompletions);
   archive.append(toCsv(
-    ["id", "instanceId", "templateItemId", "completed", "inProgress", "completedDate", "targetDate", "signedOffBy", "signedOffDate", "assignedTo"],
+    ["id", "instanceId", "templateItemId", "completed", "inProgress", "completedDate", "targetDate", "reviewDate", "signedOffBy", "signedOffDate", "assignedTo"],
     inductionCompletions,
-    (c) => [String(c.id), String(c.instanceId), String(c.templateItemId), String(c.completed), String(c.inProgress), c.completedDate || "", c.targetDate || "", c.signedOffBy || "", c.signedOffDate || "", c.assignedTo || ""]
+    (c) => [String(c.id), String(c.instanceId), String(c.templateItemId), String(c.completed), String(c.inProgress), c.completedDate || "", c.targetDate || "", c.reviewDate || "", c.signedOffBy || "", c.signedOffDate || "", c.assignedTo || ""]
   ), { name: "induction-completions.csv" });
 
   const competencyCategories = await db.select().from(schema.competencyCategories);
   archive.append(toCsv(
-    ["id", "slug", "name", "departmentType", "sortOrder"],
+    ["id", "slug", "name", "departmentId", "departmentType", "sortOrder"],
     competencyCategories,
-    (c) => [String(c.id), c.slug, c.name, c.departmentType, String(c.sortOrder)]
+    (c) => [String(c.id), c.slug, c.name, c.departmentId != null ? String(c.departmentId) : "", c.departmentType, String(c.sortOrder)]
   ), { name: "competency-categories.csv" });
 
   const competencyItems = await db.select().from(schema.competencyItems);
@@ -70,9 +70,9 @@ export async function exportFullBackup(res: Response) {
 
   const trainingMatrixSubmissions = await db.select().from(schema.trainingMatrixSubmissions);
   archive.append(toCsv(
-    ["id", "userId", "status", "ratings", "submittedDate", "approvedBy", "approvedDate", "shareToken"],
+    ["id", "userId", "status", "ratings", "lastAssessment", "submittedDate", "approvedBy", "approvedDate", "nextReviewDate", "shareToken"],
     trainingMatrixSubmissions,
-    (s) => [String(s.id), s.userId, s.status, JSON.stringify(s.ratings), s.submittedDate || "", s.approvedBy || "", s.approvedDate || "", s.shareToken || ""]
+    (s) => [String(s.id), s.userId, s.status, JSON.stringify(s.ratings), s.lastAssessment || "", s.submittedDate || "", s.approvedBy || "", s.approvedDate || "", s.nextReviewDate || "", s.shareToken || ""]
   ), { name: "training-matrix-submissions.csv" });
 
   const certDefs = await db.select().from(schema.certificateDefinitions);
@@ -98,9 +98,9 @@ export async function exportFullBackup(res: Response) {
 
   const jobRoles = await db.select().from(schema.jobRoles);
   archive.append(toCsv(
-    ["id", "title", "department", "summary", "responsibilities", "reportsTo", "sortOrder"],
+    ["id", "title", "departmentId", "department", "summary", "responsibilities", "reportsTo", "sortOrder"],
     jobRoles,
-    (r) => [String(r.id), r.title, r.department, r.summary, JSON.stringify(r.responsibilities), r.reportsTo != null ? String(r.reportsTo) : "", String(r.sortOrder)]
+    (r) => [String(r.id), r.title, r.departmentId != null ? String(r.departmentId) : "", r.department, r.summary, JSON.stringify(r.responsibilities), r.reportsTo != null ? String(r.reportsTo) : "", String(r.sortOrder)]
   ), { name: "job-roles.csv" });
 
   const jobRoleCategories = await db.select().from(schema.jobRoleCategories);
@@ -126,9 +126,9 @@ export async function exportFullBackup(res: Response) {
 
   const careerNodes = await db.select().from(schema.careerNodes);
   archive.append(toCsv(
-    ["id", "slug", "title", "description", "level", "department", "requirements", "nextSteps"],
+    ["id", "slug", "jobRoleId", "title", "description", "level", "departmentId", "department", "requirements", "nextSteps"],
     careerNodes,
-    (n) => [String(n.id), n.slug, n.title, n.description || "", String(n.level), n.department || "", JSON.stringify(n.requirements), JSON.stringify(n.nextSteps || [])]
+    (n) => [String(n.id), n.slug, n.jobRoleId != null ? String(n.jobRoleId) : "", n.title, n.description || "", String(n.level), n.departmentId != null ? String(n.departmentId) : "", n.department || "", JSON.stringify(n.requirements), JSON.stringify(n.nextSteps || [])]
   ), { name: "career-nodes.csv" });
 
   const careerMilestones = await db.select().from(schema.careerMilestones);
@@ -140,9 +140,9 @@ export async function exportFullBackup(res: Response) {
 
   const surveyRoles = await db.select().from(schema.standardsSurveyRoles);
   archive.append(toCsv(
-    ["id", "roleSlug", "roleTitle"],
+    ["id", "jobRoleId", "roleSlug", "roleTitle"],
     surveyRoles,
-    (r) => [String(r.id), r.roleSlug, r.roleTitle]
+    (r) => [String(r.id), r.jobRoleId != null ? String(r.jobRoleId) : "", r.roleSlug, r.roleTitle]
   ), { name: "standards-survey-roles.csv" });
 
   const surveyItems = await db.select().from(schema.standardsSurveyItems);

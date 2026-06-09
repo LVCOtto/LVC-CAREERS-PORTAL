@@ -136,7 +136,12 @@ export const api = {
       apiFetch<{ success: boolean }>(`/job-roles/${roleId}/induction-sections`, { method: "PUT", body: JSON.stringify({ sections }) }),
   },
   competenciesForRole: {
-    get: (jobRole: string) => apiFetch<any[] | null>(`/competencies-for-role?jobRole=${encodeURIComponent(jobRole)}`),
+    get: (jobRole: string | number) => {
+      const query = typeof jobRole === "number"
+        ? `jobRoleId=${jobRole}`
+        : `jobRole=${encodeURIComponent(jobRole)}`;
+      return apiFetch<any[] | null>(`/competencies-for-role?${query}`);
+    },
   },
   exportCsv: (type: string) => {
     window.open(`${BASE}/export/${type}`, "_blank");

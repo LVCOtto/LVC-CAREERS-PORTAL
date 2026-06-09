@@ -469,9 +469,9 @@ export default function Training() {
   const [shareUrl, setShareUrl] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const departmentType = getCompetencyDepartmentType(currentUser);
+  const departmentType = currentUser?.department || getCompetencyDepartmentType(currentUser);
 
-  const { data: roleCategories, isLoading: roleLoading } = useCompetenciesForRole(currentUser?.jobRole);
+  const { data: roleCategories, isLoading: roleLoading } = useCompetenciesForRole(currentUser?.jobRoleId ?? currentUser?.jobRole);
   const { data: deptCategories = [], isLoading: deptLoading } = useCompetencies(departmentType);
   const categories = roleCategories || deptCategories;
   const categoriesLoading = roleLoading || deptLoading;

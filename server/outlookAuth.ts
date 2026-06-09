@@ -121,7 +121,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<TokenRes
 
 export function createGraphClient(accessToken: string): Client {
   const client = Client.init({
-    authProvider: (done) => {
+    authProvider: (done: (error: Error | null, accessToken: string | null) => void) => {
       done(null, accessToken);
     },
   });

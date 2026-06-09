@@ -5,7 +5,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { ensureAllJobRoles } from "./ensureJobRoles";
-import { migrateCompetencyDepartmentTypes, migrateActivateExistingUsers, migrateEngineeringDepartmentModel } from "./migrations";
+import { migrateCompetencyDepartmentTypes, migrateActivateExistingUsers, migrateEngineeringDepartmentModel, migrateCanonicalRelationshipColumns } from "./migrations";
 import { pool } from "./db";
 
 // Ensure the session store table exists. We do this explicitly because
@@ -93,6 +93,7 @@ declare module "express-session" {
   interface SessionData {
     userId?: string;
     role?: string;
+    outlookState?: string;
   }
 }
 
@@ -158,18 +159,24 @@ app.use((req, res, next) => {
   await ensureSessionTable();
   await ensureEmailAuthCodesTable();
   await ensureUsersEmailUniqueIndex();
+  await migrateCanonicalRelationshipColumns();
   await ensureAllJobRoles();
   await migrateCompetencyDepartmentTypes();
   await migrateEngineeringDepartmentModel();
+  await migrateCanonicalRelationshipColumns();
   await migrateActivateExistingUsers();
   await registerRoutes(httpServer, app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    console.error(err);
     res.status(status).json({ message });
-    throw err;
   });
 
   // importantly only setup vite in development and after

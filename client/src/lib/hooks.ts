@@ -1,8 +1,8 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, invalidate } from "./api";
 
-export function useUsers() {
-  return useQuery({ queryKey: ["users"], queryFn: api.users.list });
+export function useUsers(options?: { enabled?: boolean }) {
+  return useQuery({ queryKey: ["users"], queryFn: api.users.list, enabled: options?.enabled ?? true });
 }
 
 export function useUser(id: string) {
@@ -361,7 +361,7 @@ export function useSetJobRoleCategories() {
   });
 }
 
-export function useCompetenciesForRole(jobRole: string | undefined) {
+export function useCompetenciesForRole(jobRole: string | number | undefined | null) {
   return useQuery({
     queryKey: ["competencies-for-role", jobRole],
     queryFn: () => api.competenciesForRole.get(jobRole!),

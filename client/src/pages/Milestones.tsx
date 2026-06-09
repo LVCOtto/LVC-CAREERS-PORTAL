@@ -124,7 +124,7 @@ export default function Milestones() {
   const { data: definitions = [], isLoading: defsLoading } = useCertificateDefinitions();
   const { data: userCertsData = [], isLoading: certsLoading } = useUserCertificates(currentUser?.id);
   const { data: milestones = [], isLoading: milestonesLoading } = useCareerMilestones(currentUser?.id ?? '');
-  const { data: allUsers = [] } = useUsers();
+  const { data: allUsers = [] } = useUsers({ enabled: isAdmin });
 
   const createMilestone = useCreateCareerMilestone();
   const updateMilestone = useUpdateCareerMilestone();

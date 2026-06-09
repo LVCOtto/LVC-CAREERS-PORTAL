@@ -91,16 +91,18 @@ export default function RolePlaybook() {
   useEffect(() => {
     if (!jobRoles || jobRoles.length === 0) return;
 
-    if (selectedRoleId && jobRoles.some(role => role.slug === selectedRoleId)) {
+    if (selectedRoleId && jobRoles.some(role => String(role.id) === selectedRoleId)) {
       return;
     }
 
-    const preferredRole = currentUser?.jobRole
-      ? jobRoles.find(role => role.title.toLowerCase() === currentUser.jobRole.toLowerCase())?.slug
+    const preferredRole = currentUser?.jobRoleId
+      ? jobRoles.find(role => role.id === currentUser.jobRoleId)?.id
+      : currentUser?.jobRole
+      ? jobRoles.find(role => role.title.toLowerCase() === currentUser.jobRole.toLowerCase())?.id
       : undefined;
 
-    setSelectedRoleId(preferredRole || jobRoles[0].slug);
-  }, [jobRoles, currentUser?.jobRole, selectedRoleId]);
+    setSelectedRoleId(String(preferredRole || jobRoles[0].id));
+  }, [jobRoles, currentUser?.jobRole, currentUser?.jobRoleId, selectedRoleId]);
 
   const surveyStorageKey = useMemo(() => {
     if (!currentUser?.id || !selectedRoleId) return '';
@@ -142,7 +144,10 @@ export default function RolePlaybook() {
     localStorage.setItem(surveyStorageKey, payload);
   }, [surveyStorageKey, surveyStatuses, feedbackResponses, surveySubmittedAt]);
   
-  const currentRoleStandards = jobRoles?.find(role => role.slug === selectedRoleId);
+  const currentRoleStandards = jobRoles?.find(role => String(role.id) === selectedRoleId);
+  const responsibilities = Array.isArray(currentRoleStandards?.responsibilities)
+    ? currentRoleStandards.responsibilities
+    : [];
   const currentSurvey = surveyData;
 
   const handleStatusChange = (taskId: string, status: AssessmentStatus) => {
@@ -242,7 +247,7 @@ export default function RolePlaybook() {
                 </SelectTrigger>
                 <SelectContent>
                   {jobRoles.map((role) => (
-                    <SelectItem key={role.slug} value={role.slug}>
+                    <SelectItem key={role.id} value={String(role.id)}>
                       <span className="flex items-center gap-2">
                         {role.title}
                         <span className="text-xs text-muted-foreground">({role.department})</span>
@@ -291,29 +296,29 @@ export default function RolePlaybook() {
                     </div>
                   </div>
                   <Badge variant="outline" className="bg-background">
-                    {currentRoleStandards.standards?.length || 0} Standards
+                    {responsibilities.length} Responsibilities
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-8">
-                  {currentRoleStandards.standards && currentRoleStandards.standards.length > 0 ? (
+                  {responsibilities.length > 0 ? (
                     <div>
                       <ul className="space-y-2">
-                        {currentRoleStandards.standards.map((standard: any) => (
+                        {responsibilities.map((responsibility: any, index: number) => (
                           <li 
-                            key={standard.id} 
+                            key={`${currentRoleStandards.id}-responsibility-${index}`}
                             className="flex items-start gap-2 text-sm"
-                            data-testid={`standard-${standard.id}`}
+                            data-testid={`responsibility-${index}`}
                           >
                             <span className="text-primary mt-1">•</span>
-                            <span>{standard.description || standard.text}</span>
+                            <span>{typeof responsibility === 'string' ? responsibility : responsibility.description || responsibility.text || responsibility.title}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground text-center py-6">No standards defined for this role.</p>
+                    <p className="text-muted-foreground text-center py-6">No responsibilities defined for this role.</p>
                   )}
                 </div>
               </CardContent>

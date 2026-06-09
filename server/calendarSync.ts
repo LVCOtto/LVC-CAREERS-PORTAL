@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { outlookIntegrations, calendarSyncLog, inductionItemCompletions, trainingMatrixSubmissions } from "../shared/schema";
+import { outlookIntegrations, calendarSyncLog, inductionInstances, inductionItemCompletions, trainingMatrixSubmissions } from "../shared/schema";
 import {
   createCalendarEvent,
   updateCalendarEvent,
@@ -7,7 +7,7 @@ import {
   refreshAccessToken,
   CalendarEvent,
 } from "./outlookAuth";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNotNull } from "drizzle-orm";
 
 const TIMEZONE = "Europe/London"; // Adjust based on your location
 
@@ -220,10 +220,16 @@ export async function syncAllUserEvents(userId: string): Promise<void> {
   try {
     // Sync all induction reviews with review dates
     const inductionReviews = await db
-      .select()
+      .select({
+        id: inductionItemCompletions.id,
+        templateItemId: inductionItemCompletions.templateItemId,
+        reviewDate: inductionItemCompletions.reviewDate,
+      })
       .from(inductionItemCompletions)
+      .innerJoin(inductionInstances, eq(inductionItemCompletions.instanceId, inductionInstances.id))
       .where(and(
-        eq(inductionItemCompletions.reviewDate, reviewDate ?? null !== null) // Where reviewDate is not null
+        eq(inductionInstances.userId, userId),
+        isNotNull(inductionItemCompletions.reviewDate)
       ));
 
     for (const review of inductionReviews) {

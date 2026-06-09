@@ -32,7 +32,7 @@ function isPublicApiRoute(req: Request) {
 type AppRole = "colleague" | "manager" | "admin" | "architect";
 
 function isPrivilegedRole(role?: string): role is AppRole {
-  return role === "manager" || role === "admin" || role === "architect";
+  return role === "manager" || role === "admin";
 }
 
 function isAdminWriteRoute(routePath: string, method: string) {
@@ -65,8 +65,139 @@ function isAdminOnlyRoute(routePath: string) {
   return adminOnlyPrefixes.some((prefix) => routePath.startsWith(prefix));
 }
 
-function canAccessUser(req: Request, targetUserId: string) {
-  return req.session.userId === targetUserId || isPrivilegedRole(req.session.role);
+async function canAccessUser(req: Request, targetUserId: string) {
+  if (!req.session.userId) return false;
+  if (req.session.userId === targetUserId) return true;
+  if (req.session.role === "admin") return true;
+  if (req.session.role !== "manager") return false;
+
+  const targetUser = await storage.getUser(targetUserId);
+  return targetUser?.managerId === req.session.userId;
+}
+
+function normalizeLookup(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function slugify(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function toOptionalInt(value: unknown): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) ? parsed : undefined;
+}
+
+async function resolveDepartment(departmentId: unknown, departmentName: unknown) {
+  const departments = await storage.getDepartments();
+  const parsedDepartmentId = toOptionalInt(departmentId);
+  if (typeof parsedDepartmentId === "number") {
+    return departments.find((department) => department.id === parsedDepartmentId) ?? null;
+  }
+  if (typeof departmentName === "string" && departmentName.trim()) {
+    const normalized = normalizeLookup(departmentName);
+    return departments.find((department) => normalizeLookup(department.name) === normalized) ?? null;
+  }
+  return null;
+}
+
+async function resolveJobRole(jobRoleId: unknown, jobRoleTitle: unknown) {
+  const roles = await storage.getJobRoles();
+  const parsedJobRoleId = toOptionalInt(jobRoleId);
+  if (typeof parsedJobRoleId === "number") {
+    return roles.find((role) => role.id === parsedJobRoleId) ?? null;
+  }
+  if (typeof jobRoleTitle === "string" && jobRoleTitle.trim()) {
+    const normalized = normalizeLookup(jobRoleTitle);
+    return roles.find((role) => normalizeLookup(role.title) === normalized) ?? null;
+  }
+  return null;
+}
+
+async function normalizeUserRelationships<T extends Record<string, any>>(input: T): Promise<T & Record<string, any>> {
+  const data: Record<string, any> = { ...input };
+  const requestedJobRoleId = data.jobRoleId ?? data.job_role_id;
+  const requestedDepartmentId = data.departmentId ?? data.department_id;
+  const requestedJobRole = data.jobRole ?? data.job_role;
+  const requestedDepartment = data.department;
+  const role = await resolveJobRole(requestedJobRoleId, requestedJobRole);
+
+  if (role) {
+    data.jobRoleId = role.id;
+    data.jobRole = role.title;
+  } else if (toOptionalInt(requestedJobRoleId) === null) {
+    data.jobRoleId = null;
+  } else if (typeof requestedJobRole === "string") {
+    data.jobRole = requestedJobRole.trim();
+  }
+
+  let department = await resolveDepartment(requestedDepartmentId, requestedDepartment);
+  if (!department && role?.departmentId) {
+    department = await resolveDepartment(role.departmentId, undefined);
+  }
+  if (!department && role?.department) {
+    department = await resolveDepartment(undefined, role.department);
+  }
+
+  if (department) {
+    data.departmentId = department.id;
+    data.department = department.name;
+  } else if (toOptionalInt(requestedDepartmentId) === null) {
+    data.departmentId = null;
+  } else if (typeof requestedDepartment === "string") {
+    data.department = requestedDepartment.trim();
+  } else if (role?.department) {
+    data.department = role.department;
+  }
+
+  delete data.job_role_id;
+  delete data.department_id;
+  delete data.job_role;
+  return data as T & Record<string, any>;
+}
+
+async function normalizeDepartmentBackedInput<T extends Record<string, any>>(input: T, textField: string): Promise<T & Record<string, any>> {
+  const data: Record<string, any> = { ...input };
+  const requestedDepartmentId = data.departmentId ?? data.department_id;
+  const requestedDepartment = data[textField];
+  const department = await resolveDepartment(requestedDepartmentId, requestedDepartment);
+  if (department) {
+    data.departmentId = department.id;
+    data[textField] = department.name;
+  } else if (toOptionalInt(requestedDepartmentId) === null) {
+    data.departmentId = null;
+  } else if (typeof requestedDepartment === "string") {
+    data[textField] = requestedDepartment.trim();
+  }
+  delete data.department_id;
+  return data as T & Record<string, any>;
+}
+
+async function normalizeStandardsSurveyRoleInput<T extends Record<string, any>>(input: T): Promise<T & Record<string, any>> {
+  const data: Record<string, any> = { ...input };
+  const role = await resolveJobRole(data.jobRoleId ?? data.job_role_id, data.roleTitle ?? data.role_title);
+  if (role) {
+    data.jobRoleId = role.id;
+    data.roleTitle = data.roleTitle || role.title;
+    data.roleSlug = data.roleSlug || slugify(role.title);
+  }
+  delete data.job_role_id;
+  return data as T & Record<string, any>;
+}
+
+async function normalizeCareerNodeInput<T extends Record<string, any>>(input: T): Promise<T & Record<string, any>> {
+  const data: Record<string, any> = await normalizeDepartmentBackedInput(input, "department");
+  const role = await resolveJobRole(data.jobRoleId ?? data.job_role_id, data.title);
+  if (role) {
+    data.jobRoleId = role.id;
+    data.title = data.title || role.title;
+    data.departmentId = data.departmentId ?? role.departmentId ?? null;
+    data.department = data.department || role.department;
+  }
+  delete data.job_role_id;
+  return data as T & Record<string, any>;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +238,10 @@ export async function registerRoutes(
     const routePath = `${req.baseUrl}${req.path}`;
     const role = req.session.role;
 
-    if (routePath.startsWith("/api/users") && !routePath.match(/^\/api\/users\/[^/]+\/team$/) && role !== "admin") {
+    if (routePath === "/api/users" && req.method === "GET" && !isPrivilegedRole(role)) {
+      return res.status(403).json({ message: "Manager access required" });
+    }
+    if (routePath.startsWith("/api/users") && req.method !== "GET" && role !== "admin") {
       return res.status(403).json({ message: "Admin access required" });
     }
     if (routePath.match(/^\/api\/users\/[^/]+\/team$/) && !isPrivilegedRole(role)) {
@@ -136,13 +270,16 @@ export async function registerRoutes(
   });
 
   app.get("/api/users/:id", async (req, res) => {
+    if (!await canAccessUser(req, req.params.id)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const user = await storage.getUser(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(sanitizeUser(user));
   });
 
   app.post("/api/users", async (req, res) => {
-    const body = { ...req.body };
+    const body = await normalizeUserRelationships(req.body);
     body.email = normalizeEmail(body.email);
 
     if (body.email) {
@@ -172,7 +309,7 @@ export async function registerRoutes(
   app.patch("/api/users/:id", async (req, res) => {
     const existing = await storage.getUser(req.params.id);
     if (!existing) return res.status(404).json({ message: "User not found" });
-    const data = { ...req.body };
+    const data = await normalizeUserRelationships(req.body);
     if (data.email !== undefined) {
       data.email = normalizeEmail(data.email);
       if (data.email) {
@@ -202,6 +339,9 @@ export async function registerRoutes(
   });
 
   app.get("/api/users/:id/team", async (req, res) => {
+    if (req.session.role !== "admin" && req.session.userId !== req.params.id) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const members = await storage.getTeamMembers(req.params.id);
     res.json(members.map((member) => sanitizeUser(member)));
   });
@@ -405,8 +545,8 @@ export async function registerRoutes(
     let templateItems = await storage.getInductionTemplateItems();
     const completions = await storage.getInductionCompletions(instance.id);
 
-    if (user?.jobRole) {
-      const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
+    if (user?.jobRoleId || user?.jobRole) {
+      const allowedSections = await storage.getInductionSectionsForUser(user.jobRoleId ?? user.jobRole);
       templateItems = templateItems.filter(item => allowedSections.includes(item.section));
     }
 
@@ -432,7 +572,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/induction/:userId", async (req, res) => {
-    if (!canAccessUser(req, req.params.userId)) {
+    if (!await canAccessUser(req, req.params.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     let instance = await storage.getInductionInstance(req.params.userId);
@@ -448,8 +588,8 @@ export async function registerRoutes(
     const completions = await storage.getInductionCompletions(instance.id);
 
     const user = await storage.getUser(req.params.userId);
-    if (user?.jobRole) {
-      const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
+    if (user?.jobRoleId || user?.jobRole) {
+      const allowedSections = await storage.getInductionSectionsForUser(user.jobRoleId ?? user.jobRole);
       templateItems = templateItems.filter(item => allowedSections.includes(item.section));
     }
 
@@ -471,7 +611,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/induction/:userId/complete-item", async (req, res) => {
-    if (!canAccessUser(req, req.params.userId)) {
+    if (!await canAccessUser(req, req.params.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     const { templateItemId, completed, inProgress, completedDate, targetDate, reviewDate, signedOffBy, signedOffDate, assignedTo } = req.body;
@@ -551,8 +691,8 @@ export async function registerRoutes(
 
     const user = await storage.getUser(instance.userId);
     let templateItems = await storage.getInductionTemplateItems();
-    if (user?.jobRole) {
-      const allowedSections = await storage.getInductionSectionsForUser(user.jobRole);
+    if (user?.jobRoleId || user?.jobRole) {
+      const allowedSections = await storage.getInductionSectionsForUser(user.jobRoleId ?? user.jobRole);
       templateItems = templateItems.filter((item) => allowedSections.includes(item.section));
     }
 
@@ -607,7 +747,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/induction/:userId/share", async (req, res) => {
-    if (!canAccessUser(req, req.params.userId)) {
+    if (!await canAccessUser(req, req.params.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     let instance = await storage.getInductionInstance(req.params.userId);
@@ -639,12 +779,14 @@ export async function registerRoutes(
   });
 
   app.post("/api/competency-categories", async (req, res) => {
-    const cat = await storage.createCompetencyCategory(req.body);
+    const data = await normalizeDepartmentBackedInput(req.body, "departmentType");
+    const cat = await storage.createCompetencyCategory(data);
     res.status(201).json(cat);
   });
 
   app.patch("/api/competency-categories/:id", async (req, res) => {
-    const cat = await storage.updateCompetencyCategory(Number(req.params.id), req.body);
+    const data = await normalizeDepartmentBackedInput(req.body, "departmentType");
+    const cat = await storage.updateCompetencyCategory(Number(req.params.id), data);
     if (!cat) return res.status(404).json({ message: "Not found" });
     res.json(cat);
   });
@@ -692,7 +834,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/training-matrix/history/:userId", async (req, res) => {
-    if (!canAccessUser(req, req.params.userId)) {
+    if (!await canAccessUser(req, req.params.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     const history = await storage.getTrainingMatrixHistory(req.params.userId);
@@ -700,7 +842,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/training-matrix/:userId", async (req, res) => {
-    if (!canAccessUser(req, req.params.userId)) {
+    if (!await canAccessUser(req, req.params.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     const submission = await storage.getTrainingMatrixSubmission(req.params.userId);
@@ -708,12 +850,20 @@ export async function registerRoutes(
   });
 
   app.post("/api/training-matrix", async (req, res) => {
+    if (!req.body?.userId || !await canAccessUser(req, req.body.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const submission = await storage.createTrainingMatrixSubmission(req.body);
     res.status(201).json(submission);
   });
 
   app.patch("/api/training-matrix/:id", async (req, res) => {
-    const submission = await storage.updateTrainingMatrixSubmission(Number(req.params.id), req.body);
+    const existing = await storage.getTrainingMatrixSubmissionById(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (!await canAccessUser(req, existing.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const submission = await storage.updateTrainingMatrixSubmission(existing.id, req.body);
     if (!submission) return res.status(404).json({ message: "Not found" });
     
     // Sync to Outlook if nextReviewDate was updated
@@ -731,9 +881,11 @@ export async function registerRoutes(
   });
 
   app.post("/api/training-matrix/:id/share", async (req, res) => {
-    const sub = await storage.getAllTrainingMatrixSubmissions();
-    const found = sub.find(s => s.id === Number(req.params.id));
+    const found = await storage.getTrainingMatrixSubmissionById(Number(req.params.id));
     if (!found) return res.status(404).json({ message: "Submission not found" });
+    if (!await canAccessUser(req, found.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     if (found.shareToken) {
       return res.json({ token: found.shareToken });
     }
@@ -746,14 +898,14 @@ export async function registerRoutes(
     if (!submission) return res.status(404).json({ message: "Not found" });
     const user = await storage.getUser(submission.userId);
     let competencies: any[] | null = null;
-    if (user?.jobRole) {
-      competencies = await storage.getCompetencyCategoriesForJobRole(user.jobRole);
+    if (user?.jobRoleId || user?.jobRole) {
+      competencies = await storage.getCompetencyCategoriesForJobRole(user.jobRoleId ?? user.jobRole);
     }
     if (!competencies) {
       const userDept = user?.department || '';
-      const deptCategories = userDept ? await storage.getCompetencyCategories(userDept) : [];
-      const universalCategories = await storage.getCompetencyCategories('Universal');
-      const allCats = [...universalCategories, ...deptCategories];
+      const allCats = userDept
+        ? await storage.getCompetencyCategories(userDept)
+        : await storage.getCompetencyCategories('Universal');
       const items = await storage.getCompetencyItems();
       competencies = allCats.map(cat => ({
         ...cat,
@@ -790,14 +942,20 @@ export async function registerRoutes(
 
   app.get("/api/standards-surveys/:roleId", async (req, res) => {
     const roles = await storage.getStandardsSurveyRoles();
-    const role = roles.find((r) => r.roleSlug === req.params.roleId || r.id === Number(req.params.roleId));
+    const requestedId = Number(req.params.roleId);
+    const role = roles.find((r) =>
+      r.roleSlug === req.params.roleId ||
+      r.jobRoleId === requestedId ||
+      r.id === requestedId
+    );
     if (!role) return res.status(404).json({ message: "Survey role not found" });
     const items = await storage.getStandardsSurveyItems(role.id);
     res.json({ ...role, items });
   });
 
   app.post("/api/standards-surveys/roles", async (req, res) => {
-    const role = await storage.createStandardsSurveyRole(req.body);
+    const data = await normalizeStandardsSurveyRoleInput(req.body);
+    const role = await storage.createStandardsSurveyRole(data);
     res.status(201).json(role);
   });
 
@@ -869,7 +1027,7 @@ export async function registerRoutes(
   // ===== USER CERTIFICATES =====
   app.get("/api/user-certificates", async (req, res) => {
     const userId = req.query.userId as string | undefined;
-    if (userId && !canAccessUser(req, userId)) {
+    if (userId && !await canAccessUser(req, userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     if (!userId && !isPrivilegedRole(req.session.role)) {
@@ -880,18 +1038,26 @@ export async function registerRoutes(
   });
 
   app.post("/api/user-certificates", async (req, res) => {
+    if (!req.body?.userId || !await canAccessUser(req, req.body.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const cert = await storage.createUserCertificate(req.body);
     res.status(201).json(cert);
   });
 
   app.delete("/api/user-certificates/:id", async (req, res) => {
-    await storage.deleteUserCertificate(Number(req.params.id));
+    const certificate = await storage.getUserCertificate(Number(req.params.id));
+    if (!certificate) return res.status(404).json({ message: "Not found" });
+    if (!await canAccessUser(req, certificate.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    await storage.deleteUserCertificate(certificate.id);
     res.status(204).send();
   });
 
   // ===== CAREER MILESTONES =====
   app.get("/api/career-milestones/:userId", async (req, res) => {
-    if (!canAccessUser(req, req.params.userId)) {
+    if (!await canAccessUser(req, req.params.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     const milestones = await storage.getCareerMilestones(req.params.userId);
@@ -899,18 +1065,31 @@ export async function registerRoutes(
   });
 
   app.post("/api/career-milestones", async (req, res) => {
+    if (!req.body?.userId || !await canAccessUser(req, req.body.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const milestone = await storage.createCareerMilestone(req.body);
     res.status(201).json(milestone);
   });
 
   app.patch("/api/career-milestones/:id", async (req, res) => {
-    const milestone = await storage.updateCareerMilestone(Number(req.params.id), req.body);
+    const existing = await storage.getCareerMilestone(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: "Milestone not found" });
+    if (!await canAccessUser(req, existing.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const milestone = await storage.updateCareerMilestone(existing.id, req.body);
     if (!milestone) return res.status(404).json({ message: "Milestone not found" });
     res.json(milestone);
   });
 
   app.delete("/api/career-milestones/:id", async (req, res) => {
-    await storage.deleteCareerMilestone(Number(req.params.id));
+    const milestone = await storage.getCareerMilestone(Number(req.params.id));
+    if (!milestone) return res.status(404).json({ message: "Milestone not found" });
+    if (!await canAccessUser(req, milestone.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    await storage.deleteCareerMilestone(milestone.id);
     res.status(204).send();
   });
 
@@ -921,14 +1100,15 @@ export async function registerRoutes(
   });
 
   app.post("/api/career-nodes", async (req, res) => {
-    const node = await storage.createCareerNode(req.body);
+    const data = await normalizeCareerNodeInput(req.body);
+    const node = await storage.createCareerNode(data);
     res.status(201).json(node);
   });
 
   // ===== TRAINING RECORDS =====
   app.get("/api/training-records", async (req, res) => {
     const userId = req.query.userId as string | undefined;
-    if (userId && !canAccessUser(req, userId)) {
+    if (userId && !await canAccessUser(req, userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
     if (!userId && !isPrivilegedRole(req.session.role)) {
@@ -939,12 +1119,20 @@ export async function registerRoutes(
   });
 
   app.post("/api/training-records", async (req, res) => {
+    if (!req.body?.userId || !await canAccessUser(req, req.body.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
     const record = await storage.createTrainingRecord(req.body);
     res.status(201).json(record);
   });
 
   app.patch("/api/training-records/:id", async (req, res) => {
-    const record = await storage.updateTrainingRecord(Number(req.params.id), req.body);
+    const existing = await storage.getTrainingRecord(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: "Not found" });
+    if (!await canAccessUser(req, existing.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const record = await storage.updateTrainingRecord(existing.id, req.body);
     if (!record) return res.status(404).json({ message: "Not found" });
     res.json(record);
   });
@@ -956,7 +1144,8 @@ export async function registerRoutes(
   });
 
   app.post("/api/job-roles", async (req, res) => {
-    const role = await storage.createJobRole(req.body);
+    const data = await normalizeDepartmentBackedInput(req.body, "department");
+    const role = await storage.createJobRole(data);
     res.status(201).json(role);
   });
 
@@ -995,14 +1184,22 @@ export async function registerRoutes(
     if (req.body.reportsTo !== undefined && await wouldCreateCycle(id, req.body.reportsTo)) {
       return res.status(400).json({ message: "Cannot set parent: this would create a circular reporting chain." });
     }
-    const role = await storage.updateJobRole(id, req.body);
+    const data = await normalizeDepartmentBackedInput(req.body, "department");
+    const role = await storage.updateJobRole(id, data);
     if (!role) return res.status(404).json({ message: "Not found" });
     res.json(role);
   });
 
   app.delete("/api/job-roles/:id", async (req, res) => {
     try {
-      await storage.deleteJobRole(Number(req.params.id));
+      const id = Number(req.params.id);
+      const role = (await storage.getJobRoles()).find((jobRole) => jobRole.id === id);
+      if (!role) return res.status(404).json({ message: "Not found" });
+      const assignedUsers = (await storage.getAllUsers()).filter((user) => user.jobRoleId === id || user.jobRole === role.title);
+      if (assignedUsers.length > 0) {
+        return res.status(400).json({ message: `Cannot delete: ${assignedUsers.length} user(s) are assigned to this job role` });
+      }
+      await storage.deleteJobRole(id);
       res.status(204).send();
     } catch (error: any) {
       res.status(500).json({ message: error.message || "Failed to delete job role" });
@@ -1025,10 +1222,12 @@ export async function registerRoutes(
 
   app.get("/api/competencies-for-role", async (req, res) => {
     const jobRole = req.query.jobRole as string | undefined;
-    if (!jobRole) {
+    const jobRoleId = toOptionalInt(req.query.jobRoleId);
+    const roleLookup = typeof jobRoleId === "number" ? jobRoleId : jobRole;
+    if (!roleLookup) {
       return res.status(400).json({ message: "jobRole query parameter required" });
     }
-    const result = await storage.getCompetencyCategoriesForJobRole(jobRole);
+    const result = await storage.getCompetencyCategoriesForJobRole(roleLookup);
     if (result) {
       return res.json(result);
     }
@@ -1105,9 +1304,21 @@ export async function registerRoutes(
     const depts = await storage.getDepartments();
     const dept = depts.find(d => d.id === id);
     if (!dept) return res.status(404).json({ message: "Department not found" });
-    const usersInDept = users.filter(u => u.department === dept.name);
+    const usersInDept = users.filter(u => u.departmentId === id || u.department === dept.name);
     if (usersInDept.length > 0) {
       return res.status(400).json({ message: `Cannot delete: ${usersInDept.length} user(s) are assigned to this department` });
+    }
+    const rolesInDept = (await storage.getJobRoles()).filter(role => role.departmentId === id || role.department === dept.name);
+    if (rolesInDept.length > 0) {
+      return res.status(400).json({ message: `Cannot delete: ${rolesInDept.length} job role(s) are assigned to this department` });
+    }
+    const categoriesInDept = (await storage.getCompetencyCategories()).filter(category => category.departmentId === id || category.departmentType === dept.name);
+    if (categoriesInDept.length > 0) {
+      return res.status(400).json({ message: `Cannot delete: ${categoriesInDept.length} competency category(s) are assigned to this department` });
+    }
+    const careerNodesInDept = (await storage.getCareerNodes()).filter(node => node.departmentId === id || node.department === dept.name);
+    if (careerNodesInDept.length > 0) {
+      return res.status(400).json({ message: `Cannot delete: ${careerNodesInDept.length} career node(s) are assigned to this department` });
     }
     const childDepts = depts.filter(d => d.parentId === id);
     if (childDepts.length > 0) {
@@ -1270,9 +1481,10 @@ export async function registerRoutes(
       return res.status(400).json({ message: "No data rows provided" });
     }
     const rows = rawRows.map((r: Record<string, string>) => {
-      const out: Record<string, string> = {};
+      const out: Record<string, string> = { ...r };
       for (const [k, v] of Object.entries(r)) {
         out[k.trim().toLowerCase().replace(/\s+/g, "_")] = v;
+        out[k.trim().toLowerCase().replace(/[\s_-]+/g, "")] = v;
       }
       return out;
     });
@@ -1307,7 +1519,7 @@ export async function registerRoutes(
             }
             const hasCredentials = !!(row.username && normalizedEmail);
             const hashedPassword = row.password ? await bcrypt.hash(row.password, 10) : null;
-            await storage.createUser({
+            const userData = await normalizeUserRelationships({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,
               username: row.username || null,
               password: hashedPassword,
@@ -1321,6 +1533,7 @@ export async function registerRoutes(
               requiresInduction,
               activated: hasCredentials,
             });
+            await storage.createUser(userData);
             created++;
           } catch (e: any) {
             errors.push(`Row ${i + 1} (${row.name || 'unknown'}): ${e.message}`);
@@ -1361,14 +1574,15 @@ export async function registerRoutes(
                   deferredReportsTo.push({ roleTitle: title, reportsToTitle });
                 }
               }
-              const newRole = await storage.createJobRole({
+              const roleData = await normalizeDepartmentBackedInput({
                 title,
                 department,
                 summary: row.summary || "",
                 responsibilities: row.responsibilities ? JSON.parse(row.responsibilities) : [],
                 reportsTo: reportsToId,
                 sortOrder: row.sortorder ? parseInt(row.sortorder) : 0,
-              });
+              }, "department");
+              const newRole = await storage.createJobRole(roleData);
               roleTitleToId.set(title, newRole.id);
               created++;
               roleCreated = true;
@@ -1378,7 +1592,7 @@ export async function registerRoutes(
             if (email) {
               const user = allUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
               if (user) {
-                await storage.updateUser(user.id, { jobRole: title, department });
+                await storage.updateUser(user.id, await normalizeUserRelationships({ jobRole: title, department }));
                 colleaguesUpdated++;
               } else {
                 const colleagueName = row["colleague_name"] || row.colleaguename || "";
@@ -1394,7 +1608,7 @@ export async function registerRoutes(
                   const slug = colleagueName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
                   const userId = `${slug}-${Date.now().toString(36)}${i}`;
                   const today = new Date().toISOString().split("T")[0];
-                  await storage.createUser({
+                  const userData = await normalizeUserRelationships({
                     id: userId,
                     username,
                     password: null,
@@ -1408,7 +1622,23 @@ export async function registerRoutes(
                     requiresInduction: true,
                     activated: true,
                   });
-                  allUsers.push({ id: userId, username, password: null, name: colleagueName, email, role: "colleague", jobRole: title, department, managerId: null, startDate: today, requiresInduction: true, activated: true });
+                  await storage.createUser(userData);
+                  allUsers.push({
+                    id: userId,
+                    username,
+                    password: null,
+                    name: colleagueName,
+                    email,
+                    role: "colleague",
+                    jobRoleId: userData.jobRoleId ?? null,
+                    jobRole: userData.jobRole,
+                    departmentId: userData.departmentId ?? null,
+                    department: userData.department,
+                    managerId: null,
+                    startDate: today,
+                    requiresInduction: true,
+                    activated: true,
+                  });
                   accountsCreated++;
                   createdAccounts.push({ name: colleagueName, email });
                 } else {
@@ -1454,12 +1684,13 @@ export async function registerRoutes(
             let catId = catMap.get(catName);
             if (!catId) {
               const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-              const newCat = await storage.createCompetencyCategory({
+              const categoryData = await normalizeDepartmentBackedInput({
                 slug: `${slug}-${Date.now().toString(36)}`,
                 name: catName,
                 departmentType: row.category_department_type || "Universal",
                 sortOrder: parseInt(row.category_sort_order) || 0,
-              });
+              }, "departmentType");
+              const newCat = await storage.createCompetencyCategory(categoryData);
               catId = newCat.id;
               catMap.set(catName, catId);
             }
@@ -1567,10 +1798,11 @@ export async function registerRoutes(
             }
             let roleId = roleMap.get(roleSlug);
             if (!roleId) {
-              const newRole = await storage.createStandardsSurveyRole({
+              const roleData = await normalizeStandardsSurveyRoleInput({
                 roleSlug,
                 roleTitle: roleTitle || roleSlug,
               });
+              const newRole = await storage.createStandardsSurveyRole(roleData);
               roleId = newRole.id;
               roleMap.set(roleSlug, roleId);
             }
@@ -1636,7 +1868,12 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Invalid state parameter" });
       }
 
-      const { exchangeCodeForToken, getAuthConfig } = await import("./outlookAuth");
+      const userId = req.session.userId;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      const { exchangeCodeForToken } = await import("./outlookAuth");
       const { db } = await import("./db");
       const { outlookIntegrations } = await import("../shared/schema");
       const { eq } = await import("drizzle-orm");
@@ -1645,7 +1882,7 @@ export async function registerRoutes(
       
       // Store or update integration
       const existing = await db.query.outlookIntegrations.findFirst({
-        where: eq(outlookIntegrations.userId, req.session.userId),
+        where: eq(outlookIntegrations.userId, userId),
       });
 
       if (existing) {
@@ -1658,10 +1895,10 @@ export async function registerRoutes(
             isEnabled: true,
             updatedDate: new Date().toISOString(),
           })
-          .where(eq(outlookIntegrations.userId, req.session.userId));
+          .where(eq(outlookIntegrations.userId, userId));
       } else {
         await db.insert(outlookIntegrations).values({
-          userId: req.session.userId,
+          userId,
           accessToken: token.accessToken,
           refreshToken: token.refreshToken,
           expiresAt: token.expiresAt,

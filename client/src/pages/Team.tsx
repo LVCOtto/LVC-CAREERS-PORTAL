@@ -810,17 +810,19 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(memberId);
   const { data: matrixHistory } = useTrainingMatrixHistory(memberId);
   const { data: approverUser } = useUser(matrixSubmission?.approvedBy || '');
-  const { data: roleCompetencies, isLoading: roleCompLoading } = useCompetenciesForRole(member?.jobRole);
+  const { data: roleCompetencies, isLoading: roleCompLoading } = useCompetenciesForRole(member?.jobRoleId ?? member?.jobRole);
   const { data: deptCompetencies, isLoading: deptCompLoading } = useCompetencies(
-    getCompetencyDepartmentType(member)
+    member?.department || getCompetencyDepartmentType(member)
   );
   const competencies = roleCompetencies || deptCompetencies;
   const competenciesLoading = roleCompLoading || deptCompLoading;
 
-  const roleSlug = member?.jobRole
+  const standardsSurveyKey = member?.jobRoleId
+    ? String(member.jobRoleId)
+    : member?.jobRole
     ? member.jobRole.toLowerCase().replace(/\s+/g, '-')
     : '';
-  const { data: standardsSurveyData } = useStandardsSurvey(roleSlug);
+  const { data: standardsSurveyData } = useStandardsSurvey(standardsSurveyKey);
 
   const completeItem = useCompleteInductionItem(memberId);
   const updateMatrix = useUpdateTrainingMatrix();
@@ -877,7 +879,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
         role: member.jobRole,
         department: member.department,
         ratings: matrixSubmission.ratings as Record<string, number>,
-        lastAssessment: matrixSubmission.submittedDate || matrixSubmission.createdDate || new Date().toISOString().slice(0, 10),
+        lastAssessment: matrixSubmission.lastAssessment || matrixSubmission.submittedDate || new Date().toISOString().slice(0, 10),
         status: matrixSubmission.status as 'draft' | 'pending_review' | 'approved' | undefined,
       }
     : null;

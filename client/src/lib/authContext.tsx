@@ -9,7 +9,9 @@ export interface User {
   name: string;
   email: string | null;
   role: UserRole;
+  jobRoleId?: number | null;
   jobRole: string;
+  departmentId?: number | null;
   department: string;
   managerId?: string | null;
   startDate: string;

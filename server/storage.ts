@@ -33,6 +33,7 @@ export interface IStorage {
   deleteCompetencyItem(id: number): Promise<void>;
 
   getTrainingMatrixSubmission(userId: string): Promise<schema.TrainingMatrixSubmission | undefined>;
+  getTrainingMatrixSubmissionById(id: number): Promise<schema.TrainingMatrixSubmission | undefined>;
   getTrainingMatrixHistory(userId: string): Promise<schema.TrainingMatrixSubmission[]>;
   getAllTrainingMatrixSubmissions(): Promise<schema.TrainingMatrixSubmission[]>;
   createTrainingMatrixSubmission(sub: schema.InsertTrainingMatrixSubmission): Promise<schema.TrainingMatrixSubmission>;
@@ -57,10 +58,12 @@ export interface IStorage {
   deleteCertificateDefinition(id: number): Promise<void>;
 
   getUserCertificates(userId?: string): Promise<schema.UserCertificate[]>;
+  getUserCertificate(id: number): Promise<schema.UserCertificate | undefined>;
   createUserCertificate(cert: schema.InsertUserCertificate): Promise<schema.UserCertificate>;
   deleteUserCertificate(id: number): Promise<void>;
 
   getCareerMilestones(userId: string): Promise<schema.CareerMilestone[]>;
+  getCareerMilestone(id: number): Promise<schema.CareerMilestone | undefined>;
   createCareerMilestone(milestone: schema.InsertCareerMilestone): Promise<schema.CareerMilestone>;
   updateCareerMilestone(id: number, data: Partial<schema.InsertCareerMilestone>): Promise<schema.CareerMilestone | undefined>;
   deleteCareerMilestone(id: number): Promise<void>;
@@ -69,6 +72,7 @@ export interface IStorage {
   createCareerNode(node: schema.InsertCareerNode): Promise<schema.CareerNode>;
 
   getTrainingRecords(userId?: string): Promise<schema.TrainingRecord[]>;
+  getTrainingRecord(id: number): Promise<schema.TrainingRecord | undefined>;
   createTrainingRecord(record: schema.InsertTrainingRecord): Promise<schema.TrainingRecord>;
   updateTrainingRecord(id: number, data: Partial<schema.InsertTrainingRecord>): Promise<schema.TrainingRecord | undefined>;
 
@@ -85,7 +89,7 @@ export interface IStorage {
 
   getJobRoleCategories(jobRoleId: number): Promise<schema.JobRoleCategory[]>;
   setJobRoleCategories(jobRoleId: number, categoryIds: number[]): Promise<void>;
-  getCompetencyCategoriesForJobRole(jobRoleTitle: string): Promise<(schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] | null>;
+  getCompetencyCategoriesForJobRole(jobRole: string | number): Promise<(schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] | null>;
 
   getPortalSettings(): Promise<schema.PortalSetting[]>;
   upsertPortalSetting(key: string, value: string, category: string): Promise<schema.PortalSetting>;
@@ -101,7 +105,7 @@ export interface IStorage {
   setJobRoleInductionSections(jobRoleId: number, sections: string[]): Promise<void>;
   getInductionSectionSettings(): Promise<schema.InductionSectionSetting[]>;
   upsertInductionSectionSetting(sectionName: string, isUniversal: boolean): Promise<schema.InductionSectionSetting>;
-  getInductionSectionsForUser(jobRoleTitle: string): Promise<string[]>;
+  getInductionSectionsForUser(jobRole: string | number): Promise<string[]>;
 
   // Passwordless email auth
   getUserByEmail(email: string): Promise<schema.User | undefined>;
@@ -183,7 +187,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: string) {
-    await db.delete(schema.users).where(eq(schema.users.id, id));
+    const instances = await db.select().from(schema.inductionInstances).where(eq(schema.inductionInstances.userId, id));
+    const instanceIds = instances.map((instance) => instance.id);
+
+    await db.transaction(async (tx) => {
+      if (instanceIds.length > 0) {
+        await tx.delete(schema.inductionItemCompletions)
+          .where(inArray(schema.inductionItemCompletions.instanceId, instanceIds));
+      }
+      await tx.delete(schema.inductionInstances).where(eq(schema.inductionInstances.userId, id));
+      await tx.delete(schema.trainingMatrixSubmissions).where(eq(schema.trainingMatrixSubmissions.userId, id));
+      await tx.delete(schema.userCertificates).where(eq(schema.userCertificates.userId, id));
+      await tx.delete(schema.trainingRecords).where(eq(schema.trainingRecords.userId, id));
+      await tx.delete(schema.careerMilestones).where(eq(schema.careerMilestones.userId, id));
+      await tx.delete(schema.outlookIntegrations).where(eq(schema.outlookIntegrations.userId, id));
+      await tx.delete(schema.calendarSyncLog).where(eq(schema.calendarSyncLog.userId, id));
+      await tx.delete(schema.emailAuthCodes).where(eq(schema.emailAuthCodes.userId, id));
+      await tx.update(schema.users).set({ managerId: null }).where(eq(schema.users.managerId, id));
+      await tx.delete(schema.users).where(eq(schema.users.id, id));
+    });
   }
 
   async getTeamMembers(managerId: string) {
@@ -245,8 +267,8 @@ export class DatabaseStorage implements IStorage {
     if (departmentType) {
       const legacyMap: Record<string, string[]> = {
         'all': ['all', 'Universal'],
-        'engineering': ['engineering', 'Engineering'],
-        'admin': ['admin', 'Accounts'],
+        'engineering': ['engineering', 'Engineering', 'Universal'],
+        'admin': ['admin', 'Accounts', 'Universal'],
       };
       const mapped = legacyMap[departmentType];
       if (mapped) {
@@ -255,7 +277,7 @@ export class DatabaseStorage implements IStorage {
           .orderBy(schema.competencyCategories.sortOrder);
       }
       return db.select().from(schema.competencyCategories)
-        .where(eq(schema.competencyCategories.departmentType, departmentType))
+        .where(inArray(schema.competencyCategories.departmentType, [departmentType, 'Universal']))
         .orderBy(schema.competencyCategories.sortOrder);
     }
     return db.select().from(schema.competencyCategories).orderBy(schema.competencyCategories.sortOrder);
@@ -281,8 +303,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCompetencyCategory(id: number) {
-    await db.delete(schema.competencyItems).where(eq(schema.competencyItems.categoryId, id));
-    await db.delete(schema.competencyCategories).where(eq(schema.competencyCategories.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(schema.jobRoleCategories).where(eq(schema.jobRoleCategories.categoryId, id));
+      await tx.delete(schema.competencyItems).where(eq(schema.competencyItems.categoryId, id));
+      await tx.delete(schema.competencyCategories).where(eq(schema.competencyCategories.id, id));
+    });
   }
 
   async createCompetencyItem(item: schema.InsertCompetencyItem) {
@@ -314,6 +339,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.trainingMatrixSubmissions.userId, userId))
       .orderBy(desc(schema.trainingMatrixSubmissions.id));
     return subs[0];
+  }
+
+  async getTrainingMatrixSubmissionById(id: number) {
+    const [submission] = await db.select().from(schema.trainingMatrixSubmissions)
+      .where(eq(schema.trainingMatrixSubmissions.id, id));
+    return submission;
   }
 
   async getTrainingMatrixHistory(userId: string) {
@@ -406,7 +437,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCertificateDefinition(id: number) {
-    await db.delete(schema.certificateDefinitions).where(eq(schema.certificateDefinitions.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(schema.userCertificates).where(eq(schema.userCertificates.definitionId, id));
+      await tx.delete(schema.certificateDefinitions).where(eq(schema.certificateDefinitions.id, id));
+    });
   }
 
   async getUserCertificates(userId?: string) {
@@ -414,6 +448,11 @@ export class DatabaseStorage implements IStorage {
       return db.select().from(schema.userCertificates).where(eq(schema.userCertificates.userId, userId));
     }
     return db.select().from(schema.userCertificates);
+  }
+
+  async getUserCertificate(id: number) {
+    const [certificate] = await db.select().from(schema.userCertificates).where(eq(schema.userCertificates.id, id));
+    return certificate;
   }
 
   async createUserCertificate(cert: schema.InsertUserCertificate) {
@@ -427,6 +466,11 @@ export class DatabaseStorage implements IStorage {
 
   async getCareerMilestones(userId: string) {
     return db.select().from(schema.careerMilestones).where(eq(schema.careerMilestones.userId, userId));
+  }
+
+  async getCareerMilestone(id: number) {
+    const [milestone] = await db.select().from(schema.careerMilestones).where(eq(schema.careerMilestones.id, id));
+    return milestone;
   }
 
   async createCareerMilestone(milestone: schema.InsertCareerMilestone) {
@@ -459,6 +503,11 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(schema.trainingRecords);
   }
 
+  async getTrainingRecord(id: number) {
+    const [record] = await db.select().from(schema.trainingRecords).where(eq(schema.trainingRecords.id, id));
+    return record;
+  }
+
   async createTrainingRecord(record: schema.InsertTrainingRecord) {
     const [created] = await db.insert(schema.trainingRecords).values(record).returning();
     return created;
@@ -480,8 +529,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateJobRole(id: number, data: Partial<schema.InsertJobRole>) {
-    const [updated] = await db.update(schema.jobRoles).set(data).where(eq(schema.jobRoles.id, id)).returning();
-    return updated;
+    const [existing] = await db.select().from(schema.jobRoles).where(eq(schema.jobRoles.id, id));
+    if (!existing) return undefined;
+
+    return await db.transaction(async (tx) => {
+      const [updated] = await tx.update(schema.jobRoles).set(data).where(eq(schema.jobRoles.id, id)).returning();
+      if (!updated) return undefined;
+
+      await tx.update(schema.users)
+        .set({ jobRole: updated.title, departmentId: updated.departmentId, department: updated.department })
+        .where(eq(schema.users.jobRoleId, id));
+
+      await tx.update(schema.careerNodes)
+        .set({ title: updated.title, departmentId: updated.departmentId, department: updated.department })
+        .where(eq(schema.careerNodes.jobRoleId, id));
+
+      await tx.update(schema.standardsSurveyRoles)
+        .set({ roleTitle: updated.title })
+        .where(eq(schema.standardsSurveyRoles.jobRoleId, id));
+
+      return updated;
+    });
   }
 
   async deleteJobRole(id: number) {
@@ -491,6 +559,9 @@ export class DatabaseStorage implements IStorage {
     await db.transaction(async (tx) => {
       await tx.delete(schema.jobRoleCategories).where(eq(schema.jobRoleCategories.jobRoleId, id));
       await tx.delete(schema.jobRoleInductionSections).where(eq(schema.jobRoleInductionSections.jobRoleId, id));
+      await tx.update(schema.users).set({ jobRoleId: null }).where(eq(schema.users.jobRoleId, id));
+      await tx.update(schema.careerNodes).set({ jobRoleId: null }).where(eq(schema.careerNodes.jobRoleId, id));
+      await tx.update(schema.standardsSurveyRoles).set({ jobRoleId: null }).where(eq(schema.standardsSurveyRoles.jobRoleId, id));
       await tx.update(schema.jobRoles).set({ reportsTo: grandparent }).where(eq(schema.jobRoles.reportsTo, id));
       await tx.delete(schema.jobRoles).where(eq(schema.jobRoles.id, id));
     });
@@ -538,9 +609,11 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getCompetencyCategoriesForJobRole(jobRoleTitle: string) {
+  async getCompetencyCategoriesForJobRole(jobRole: string | number) {
     const roles = await db.select().from(schema.jobRoles);
-    const role = roles.find(r => r.title.toLowerCase() === jobRoleTitle.toLowerCase());
+    const role = typeof jobRole === "number"
+      ? roles.find(r => r.id === jobRole)
+      : roles.find(r => r.title.toLowerCase() === jobRole.toLowerCase());
     if (!role) return null;
 
     const assignments = await this.getJobRoleCategories(role.id);
@@ -634,7 +707,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteDepartment(id: number) {
-    await db.delete(schema.departmentsTable).where(eq(schema.departmentsTable.id, id));
+    await db.transaction(async (tx) => {
+      await tx.update(schema.users).set({ departmentId: null }).where(eq(schema.users.departmentId, id));
+      await tx.update(schema.jobRoles).set({ departmentId: null }).where(eq(schema.jobRoles.departmentId, id));
+      await tx.update(schema.competencyCategories).set({ departmentId: null }).where(eq(schema.competencyCategories.departmentId, id));
+      await tx.update(schema.careerNodes).set({ departmentId: null }).where(eq(schema.careerNodes.departmentId, id));
+      await tx.delete(schema.departmentsTable).where(eq(schema.departmentsTable.id, id));
+    });
   }
 
   async getJobRoleInductionSections(jobRoleId: number): Promise<string[]> {
@@ -672,14 +751,16 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getInductionSectionsForUser(jobRoleTitle: string): Promise<string[]> {
+  async getInductionSectionsForUser(jobRole: string | number): Promise<string[]> {
     const universalSettings = await db.select().from(schema.inductionSectionSettings)
       .where(eq(schema.inductionSectionSettings.isUniversal, true));
     const universalSections = universalSettings.map(s => s.sectionName);
 
-    const normalizedTitle = jobRoleTitle.trim().replace(/\s+/g, " ");
+    const normalizedTitle = typeof jobRole === "string" ? jobRole.trim().replace(/\s+/g, " ") : "";
     const allRoles = await db.select().from(schema.jobRoles);
-    const role = allRoles.filter(r => r.title === jobRoleTitle || r.title.trim().replace(/\s+/g, " ") === normalizedTitle);
+    const role = typeof jobRole === "number"
+      ? allRoles.filter(r => r.id === jobRole)
+      : allRoles.filter(r => r.title === jobRole || r.title.trim().replace(/\s+/g, " ") === normalizedTitle);
     if (role.length === 0) return universalSections;
 
     const roleAssignments = await db.select().from(schema.jobRoleInductionSections)

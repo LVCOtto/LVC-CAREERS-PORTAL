@@ -9,7 +9,9 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email"),
   role: text("role").notNull(),
+  jobRoleId: integer("job_role_id"),
   jobRole: text("job_role").notNull(),
+  departmentId: integer("department_id"),
   department: text("department").notNull(),
   managerId: varchar("manager_id", { length: 50 }),
   startDate: text("start_date").notNull(),
@@ -70,6 +72,7 @@ export const competencyCategories = pgTable("competency_categories", {
   id: serial("id").primaryKey(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   name: text("name").notNull(),
+  departmentId: integer("department_id"),
   departmentType: text("department_type").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
 });
@@ -110,6 +113,7 @@ export type TrainingMatrixSubmission = typeof trainingMatrixSubmissions.$inferSe
 
 export const standardsSurveyRoles = pgTable("standards_survey_roles", {
   id: serial("id").primaryKey(),
+  jobRoleId: integer("job_role_id"),
   roleSlug: varchar("role_slug", { length: 100 }).notNull().unique(),
   roleTitle: text("role_title").notNull(),
 });
@@ -187,8 +191,10 @@ export type CareerMilestone = typeof careerMilestones.$inferSelect;
 export const careerNodes = pgTable("career_nodes", {
   id: serial("id").primaryKey(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
+  jobRoleId: integer("job_role_id"),
   title: text("title").notNull(),
   description: text("description").notNull(),
+  departmentId: integer("department_id"),
   department: text("department").notNull(),
   level: integer("level").notNull(),
   requirements: jsonb("requirements").notNull().default([]),
@@ -216,6 +222,7 @@ export type TrainingRecord = typeof trainingRecords.$inferSelect;
 export const jobRoles = pgTable("job_roles", {
   id: serial("id").primaryKey(),
   title: text("title").notNull().unique(),
+  departmentId: integer("department_id"),
   department: text("department").notNull(),
   summary: text("summary").notNull(),
   responsibilities: jsonb("responsibilities").notNull().default([]),

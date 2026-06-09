@@ -1162,10 +1162,14 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                         const result = await generateShareToken.mutateAsync(submissionId);
                         const url = `${window.location.origin}/training-matrix/shared/${result.token}`;
                         setMatrixShareUrl(url);
-                        await navigator.clipboard.writeText(url);
-                        setMatrixShareCopied(true);
-                        setTimeout(() => setMatrixShareCopied(false), 2000);
-                        toast({ title: 'Link copied', description: 'Shareable training matrix link copied to clipboard.' });
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          setMatrixShareCopied(true);
+                          setTimeout(() => setMatrixShareCopied(false), 2000);
+                          toast({ title: 'Link copied', description: 'Shareable training matrix link copied to clipboard.' });
+                        } catch {
+                          toast({ title: 'Link ready', description: 'Share link generated below. Copy it or open it directly.' });
+                        }
                       } catch {
                         toast({ title: 'Error', description: 'Could not generate share link.', variant: 'destructive' });
                       }
@@ -1180,6 +1184,44 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     )}
                     {matrixShareCopied ? 'Copied!' : 'Share Link'}
                   </Button>
+
+                  {matrixShareUrl && (
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2" data-testid="panel-share-team-matrix-link">
+                      <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <code className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{matrixShareUrl}</code>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1"
+                        data-testid="button-copy-team-matrix-link"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(matrixShareUrl);
+                            setMatrixShareCopied(true);
+                            setTimeout(() => setMatrixShareCopied(false), 2000);
+                            toast({ title: 'Link copied', description: 'Shareable training matrix link copied to clipboard.' });
+                          } catch {
+                            toast({ title: 'Error', description: 'Could not copy share link.', variant: 'destructive' });
+                          }
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="gap-1"
+                        data-testid="button-open-team-matrix-link"
+                        onClick={() => {
+                          window.open(matrixShareUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open
+                      </Button>
+                    </div>
+                  )}
 
                   <Button
                     size="sm"

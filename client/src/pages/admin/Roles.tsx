@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, ClipboardList, ChevronRight, ChevronDown, GripVertical, ArrowUp, ArrowDown, CornerDownRight, Building2, Users, User, X } from 'lucide-react';
 import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
-import { useUsers, useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment, useRenameDepartment } from '@/lib/hooks';
+import { useUsers, useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useAllJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment, useRenameDepartment } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -73,6 +73,7 @@ export default function AdminRoles() {
   const { toast } = useToast();
   const { data: jobRoles = [], isLoading } = useJobRoles();
   const { data: allUsers = [], isLoading: usersLoading } = useUsers();
+  const { data: allRoleCategoryAssignments = [] } = useAllJobRoleCategories();
   const { data: departmentsList = [] } = useDepartments();
   const createJobRole = useCreateJobRole();
   const updateJobRole = useUpdateJobRole();
@@ -110,6 +111,14 @@ export default function AdminRoles() {
     });
     return m;
   }, [allUsers]);
+
+  const trainingMatrixCountsByRoleId = useMemo(() => {
+    const counts = new Map<number, number>();
+    allRoleCategoryAssignments.forEach((assignment: any) => {
+      counts.set(assignment.jobRoleId, (counts.get(assignment.jobRoleId) || 0) + 1);
+    });
+    return counts;
+  }, [allRoleCategoryAssignments]);
 
   const deptColorMap = useMemo(() => {
     const m = new Map<string, string>();
@@ -297,6 +306,8 @@ export default function AdminRoles() {
     const assignedUsers = usersByRole.get(node.title) || [];
     const headcount = assignedUsers.length;
     const isPeopleExpanded = expandedPeople.has(node.id);
+    const trainingMatrixCategoryCount = trainingMatrixCountsByRoleId.get(node.id) || 0;
+    const hasCalibratedTrainingMatrix = trainingMatrixCategoryCount > 0;
 
     return (
       <div key={node.id} data-testid={`tree-node-${node.id}`}>
@@ -350,6 +361,16 @@ export default function AdminRoles() {
               <span className={`font-medium text-sm truncate ${depth === 0 ? 'text-foreground' : ''}`}>
                 {node.title}
               </span>
+              <Badge
+                variant={hasCalibratedTrainingMatrix ? 'secondary' : 'outline'}
+                className={`text-xs ${hasCalibratedTrainingMatrix ? 'bg-emerald-500/15 text-emerald-700 border-emerald-500/30' : 'text-muted-foreground'}`}
+                data-testid={`badge-training-matrix-status-${node.id}`}
+              >
+                <GraduationCap className="w-3 h-3 mr-1" />
+                {hasCalibratedTrainingMatrix
+                  ? `${trainingMatrixCategoryCount} ${trainingMatrixCategoryCount === 1 ? 'category' : 'categories'} set`
+                  : 'Not calibrated'}
+              </Badge>
               <button
                 onClick={() => togglePeople(node.id)}
                 className="shrink-0"
@@ -888,6 +909,7 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
 
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [initialized, setInitialized] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['Engineering', 'Admin / Office', 'All Departments']));
 
   useEffect(() => {
     if (!assignedLoading && assignedIds && !initialized) {
@@ -924,12 +946,36 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
   const adminCats = allCategories.filter((c: any) => c.departmentType === 'admin');
   const otherCats = allCategories.filter((c: any) => c.departmentType !== 'engineering' && c.departmentType !== 'admin');
 
+  const toggleGroup = (label: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  };
+
   const renderGroup = (label: string, cats: any[]) => {
     if (cats.length === 0) return null;
+    const isCollapsed = collapsedGroups.has(label);
     return (
       <div className="space-y-2">
-        <h4 className="text-sm font-medium text-muted-foreground">{label}</h4>
-        {cats.map((cat: any) => (
+        <button
+          type="button"
+          className="w-full flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors"
+          onClick={() => toggleGroup(label)}
+          data-testid={`button-toggle-role-category-group-${label}`}
+        >
+          <div className="flex items-center gap-2 text-left">
+            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            <span className="text-sm font-medium text-foreground">{label}</span>
+            <Badge variant="secondary" className="text-xs">{cats.length}</Badge>
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {cats.filter((cat: any) => selected.has(cat.id)).length} selected
+          </span>
+        </button>
+        {!isCollapsed && cats.map((cat: any) => (
           <label
             key={cat.id}
             className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"

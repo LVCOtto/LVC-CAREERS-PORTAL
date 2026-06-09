@@ -88,6 +88,7 @@ export interface IStorage {
   getInductionByShareToken(token: string): Promise<schema.InductionInstance | undefined>;
 
   getJobRoleCategories(jobRoleId: number): Promise<schema.JobRoleCategory[]>;
+  getAllJobRoleCategories(): Promise<schema.JobRoleCategory[]>;
   setJobRoleCategories(jobRoleId: number, categoryIds: number[]): Promise<void>;
   getCompetencyCategoriesForJobRole(jobRole: string | number): Promise<(schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] | null>;
 
@@ -598,6 +599,10 @@ export class DatabaseStorage implements IStorage {
   async getJobRoleCategories(jobRoleId: number) {
     return db.select().from(schema.jobRoleCategories)
       .where(eq(schema.jobRoleCategories.jobRoleId, jobRoleId));
+  }
+
+  async getAllJobRoleCategories() {
+    return db.select().from(schema.jobRoleCategories);
   }
 
   async setJobRoleCategories(jobRoleId: number, categoryIds: number[]) {

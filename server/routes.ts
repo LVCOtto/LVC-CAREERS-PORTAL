@@ -1212,6 +1212,11 @@ export async function registerRoutes(
     res.json(assignments.map(a => a.categoryId));
   });
 
+  app.get("/api/job-role-categories", async (_req, res) => {
+    const assignments = await storage.getAllJobRoleCategories();
+    res.json(assignments);
+  });
+
   app.put("/api/job-roles/:id/categories", async (req, res) => {
     const { categoryIds } = req.body;
     if (!Array.isArray(categoryIds)) {

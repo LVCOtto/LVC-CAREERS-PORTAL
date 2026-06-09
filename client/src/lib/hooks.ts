@@ -349,6 +349,13 @@ export function useJobRoleCategories(roleId: number) {
   });
 }
 
+export function useAllJobRoleCategories() {
+  return useQuery({
+    queryKey: ["job-role-categories"],
+    queryFn: api.jobRoles.listCategories,
+  });
+}
+
 export function useSetJobRoleCategories() {
   return useMutation({
     mutationFn: ({ id, categoryIds }: { id: number; categoryIds: number[] }) =>

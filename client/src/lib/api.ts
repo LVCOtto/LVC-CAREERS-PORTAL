@@ -114,6 +114,7 @@ export const api = {
     delete: (id: number) => apiFetch<void>(`/job-roles/${id}`, { method: "DELETE" }),
     reorder: (data: { id: number; reportsTo?: number | null; sortOrder?: number }) =>
       apiFetch<any>("/job-roles/reorder", { method: "PATCH", body: JSON.stringify(data) }),
+    listCategories: () => apiFetch<any[]>("/job-role-categories"),
     getCategories: (id: number) => apiFetch<number[]>(`/job-roles/${id}/categories`),
     setCategories: (id: number, categoryIds: number[]) =>
       apiFetch<{ success: boolean }>(`/job-roles/${id}/categories`, { method: "PUT", body: JSON.stringify({ categoryIds }) }),

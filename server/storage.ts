@@ -890,19 +890,23 @@ export class DatabaseStorage implements IStorage {
     const universalSettings = await db.select().from(schema.inductionSectionSettings)
       .where(eq(schema.inductionSectionSettings.isUniversal, true));
     const universalSections = universalSettings.map(s => s.sectionName);
+    const allTemplateSections = Array.from(new Set(
+      (await db.select().from(schema.inductionTemplateItems)).map((item) => item.section)
+    ));
 
     const normalizedTitle = typeof jobRole === "string" ? jobRole.trim().replace(/\s+/g, " ") : "";
     const allRoles = await db.select().from(schema.jobRoles);
     const role = typeof jobRole === "number"
       ? allRoles.filter(r => r.id === jobRole)
       : allRoles.filter(r => r.title === jobRole || r.title.trim().replace(/\s+/g, " ") === normalizedTitle);
-    if (role.length === 0) return universalSections;
+    if (role.length === 0) return universalSections.length > 0 ? universalSections : allTemplateSections;
 
     const roleAssignments = await db.select().from(schema.jobRoleInductionSections)
       .where(eq(schema.jobRoleInductionSections.jobRoleId, role[0].id));
     const roleSections = roleAssignments.map(r => r.sectionName);
 
-    return Array.from(new Set([...universalSections, ...roleSections]));
+    const allowedSections = Array.from(new Set([...universalSections, ...roleSections]));
+    return allowedSections.length > 0 ? allowedSections : allTemplateSections;
   }
   async renameInductionSection(oldName: string, newName: string): Promise<void> {
     await db.update(schema.inductionTemplateItems)

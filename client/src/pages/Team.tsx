@@ -488,7 +488,7 @@ function InductionShareBar({ memberId, toast }: { memberId: string; toast: any }
   const generateLink = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/induction/${memberId}/share`, { method: 'POST' });
+      const res = await fetch(`/api/induction/${encodeURIComponent(memberId)}/share`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to generate share link');
       const { token } = await res.json();
       const link = `${window.location.origin}/induction/shared/${token}`;
@@ -815,7 +815,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   const { data: deptCompetencies, isLoading: deptCompLoading } = useCompetencies(
     member?.department || getCompetencyDepartmentType(member)
   );
-  const competencies = roleCompetencies || deptCompetencies;
+  const competencies = roleCompetencies && roleCompetencies.length > 0 ? roleCompetencies : (deptCompetencies ?? []);
   const competenciesLoading = roleCompLoading || deptCompLoading;
 
   const standardsSurveyKey = member?.jobRoleId
@@ -1713,7 +1713,7 @@ function TeamList() {
 
         <div className="grid gap-4">
           {members.map((member: User) => (
-            <Link key={member.id} href={`/team/${member.id}`}>
+            <Link key={member.id} href={`/team/${encodeURIComponent(member.id)}`}>
               <Card
                 className="border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
                 data-testid={`team-card-${member.id}`}

@@ -2,6 +2,10 @@ import { queryClient } from "./queryClient";
 
 const BASE = "/api";
 
+function encodePathSegment(value: string) {
+  return encodeURIComponent(value);
+}
+
 export type JobRoleMatrixSection = {
   sectionKey: string;
   label: string;
@@ -36,11 +40,11 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
 export const api = {
   users: {
     list: () => apiFetch<any[]>("/users"),
-    get: (id: string) => apiFetch<any>(`/users/${id}`),
+    get: (id: string) => apiFetch<any>(`/users/${encodePathSegment(id)}`),
     create: (data: any) => apiFetch<any>("/users", { method: "POST", body: JSON.stringify(data) }),
-    update: (id: string, data: any) => apiFetch<any>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-    delete: (id: string) => apiFetch<void>(`/users/${id}`, { method: "DELETE" }),
-    team: (managerId: string) => apiFetch<any[]>(`/users/${managerId}/team`),
+    update: (id: string, data: any) => apiFetch<any>(`/users/${encodePathSegment(id)}`, { method: "PATCH", body: JSON.stringify(data) }),
+    delete: (id: string) => apiFetch<void>(`/users/${encodePathSegment(id)}`, { method: "DELETE" }),
+    team: (managerId: string) => apiFetch<any[]>(`/users/${encodePathSegment(managerId)}/team`),
   },
   auth: {
     requestCode: (email: string) =>
@@ -57,9 +61,9 @@ export const api = {
     delete: (id: number) => apiFetch<void>(`/induction-templates/${id}`, { method: "DELETE" }),
   },
   induction: {
-    get: (userId: string) => apiFetch<any>(`/induction/${userId}`),
+    get: (userId: string) => apiFetch<any>(`/induction/${encodePathSegment(userId)}`),
     completeItem: (userId: string, data: any) =>
-      apiFetch<any>(`/induction/${userId}/complete-item`, { method: "POST", body: JSON.stringify(data) }),
+      apiFetch<any>(`/induction/${encodePathSegment(userId)}/complete-item`, { method: "POST", body: JSON.stringify(data) }),
     getShared: (token: string) => apiFetch<any>(`/induction/shared/${token}`),
     updateSharedItem: (token: string, templateItemId: number, data: any) =>
       apiFetch<any>(`/induction/shared/${token}/items/${templateItemId}`, { method: "PATCH", body: JSON.stringify(data) }),
@@ -75,8 +79,8 @@ export const api = {
   },
   trainingMatrix: {
     list: () => apiFetch<any[]>("/training-matrix"),
-    get: (userId: string) => apiFetch<any>(`/training-matrix/${userId}`),
-    history: (userId: string) => apiFetch<any[]>(`/training-matrix/history/${userId}`),
+    get: (userId: string) => apiFetch<any>(`/training-matrix/${encodePathSegment(userId)}`),
+    history: (userId: string) => apiFetch<any[]>(`/training-matrix/history/${encodePathSegment(userId)}`),
     create: (data: any) => apiFetch<any>("/training-matrix", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/training-matrix/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     exportCsv: (params: { scope: "all" | "department" | "team" | "user"; history?: "latest" | "all"; detail?: "summary" | "competency"; userId?: string; departmentId?: number; department?: string; managerId?: string; }) => {
@@ -122,7 +126,7 @@ export const api = {
     delete: (id: number) => apiFetch<void>(`/user-certificates/${id}`, { method: "DELETE" }),
   },
   careerMilestones: {
-    list: (userId: string) => apiFetch<any[]>(`/career-milestones/${userId}`),
+    list: (userId: string) => apiFetch<any[]>(`/career-milestones/${encodePathSegment(userId)}`),
     create: (data: any) => apiFetch<any>("/career-milestones", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/career-milestones/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     delete: (id: number) => apiFetch<void>(`/career-milestones/${id}`, { method: "DELETE" }),

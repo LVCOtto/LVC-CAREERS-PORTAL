@@ -407,7 +407,7 @@ function ManagerDashboard({ user }: { user: User }) {
         <CardContent>
           <div className="space-y-3">
             {teamMembers.map((member: any) => (
-              <Link key={member.id} href={`/team/${member.id}`}>
+              <Link key={member.id} href={`/team/${encodeURIComponent(member.id)}`}>
                 <div
                   className="flex items-center justify-between p-4 rounded-lg border bg-background hover:bg-muted/50 transition-colors cursor-pointer"
                   data-testid={`team-member-${member.id}`}

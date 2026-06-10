@@ -530,7 +530,7 @@ export default function Training() {
 
   const { data: roleCategories, isLoading: roleLoading } = useCompetenciesForRole(currentUser?.jobRoleId ?? currentUser?.jobRole);
   const { data: deptCategories = [], isLoading: deptLoading } = useCompetencies(departmentType);
-  const categories = roleCategories || deptCategories;
+  const categories = roleCategories && roleCategories.length > 0 ? roleCategories : deptCategories;
   const categoriesLoading = roleLoading || deptLoading;
   const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(currentUser?.id || '');
   const { data: approverUser } = useUser(matrixSubmission?.approvedBy || '');

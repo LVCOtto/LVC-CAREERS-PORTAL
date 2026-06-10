@@ -4,7 +4,7 @@ import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { api } from '@/lib/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { useRoute, Link } from 'wouter';
+import { useRoute, useLocation, Link } from 'wouter';
 import { Layout } from '@/components/Layout';
 import { useToast } from '@/hooks/use-toast';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -1658,6 +1658,10 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   );
 }
 
+function buildTeamMemberHref(memberId: string) {
+  return `/team?memberId=${encodeURIComponent(memberId)}`;
+}
+
 function TeamList() {
   const { currentUser } = useAuth();
 
@@ -1713,7 +1717,7 @@ function TeamList() {
 
         <div className="grid gap-4">
           {members.map((member: User) => (
-            <Link key={member.id} href={`/team/${encodeURIComponent(member.id)}`}>
+            <Link key={member.id} href={buildTeamMemberHref(member.id)}>
               <Card
                 className="border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
                 data-testid={`team-card-${member.id}`}
@@ -1761,10 +1765,13 @@ function TeamList() {
 }
 
 export default function Team() {
+  const [location] = useLocation();
   const [match, params] = useRoute('/team/:id');
+  const memberIdFromQuery = new URLSearchParams(location.split('?')[1] || '').get('memberId');
+  const memberId = memberIdFromQuery || params?.id;
 
-  if (match && params?.id) {
-    return <TeamMemberProfile memberId={params.id} />;
+  if (memberId) {
+    return <TeamMemberProfile memberId={memberId} />;
   }
 
   return <TeamList />;

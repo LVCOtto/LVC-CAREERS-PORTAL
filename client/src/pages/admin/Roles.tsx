@@ -463,7 +463,7 @@ export default function AdminRoles() {
                 {assignedUsers.map((u: any) => (
                   <Link
                     key={u.id}
-                    href={`/team/${u.id}`}
+                    href={`/team?memberId=${encodeURIComponent(u.id)}`}
                     className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 transition-colors text-sm"
                     data-testid={`link-user-${u.id}`}
                   >

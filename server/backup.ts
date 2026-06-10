@@ -70,9 +70,25 @@ export async function exportFullBackup(res: Response) {
 
   const trainingMatrixSubmissions = await db.select().from(schema.trainingMatrixSubmissions);
   archive.append(toCsv(
-    ["id", "userId", "status", "ratings", "lastAssessment", "submittedDate", "approvedBy", "approvedDate", "nextReviewDate", "shareToken"],
+    ["id", "userId", "userNameSnapshot", "departmentIdSnapshot", "departmentSnapshot", "jobRoleIdSnapshot", "jobRoleSnapshot", "status", "ratings", "lastAssessment", "submittedDate", "approvedBy", "approvedDate", "nextReviewDate", "shareToken"],
     trainingMatrixSubmissions,
-    (s) => [String(s.id), s.userId, s.status, JSON.stringify(s.ratings), s.lastAssessment || "", s.submittedDate || "", s.approvedBy || "", s.approvedDate || "", s.nextReviewDate || "", s.shareToken || ""]
+    (s) => [
+      String(s.id),
+      s.userId,
+      s.userNameSnapshot || "",
+      s.departmentIdSnapshot != null ? String(s.departmentIdSnapshot) : "",
+      s.departmentSnapshot || "",
+      s.jobRoleIdSnapshot != null ? String(s.jobRoleIdSnapshot) : "",
+      s.jobRoleSnapshot || "",
+      s.status,
+      JSON.stringify(s.ratings),
+      s.lastAssessment || "",
+      s.submittedDate || "",
+      s.approvedBy || "",
+      s.approvedDate || "",
+      s.nextReviewDate || "",
+      s.shareToken || "",
+    ]
   ), { name: "training-matrix-submissions.csv" });
 
   const certDefs = await db.select().from(schema.certificateDefinitions);

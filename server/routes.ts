@@ -4,6 +4,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
 import { exportFullBackup } from "./backup";
+import { exportTrainingMatrixCsv } from "./trainingMatrixExport";
 import { importFullBackup } from "./restore";
 import { randomInt } from "crypto";
 import bcrypt from "bcryptjs";
@@ -82,6 +83,36 @@ function normalizeLookup(value: string) {
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+const trainingMatrixSnapshotFields = [
+  "userNameSnapshot",
+  "departmentIdSnapshot",
+  "departmentSnapshot",
+  "jobRoleIdSnapshot",
+  "jobRoleSnapshot",
+] as const;
+
+async function buildTrainingMatrixSnapshot(userId: string) {
+  const user = await storage.getUser(userId);
+  if (!user) return {};
+  return {
+    userNameSnapshot: user.name,
+    departmentIdSnapshot: user.departmentId ?? null,
+    departmentSnapshot: user.department,
+    jobRoleIdSnapshot: user.jobRoleId ?? null,
+    jobRoleSnapshot: user.jobRole,
+  };
+}
+
+function mergeMissingTrainingMatrixSnapshot(existing: Record<string, any> | undefined, updates: Record<string, any>, snapshot: Record<string, any>) {
+  const next = { ...updates };
+  for (const field of trainingMatrixSnapshotFields) {
+    if (next[field] === undefined && !existing?.[field] && snapshot[field] !== undefined) {
+      next[field] = snapshot[field];
+    }
+  }
+  return next;
 }
 
 function toOptionalInt(value: unknown): number | null | undefined {
@@ -837,6 +868,90 @@ export async function registerRoutes(
     res.json(history);
   });
 
+  app.get("/api/training-matrix/export", async (req, res) => {
+    const scope = String(req.query.scope || "team");
+    const history = String(req.query.history || "latest");
+    const detail = String(req.query.detail || "summary");
+
+    if (!["all", "department", "team", "user"].includes(scope)) {
+      return res.status(400).json({ message: "Invalid export scope" });
+    }
+    if (!["latest", "all"].includes(history)) {
+      return res.status(400).json({ message: "Invalid export history" });
+    }
+    if (!["summary", "competency"].includes(detail)) {
+      return res.status(400).json({ message: "Invalid export detail" });
+    }
+
+    try {
+      const role = req.session.role;
+      const params: {
+        scope: "all" | "department" | "team" | "user";
+        history: "latest" | "all";
+        detail: "summary" | "competency";
+        userId?: string;
+        managerId?: string;
+        departmentId?: number;
+        department?: string;
+      } = {
+        scope: scope as "all" | "department" | "team" | "user",
+        history: history as "latest" | "all",
+        detail: detail as "summary" | "competency",
+      };
+
+      if (scope === "all") {
+        if (role !== "admin") {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+      } else if (scope === "department") {
+        if (role !== "admin") {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+        const departmentId = toOptionalInt(req.query.departmentId);
+        const department = typeof req.query.department === "string" ? req.query.department.trim() : "";
+        if (departmentId === undefined) {
+          return res.status(400).json({ message: "Invalid departmentId" });
+        }
+        if (departmentId == null && !department) {
+          return res.status(400).json({ message: "departmentId or department is required" });
+        }
+        if (departmentId != null) {
+          params.departmentId = departmentId;
+        } else {
+          params.department = department;
+        }
+      } else if (scope === "team") {
+        if (role === "manager") {
+          params.managerId = req.session.userId!;
+        } else if (role === "admin") {
+          const managerId = typeof req.query.managerId === "string" ? req.query.managerId : "";
+          if (!managerId) {
+            return res.status(400).json({ message: "managerId is required for admin team exports" });
+          }
+          params.managerId = managerId;
+        } else {
+          return res.status(403).json({ message: "Manager access required" });
+        }
+      } else if (scope === "user") {
+        const userId = typeof req.query.userId === "string" ? req.query.userId : "";
+        if (!userId) {
+          return res.status(400).json({ message: "userId is required" });
+        }
+        if (!await canAccessUser(req, userId)) {
+          return res.status(403).json({ message: "Forbidden" });
+        }
+        params.userId = userId;
+      }
+
+      const { filename, csvContent } = await exportTrainingMatrixCsv(params);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(csvContent);
+    } catch (error) {
+      res.status(500).json({ message: "Training matrix export failed" });
+    }
+  });
+
   app.get("/api/training-matrix/:userId", async (req, res) => {
     if (!await canAccessUser(req, req.params.userId)) {
       return res.status(403).json({ message: "Forbidden" });
@@ -849,7 +964,11 @@ export async function registerRoutes(
     if (!req.body?.userId || !await canAccessUser(req, req.body.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const submission = await storage.createTrainingMatrixSubmission(req.body);
+    const snapshot = await buildTrainingMatrixSnapshot(req.body.userId);
+    const submission = await storage.createTrainingMatrixSubmission({
+      ...req.body,
+      ...snapshot,
+    });
     res.status(201).json(submission);
   });
 
@@ -859,7 +978,11 @@ export async function registerRoutes(
     if (!await canAccessUser(req, existing.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const submission = await storage.updateTrainingMatrixSubmission(existing.id, req.body);
+    const snapshot = await buildTrainingMatrixSnapshot(existing.userId);
+    const submission = await storage.updateTrainingMatrixSubmission(
+      existing.id,
+      mergeMissingTrainingMatrixSnapshot(existing, req.body, snapshot)
+    );
     if (!submission) return res.status(404).json({ message: "Not found" });
     
     // Sync to Outlook if nextReviewDate was updated
@@ -911,16 +1034,20 @@ export async function registerRoutes(
     res.json({
       submission,
       competencies,
-      userName: user?.name || 'Unknown',
-      jobRole: user?.jobRole || '',
-      department: user?.department || '',
+      userName: submission.userNameSnapshot || user?.name || 'Unknown',
+      jobRole: submission.jobRoleSnapshot || user?.jobRole || '',
+      department: submission.departmentSnapshot || user?.department || '',
     });
   });
 
   app.patch("/api/training-matrix/shared/:token", async (req, res) => {
     const submission = await storage.getTrainingMatrixByToken(req.params.token);
     if (!submission) return res.status(404).json({ message: "Not found" });
-    const updated = await storage.updateTrainingMatrixSubmission(submission.id, req.body);
+    const snapshot = await buildTrainingMatrixSnapshot(submission.userId);
+    const updated = await storage.updateTrainingMatrixSubmission(
+      submission.id,
+      mergeMissingTrainingMatrixSnapshot(submission, req.body, snapshot)
+    );
     res.json(updated);
   });
 

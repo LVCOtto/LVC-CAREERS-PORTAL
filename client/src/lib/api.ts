@@ -62,6 +62,18 @@ export const api = {
     history: (userId: string) => apiFetch<any[]>(`/training-matrix/history/${userId}`),
     create: (data: any) => apiFetch<any>("/training-matrix", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/training-matrix/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    exportCsv: (params: { scope: "all" | "department" | "team" | "user"; history?: "latest" | "all"; detail?: "summary" | "competency"; userId?: string; departmentId?: number; department?: string; managerId?: string; }) => {
+      const search = new URLSearchParams({
+        scope: params.scope,
+        history: params.history || "latest",
+        detail: params.detail || "summary",
+      });
+      if (params.userId) search.set("userId", params.userId);
+      if (params.departmentId != null) search.set("departmentId", String(params.departmentId));
+      if (params.department) search.set("department", params.department);
+      if (params.managerId) search.set("managerId", params.managerId);
+      window.open(`${BASE}/training-matrix/export?${search.toString()}`, "_blank");
+    },
     generateShareToken: (id: number) => apiFetch<{ token: string }>(`/training-matrix/${id}/share`, { method: "POST" }),
     getShared: (token: string) => apiFetch<any>(`/training-matrix/shared/${token}`),
     updateShared: (token: string, data: any) => apiFetch<any>(`/training-matrix/shared/${token}`, { method: "PATCH", body: JSON.stringify(data) }),

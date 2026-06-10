@@ -126,10 +126,15 @@ export default function AdminTemplates() {
   const [newSectionName, setNewSectionName] = useState('');
 
   const [backupExporting, setBackupExporting] = useState(false);
+  const [trainingMatrixExporting, setTrainingMatrixExporting] = useState(false);
   const [backupRestoring, setBackupRestoring] = useState(false);
   const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
   const [restoreFile, setRestoreFile] = useState<File | null>(null);
   const [restoreResult, setRestoreResult] = useState<{ success: boolean; summary: Record<string, number>; errors: string[] } | null>(null);
+  const [trainingMatrixExportScope, setTrainingMatrixExportScope] = useState<'all' | 'department'>('all');
+  const [trainingMatrixExportDepartmentId, setTrainingMatrixExportDepartmentId] = useState('all');
+  const [trainingMatrixExportHistory, setTrainingMatrixExportHistory] = useState<'latest' | 'all'>('latest');
+  const [trainingMatrixExportDetail, setTrainingMatrixExportDetail] = useState<'summary' | 'competency'>('summary');
 
   const [categoryDialog, setCategoryDialog] = useState<{
     open: boolean;
@@ -1231,6 +1236,122 @@ export default function AdminTemplates() {
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <GraduationCap className="w-5 h-5" />
+                      Training Matrix Exports
+                    </CardTitle>
+                    <CardDescription>
+                      Export all training matrix results or narrow the download to a single department, latest submissions only, or full history.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Scope</Label>
+                          <Select
+                            value={trainingMatrixExportScope}
+                            onValueChange={(value: 'all' | 'department') => setTrainingMatrixExportScope(value)}
+                          >
+                            <SelectTrigger data-testid="select-training-matrix-export-scope">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All departments</SelectItem>
+                              <SelectItem value="department">Single department</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Department</Label>
+                          <Select
+                            value={trainingMatrixExportDepartmentId}
+                            disabled={trainingMatrixExportScope !== 'department'}
+                            onValueChange={setTrainingMatrixExportDepartmentId}
+                          >
+                            <SelectTrigger data-testid="select-training-matrix-export-department">
+                              <SelectValue placeholder="Select department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">Select department</SelectItem>
+                              {departments.map((department: any) => (
+                                <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Submission set</Label>
+                          <Select
+                            value={trainingMatrixExportHistory}
+                            onValueChange={(value: 'latest' | 'all') => setTrainingMatrixExportHistory(value)}
+                          >
+                            <SelectTrigger data-testid="select-training-matrix-export-history">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="latest">Latest submission per colleague</SelectItem>
+                              <SelectItem value="all">Full history</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Format</Label>
+                          <Select
+                            value={trainingMatrixExportDetail}
+                            onValueChange={(value: 'summary' | 'competency') => setTrainingMatrixExportDetail(value)}
+                          >
+                            <SelectTrigger data-testid="select-training-matrix-export-detail">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="summary">Summary rows</SelectItem>
+                              <SelectItem value="competency">Detailed competency rows</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <Button
+                        className="w-full gap-2"
+                        disabled={trainingMatrixExporting || (trainingMatrixExportScope === 'department' && trainingMatrixExportDepartmentId === 'all')}
+                        data-testid="button-export-training-matrix-results"
+                        onClick={async () => {
+                          setTrainingMatrixExporting(true);
+                          try {
+                            const exportParams = trainingMatrixExportScope === 'department'
+                              ? {
+                                  scope: 'department' as const,
+                                  departmentId: Number(trainingMatrixExportDepartmentId),
+                                  history: trainingMatrixExportHistory,
+                                  detail: trainingMatrixExportDetail,
+                                }
+                              : {
+                                  scope: 'all' as const,
+                                  history: trainingMatrixExportHistory,
+                                  detail: trainingMatrixExportDetail,
+                                };
+                            api.trainingMatrix.exportCsv(exportParams);
+                            toast({ title: 'Export started', description: 'Training matrix CSV download should begin shortly.' });
+                          } catch {
+                            toast({ title: 'Export failed', variant: 'destructive' });
+                          } finally {
+                            setTimeout(() => setTrainingMatrixExporting(false), 2000);
+                          }
+                        }}
+                      >
+                        {trainingMatrixExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        {trainingMatrixExporting ? 'Preparing export...' : 'Download Training Matrix CSV'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">

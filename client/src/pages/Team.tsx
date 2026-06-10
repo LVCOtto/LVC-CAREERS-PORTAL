@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuth, User } from '@/lib/authContext';
 import { usePortalSettings } from '@/lib/portalSettingsContext';
+import { api } from '@/lib/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useRoute, Link } from 'wouter';
@@ -1150,6 +1151,44 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     size="sm"
                     variant="outline"
                     className="gap-2"
+                    data-testid="button-export-matrix-latest-csv"
+                    onClick={() => {
+                      api.trainingMatrix.exportCsv({
+                        scope: 'user',
+                        userId: member.id,
+                        history: 'latest',
+                        detail: 'competency',
+                      });
+                      toast({ title: 'Export started', description: 'Latest training matrix CSV download should begin shortly.' });
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export Latest CSV
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    data-testid="button-export-matrix-history-csv"
+                    onClick={() => {
+                      api.trainingMatrix.exportCsv({
+                        scope: 'user',
+                        userId: member.id,
+                        history: 'all',
+                        detail: 'competency',
+                      });
+                      toast({ title: 'Export started', description: 'Historical training matrix CSV download should begin shortly.' });
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                    Export History CSV
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
                     data-testid="button-share-team-matrix"
                     disabled={generateShareToken.isPending}
                     onClick={async () => {
@@ -1641,9 +1680,35 @@ function TeamList() {
   return (
     <Layout>
       <div className="space-y-8 animate-fade-in">
-        <div>
-          <h1 className="font-display text-3xl font-bold text-foreground">My Team</h1>
-          <p className="text-muted-foreground mt-1">View and manage your team members' training and induction</p>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h1 className="font-display text-3xl font-bold text-foreground">My Team</h1>
+            <p className="text-muted-foreground mt-1">View and manage your team members' training and induction</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              data-testid="button-export-team-latest-csv"
+              onClick={() => {
+                api.trainingMatrix.exportCsv({ scope: 'team', history: 'latest', detail: 'summary' });
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Export Team Latest CSV
+            </Button>
+            <Button
+              variant="outline"
+              className="gap-2"
+              data-testid="button-export-team-history-csv"
+              onClick={() => {
+                api.trainingMatrix.exportCsv({ scope: 'team', history: 'all', detail: 'summary' });
+              }}
+            >
+              <Download className="h-4 w-4" />
+              Export Team History CSV
+            </Button>
+          </div>
         </div>
 
         <div className="grid gap-4">

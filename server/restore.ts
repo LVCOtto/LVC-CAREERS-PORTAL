@@ -311,6 +311,11 @@ export async function importFullBackup(zipBuffer: Buffer): Promise<{ success: bo
       await tx.insert(schema.trainingMatrixSubmissions).values({
         id: toInt(r.id),
         userId: r.userId,
+        userNameSnapshot: r.userNameSnapshot || null,
+        departmentIdSnapshot: toOptionalInt(r.departmentIdSnapshot),
+        departmentSnapshot: r.departmentSnapshot || null,
+        jobRoleIdSnapshot: toOptionalInt(r.jobRoleIdSnapshot),
+        jobRoleSnapshot: r.jobRoleSnapshot || null,
         status: r.status,
         ratings: parseJson(r.ratings, {}),
         lastAssessment: r.lastAssessment || null,

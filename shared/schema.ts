@@ -97,6 +97,11 @@ export type CompetencyItem = typeof competencyItems.$inferSelect;
 export const trainingMatrixSubmissions = pgTable("training_matrix_submissions", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id", { length: 50 }).notNull(),
+  userNameSnapshot: text("user_name_snapshot"),
+  departmentIdSnapshot: integer("department_id_snapshot"),
+  departmentSnapshot: text("department_snapshot"),
+  jobRoleIdSnapshot: integer("job_role_id_snapshot"),
+  jobRoleSnapshot: text("job_role_snapshot"),
   status: text("status").notNull().default("draft"),
   ratings: jsonb("ratings").notNull().default({}),
   lastAssessment: text("last_assessment"),

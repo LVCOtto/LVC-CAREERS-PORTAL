@@ -1335,8 +1335,8 @@ export async function registerRoutes(
   });
 
   app.get("/api/job-roles/:id/categories", async (req, res) => {
-    const assignments = await storage.getJobRoleCategories(Number(req.params.id));
-    res.json(assignments.map(a => a.categoryId));
+    const layout = await storage.getJobRoleCategoryLayout(Number(req.params.id));
+    res.json(layout);
   });
 
   app.get("/api/job-role-categories", async (_req, res) => {
@@ -1345,11 +1345,11 @@ export async function registerRoutes(
   });
 
   app.put("/api/job-roles/:id/categories", async (req, res) => {
-    const { categoryIds } = req.body;
-    if (!Array.isArray(categoryIds)) {
-      return res.status(400).json({ message: "categoryIds must be an array" });
+    const { assignments, sections } = req.body || {};
+    if (!Array.isArray(assignments) || !Array.isArray(sections)) {
+      return res.status(400).json({ message: "sections and assignments must be arrays" });
     }
-    await storage.setJobRoleCategories(Number(req.params.id), categoryIds);
+    await storage.setJobRoleCategoryLayout(Number(req.params.id), { sections, assignments });
     res.json({ success: true });
   });
 

@@ -17,8 +17,10 @@ import { useUsers, useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJob
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
+import type { JobRoleMatrixAssignment, JobRoleMatrixLayout, JobRoleMatrixSection } from '@/lib/api';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -754,6 +756,218 @@ interface SortableDeptProps {
   isDragging: boolean;
 }
 
+type SkillDragData = {
+  type: 'available-category' | 'selected-category' | 'section' | 'section-drop' | 'available-pane';
+  categoryId?: number;
+  sectionKey?: string;
+  label?: string;
+};
+
+function normalizeRoleMatrixLayout(layout: JobRoleMatrixLayout): JobRoleMatrixLayout {
+  const sections = (layout.sections || []).map((section, index) => ({
+    sectionKey: section.sectionKey,
+    label: section.label,
+    sortOrder: index,
+  }));
+  const fallbackSection = sections[0]?.sectionKey || 'core';
+  const validSectionKeys = new Set(sections.map((section) => section.sectionKey));
+  const assignmentsBySection = new Map<string, number[]>();
+
+  sections.forEach((section) => {
+    assignmentsBySection.set(section.sectionKey, []);
+  });
+
+  (layout.assignments || []).forEach((assignment) => {
+    const sectionKey = validSectionKeys.has(assignment.sectionKey) ? assignment.sectionKey : fallbackSection;
+    const sectionAssignments = assignmentsBySection.get(sectionKey) || [];
+    if (!sectionAssignments.includes(assignment.categoryId)) {
+      sectionAssignments.push(assignment.categoryId);
+      assignmentsBySection.set(sectionKey, sectionAssignments);
+    }
+  });
+
+  const assignments: JobRoleMatrixAssignment[] = [];
+  sections.forEach((section) => {
+    (assignmentsBySection.get(section.sectionKey) || []).forEach((categoryId, index) => {
+      assignments.push({ categoryId, sectionKey: section.sectionKey, sortOrder: index });
+    });
+  });
+
+  return { sections, assignments };
+}
+
+function DraggableAvailableCategory({
+  category,
+  onAdd,
+}: {
+  category: any;
+  onAdd: (categoryId: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `available:${category.id}`,
+    data: { type: 'available-category', categoryId: category.id, label: category.name } satisfies SkillDragData,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`rounded-lg border bg-background p-3 ${isDragging ? 'opacity-50' : ''}`}
+      data-testid={`role-category-card-${category.id}`}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          className="mt-0.5 cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+          data-testid={`drag-role-category-${category.id}`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{category.name}</span>
+            <Badge variant="secondary" className="text-xs">
+              {(category.items || []).length} skills
+            </Badge>
+          </div>
+          {(category.items || []).length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {(category.items || []).slice(0, 3).map((item: any) => item.name).join(', ')}
+              {(category.items || []).length > 3 && ` +${(category.items || []).length - 3} more`}
+            </p>
+          )}
+        </div>
+        <Button size="sm" variant="outline" onClick={() => onAdd(category.id)}>
+          Add
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SortableSelectedCategory({
+  category,
+  sectionKey,
+  onRemove,
+}: {
+  category: any;
+  sectionKey: string;
+  onRemove: (categoryId: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `selected:${category.id}`,
+    data: { type: 'selected-category', categoryId: category.id, sectionKey, label: category.name } satisfies SkillDragData,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`rounded-lg border bg-background p-3 ${isDragging ? 'opacity-50' : ''}`}
+      data-testid={`selected-role-category-${category.id}`}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          className="mt-0.5 cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+          data-testid={`drag-selected-role-category-${category.id}`}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">{category.name}</span>
+            <Badge variant="secondary" className="text-xs">
+              {(category.items || []).length} skills
+            </Badge>
+          </div>
+          {(category.items || []).length > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {(category.items || []).slice(0, 3).map((item: any) => item.name).join(', ')}
+              {(category.items || []).length > 3 && ` +${(category.items || []).length - 3} more`}
+            </p>
+          )}
+        </div>
+        <Button size="icon" variant="ghost" onClick={() => onRemove(category.id)} data-testid={`remove-role-category-${category.id}`}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SortableRoleMatrixSection({
+  section,
+  categories,
+  onRemoveCategory,
+}: {
+  section: JobRoleMatrixSection;
+  categories: any[];
+  onRemoveCategory: (categoryId: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `section-order:${section.sectionKey}`,
+    data: { type: 'section', sectionKey: section.sectionKey, label: section.label } satisfies SkillDragData,
+  });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `section-drop:${section.sectionKey}`,
+    data: { type: 'section-drop', sectionKey: section.sectionKey, label: section.label } satisfies SkillDragData,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`rounded-xl border bg-muted/10 p-3 ${isDragging ? 'opacity-60' : ''}`}
+      data-testid={`role-matrix-section-${section.sectionKey}`}
+    >
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
+            data-testid={`drag-role-matrix-section-${section.sectionKey}`}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+          <div>
+            <p className="text-sm font-semibold">{section.label}</p>
+            <p className="text-xs text-muted-foreground">{categories.length} categor{categories.length === 1 ? 'y' : 'ies'}</p>
+          </div>
+        </div>
+        <Badge variant="secondary">Section</Badge>
+      </div>
+
+      <div ref={setDropRef} className={`min-h-24 rounded-lg border border-dashed p-2 ${isOver ? 'border-primary bg-primary/5' : 'border-border/70 bg-background/70'}`}>
+        <SortableContext items={categories.map((category) => `selected:${category.id}`)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {categories.length === 0 ? (
+              <div className="flex min-h-20 items-center justify-center rounded-md text-sm text-muted-foreground">
+                Drag categories here
+              </div>
+            ) : (
+              categories.map((category) => (
+                <SortableSelectedCategory
+                  key={category.id}
+                  category={category}
+                  sectionKey={section.sectionKey}
+                  onRemove={onRemoveCategory}
+                />
+              ))
+            )}
+          </div>
+        </SortableContext>
+      </div>
+    </div>
+  );
+}
+
 function SortableDepartmentCard({ id, department, deptId, deptTree, count, color, isCollapsed, onToggle, onAddRole, onRename, renderTreeNode, isDragging }: SortableDeptProps) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
   const [isEditing, setIsEditing] = useState(false);
@@ -904,35 +1118,137 @@ function SortableDepartmentCard({ id, department, deptId, deptTree, count, color
 function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => void }) {
   const { toast } = useToast();
   const { data: allCategories = [], isLoading: catsLoading } = useCompetencies();
-  const { data: assignedIds = [], isLoading: assignedLoading } = useJobRoleCategories(role.id);
+  const { data: savedLayout, isLoading: assignedLoading } = useJobRoleCategories(role.id);
   const setCategories = useSetJobRoleCategories();
+  const [layout, setLayout] = useState<JobRoleMatrixLayout>({ sections: [], assignments: [] });
+  const [initializedRoleId, setInitializedRoleId] = useState<number | null>(null);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['Engineering', 'Accounts', 'Universal']));
+  const [activeDrag, setActiveDrag] = useState<SkillDragData | null>(null);
 
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [initialized, setInitialized] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set(['Engineering', 'Admin / Office', 'All Departments']));
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
 
   useEffect(() => {
-    if (!assignedLoading && assignedIds && !initialized) {
-      setSelected(new Set(assignedIds));
-      setInitialized(true);
+    if (!assignedLoading && savedLayout && initializedRoleId !== role.id) {
+      setLayout(normalizeRoleMatrixLayout(savedLayout));
+      setInitializedRoleId(role.id);
     }
-  }, [assignedIds, assignedLoading, initialized]);
+  }, [assignedLoading, initializedRoleId, role.id, savedLayout]);
 
-  const toggle = (catId: number) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(catId)) {
-        next.delete(catId);
-      } else {
-        next.add(catId);
-      }
-      return next;
+  const categoryMap = useMemo(() => {
+    return new Map(allCategories.map((category: any) => [category.id, category]));
+  }, [allCategories]);
+
+  const selectedCategoryIds = useMemo(() => {
+    return new Set(layout.assignments.map((assignment) => assignment.categoryId));
+  }, [layout.assignments]);
+
+  const availableCategories = useMemo(() => {
+    return allCategories.filter((category: any) => !selectedCategoryIds.has(category.id));
+  }, [allCategories, selectedCategoryIds]);
+
+  const groupedAvailableCategories = useMemo(() => {
+    const groups = new Map<string, any[]>();
+    availableCategories.forEach((category: any) => {
+      const key = category.departmentType || 'Universal';
+      const group = groups.get(key) || [];
+      group.push(category);
+      groups.set(key, group);
     });
-  };
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => {
+        if (a === 'Universal') return -1;
+        if (b === 'Universal') return 1;
+        return a.localeCompare(b);
+      })
+      .map(([label, categories]) => ({
+        label,
+        categories: [...categories].sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0) || a.name.localeCompare(b.name)),
+      }));
+  }, [availableCategories]);
+
+  const assignmentsBySection = useMemo(() => {
+    const grouped = new Map<string, JobRoleMatrixAssignment[]>();
+    layout.sections.forEach((section) => grouped.set(section.sectionKey, []));
+    layout.assignments.forEach((assignment) => {
+      const group = grouped.get(assignment.sectionKey) || [];
+      group.push(assignment);
+      grouped.set(assignment.sectionKey, group);
+    });
+    grouped.forEach((assignments) => assignments.sort((a, b) => a.sortOrder - b.sortOrder || a.categoryId - b.categoryId));
+    return grouped;
+  }, [layout.assignments, layout.sections]);
+
+  const normalizeLayout = useCallback((nextLayout: JobRoleMatrixLayout) => {
+    return normalizeRoleMatrixLayout(nextLayout);
+  }, []);
+
+  const buildAssignments = useCallback((sectionIds: Record<string, number[]>) => {
+    const nextAssignments: JobRoleMatrixAssignment[] = [];
+    layout.sections.forEach((section) => {
+      (sectionIds[section.sectionKey] || []).forEach((categoryId, index) => {
+        nextAssignments.push({ categoryId, sectionKey: section.sectionKey, sortOrder: index });
+      });
+    });
+    return nextAssignments;
+  }, [layout.sections]);
+
+  const moveCategory = useCallback((categoryId: number, targetSectionKey: string, targetIndex?: number) => {
+    const sectionIds: Record<string, number[]> = {};
+    layout.sections.forEach((section) => {
+      sectionIds[section.sectionKey] = (assignmentsBySection.get(section.sectionKey) || [])
+        .map((assignment) => assignment.categoryId)
+        .filter((id) => id !== categoryId);
+    });
+
+    const targetList = sectionIds[targetSectionKey] || [];
+    const insertIndex = Math.max(0, Math.min(targetIndex ?? targetList.length, targetList.length));
+    targetList.splice(insertIndex, 0, categoryId);
+    sectionIds[targetSectionKey] = targetList;
+
+    setLayout((current) => normalizeLayout({
+      sections: current.sections,
+      assignments: buildAssignments(sectionIds),
+    }));
+  }, [assignmentsBySection, buildAssignments, layout.sections, normalizeLayout]);
+
+  const removeCategory = useCallback((categoryId: number) => {
+    const sectionIds: Record<string, number[]> = {};
+    layout.sections.forEach((section) => {
+      sectionIds[section.sectionKey] = (assignmentsBySection.get(section.sectionKey) || [])
+        .map((assignment) => assignment.categoryId)
+        .filter((id) => id !== categoryId);
+    });
+
+    setLayout((current) => normalizeLayout({
+      sections: current.sections,
+      assignments: buildAssignments(sectionIds),
+    }));
+  }, [assignmentsBySection, buildAssignments, layout.sections, normalizeLayout]);
+
+  const addCategory = useCallback((categoryId: number) => {
+    const fallbackSection = layout.sections[0]?.sectionKey;
+    if (!fallbackSection) return;
+    moveCategory(categoryId, fallbackSection);
+  }, [layout.sections, moveCategory]);
+
+  const reorderSections = useCallback((activeSectionKey: string, overSectionKey: string) => {
+    const oldIndex = layout.sections.findIndex((section) => section.sectionKey === activeSectionKey);
+    const newIndex = layout.sections.findIndex((section) => section.sectionKey === overSectionKey);
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+
+    setLayout((current) => normalizeLayout({
+      sections: arrayMove(current.sections, oldIndex, newIndex),
+      assignments: current.assignments,
+    }));
+  }, [layout.sections, normalizeLayout]);
 
   const handleSave = async () => {
     try {
-      await setCategories.mutateAsync({ id: role.id, categoryIds: Array.from(selected) });
+      await setCategories.mutateAsync({ id: role.id, layout: normalizeLayout(layout) });
       toast({ title: 'Saved', description: `Training matrix skills updated for ${role.title}.` });
       onClose();
     } catch (err: any) {
@@ -941,10 +1257,6 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
   };
 
   const isLoading = catsLoading || assignedLoading;
-
-  const engineeringCats = allCategories.filter((c: any) => c.departmentType === 'engineering');
-  const adminCats = allCategories.filter((c: any) => c.departmentType === 'admin');
-  const otherCats = allCategories.filter((c: any) => c.departmentType !== 'engineering' && c.departmentType !== 'admin');
 
   const toggleGroup = (label: string) => {
     setCollapsedGroups((prev) => {
@@ -955,68 +1267,61 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
     });
   };
 
-  const renderGroup = (label: string, cats: any[]) => {
-    if (cats.length === 0) return null;
-    const isCollapsed = collapsedGroups.has(label);
-    return (
-      <div className="space-y-2">
-        <button
-          type="button"
-          className="w-full flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors"
-          onClick={() => toggleGroup(label)}
-          data-testid={`button-toggle-role-category-group-${label}`}
-        >
-          <div className="flex items-center gap-2 text-left">
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            <span className="text-sm font-medium text-foreground">{label}</span>
-            <Badge variant="secondary" className="text-xs">{cats.length}</Badge>
-          </div>
-          <span className="text-xs text-muted-foreground">
-            {cats.filter((cat: any) => selected.has(cat.id)).length} selected
-          </span>
-        </button>
-        {!isCollapsed && cats.map((cat: any) => (
-          <label
-            key={cat.id}
-            className="flex items-start gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
-            data-testid={`checkbox-role-category-${cat.id}`}
-          >
-            <Checkbox
-              checked={selected.has(cat.id)}
-              onCheckedChange={() => toggle(cat.id)}
-              className="mt-0.5"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{cat.name}</span>
-                <Badge variant="secondary" className="text-xs">
-                  {(cat.items || []).length} skills
-                </Badge>
-              </div>
-              {(cat.items || []).length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {(cat.items || []).slice(0, 3).map((i: any) => i.name).join(', ')}
-                  {(cat.items || []).length > 3 && ` +${(cat.items || []).length - 3} more`}
-                </p>
-              )}
-            </div>
-          </label>
-        ))}
-      </div>
-    );
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDrag(null);
+    const activeData = event.active.data.current as SkillDragData | undefined;
+    const overData = event.over?.data.current as SkillDragData | undefined;
+    const overId = String(event.over?.id || '');
+    if (!activeData || !event.over) return;
+
+    if (activeData.type === 'section') {
+      if (overData?.type === 'section' && activeData.sectionKey && overData.sectionKey) {
+        reorderSections(activeData.sectionKey, overData.sectionKey);
+      }
+      return;
+    }
+
+    if ((activeData.type !== 'available-category' && activeData.type !== 'selected-category') || !activeData.categoryId) {
+      return;
+    }
+
+    if (overId === 'available-pane' || overData?.type === 'available-pane' || overData?.type === 'available-category') {
+      removeCategory(activeData.categoryId);
+      return;
+    }
+
+    let targetSectionKey = overData?.sectionKey;
+    let targetIndex: number | undefined;
+
+    if (overData?.type === 'selected-category' && overData.categoryId && overData.sectionKey) {
+      targetSectionKey = overData.sectionKey;
+      targetIndex = (assignmentsBySection.get(overData.sectionKey) || []).findIndex((assignment) => assignment.categoryId === overData.categoryId);
+      if (targetIndex < 0) targetIndex = undefined;
+    }
+
+    if (!targetSectionKey && overId.startsWith('section-drop:')) {
+      targetSectionKey = overId.replace('section-drop:', '');
+    }
+
+    if (!targetSectionKey && overId.startsWith('section-order:')) {
+      targetSectionKey = overId.replace('section-order:', '');
+    }
+
+    if (!targetSectionKey) return;
+    moveCategory(activeData.categoryId, targetSectionKey, targetIndex);
   };
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg" data-testid="dialog-role-skills">
+      <DialogContent className="max-w-6xl" data-testid="dialog-role-skills">
         <DialogHeader>
           <DialogTitle className="font-display flex items-center gap-2">
             <GraduationCap className="w-5 h-5" />
             Training Matrix Skills — {role.title}
           </DialogTitle>
           <DialogDescription>
-            Select which skill categories apply to this role. Users with this job role will only see the selected categories in their training matrix.
-            If none are selected, they'll see all categories for their department type.
+            Drag categories into sections to build this role&apos;s training matrix. Drag them back out to remove them, use the remove button for quick cleanup, and reorder both sections and categories.
+            If none are selected, colleagues with this role will still use the department default matrix.
           </DialogDescription>
         </DialogHeader>
 
@@ -1027,19 +1332,85 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
             <p className="text-sm text-muted-foreground">No skill categories have been created yet. Create them in the Templates page first.</p>
           </div>
         ) : (
-          <div className="space-y-4 max-h-[400px] overflow-auto pr-1">
-            {renderGroup('Engineering', engineeringCats)}
-            {renderGroup('Admin / Office', adminCats)}
-            {renderGroup('All Departments', otherCats)}
-          </div>
+          <DndContext
+            sensors={dragSensors}
+            collisionDetection={closestCenter}
+            onDragStart={(event: DragStartEvent) => setActiveDrag((event.active.data.current as SkillDragData | undefined) || null)}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => setActiveDrag(null)}
+          >
+            <div className="grid gap-4 lg:grid-cols-[1.05fr_1.35fr]">
+              <div className="rounded-xl border bg-muted/10">
+                <div className="border-b px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Available Categories</p>
+                      <p className="text-xs text-muted-foreground">Drag into a section or use Add.</p>
+                    </div>
+                    <Badge variant="secondary">{availableCategories.length} available</Badge>
+                  </div>
+                </div>
+                <AvailableCategoriesPane
+                  groupedCategories={groupedAvailableCategories}
+                  collapsedGroups={collapsedGroups}
+                  onToggleGroup={toggleGroup}
+                  onAddCategory={addCategory}
+                />
+              </div>
+
+              <div className="rounded-xl border bg-muted/10">
+                <div className="border-b px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Role Matrix Layout</p>
+                      <p className="text-xs text-muted-foreground">Reorder sections and arrange categories inside each section.</p>
+                    </div>
+                    <Badge variant="secondary">{layout.assignments.length} selected</Badge>
+                  </div>
+                </div>
+                <ScrollArea className="h-[520px] px-4 py-4">
+                  <SortableContext items={layout.sections.map((section) => `section-order:${section.sectionKey}`)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3 pr-2">
+                      {layout.sections.map((section) => (
+                        <SortableRoleMatrixSection
+                          key={section.sectionKey}
+                          section={section}
+                          categories={(assignmentsBySection.get(section.sectionKey) || []).map((assignment) => categoryMap.get(assignment.categoryId)).filter(Boolean)}
+                          onRemoveCategory={removeCategory}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </ScrollArea>
+              </div>
+            </div>
+
+            <DragOverlay>
+              {activeDrag?.label ? (
+                <div className="rounded-lg border bg-background px-3 py-2 shadow-lg">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    <span>{activeDrag.label}</span>
+                  </div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
 
         <DialogFooter>
           <div className="flex items-center justify-between w-full">
             <span className="text-sm text-muted-foreground">
-              {selected.size === 0 ? 'None selected (will use department default)' : `${selected.size} categor${selected.size === 1 ? 'y' : 'ies'} selected`}
+              {layout.assignments.length === 0 ? 'No custom categories selected. Department default matrix will be used.' : `${layout.assignments.length} categor${layout.assignments.length === 1 ? 'y' : 'ies'} arranged across ${layout.sections.length} sections`}
             </span>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => savedLayout && setLayout(normalizeLayout(savedLayout))}
+                disabled={setCategories.isPending || !savedLayout}
+              >
+                Reset
+              </Button>
               <Button variant="outline" onClick={onClose} data-testid="button-cancel-role-skills">
                 Cancel
               </Button>
@@ -1052,6 +1423,69 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function AvailableCategoriesPane({
+  groupedCategories,
+  collapsedGroups,
+  onToggleGroup,
+  onAddCategory,
+}: {
+  groupedCategories: Array<{ label: string; categories: any[] }>;
+  collapsedGroups: Set<string>;
+  onToggleGroup: (label: string) => void;
+  onAddCategory: (categoryId: number) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'available-pane',
+    data: { type: 'available-pane', label: 'Available Categories' } satisfies SkillDragData,
+  });
+
+  return (
+    <ScrollArea className="h-[520px] px-4 py-4">
+      <div ref={setNodeRef} className={`space-y-4 rounded-xl border border-dashed p-2 ${isOver ? 'border-primary bg-primary/5' : 'border-transparent'}`}>
+        {groupedCategories.length === 0 ? (
+          <div className="flex min-h-28 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
+            All categories are already assigned to this role.
+          </div>
+        ) : (
+          groupedCategories.map(({ label, categories }) => {
+            const isCollapsed = collapsedGroups.has(label);
+            return (
+              <div key={label} className="space-y-2">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-lg border bg-background px-3 py-3 text-left hover:bg-muted/40"
+                  onClick={() => onToggleGroup(label)}
+                  data-testid={`button-toggle-role-category-group-${label}`}
+                >
+                  <div className="flex items-center gap-2">
+                    {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    <span className="text-sm font-medium">{label}</span>
+                    <Badge variant="secondary" className="text-xs">{categories.length}</Badge>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Available</span>
+                </button>
+                {!isCollapsed && (
+                  <SortableContext items={categories.map((category) => `available:${category.id}`)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-2">
+                      {categories.map((category) => (
+                        <DraggableAvailableCategory
+                          key={category.id}
+                          category={category}
+                          onAdd={onAddCategory}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </ScrollArea>
   );
 }
 

@@ -238,3 +238,59 @@ export async function migrateCanonicalRelationshipColumns() {
       AND u.department IS DISTINCT FROM d.name;
   `);
 }
+
+export async function migrateJobRoleTrainingMatrixLayout() {
+  await pool.query(`
+    ALTER TABLE job_role_categories ADD COLUMN IF NOT EXISTS section_key text;
+    ALTER TABLE job_role_categories ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 0;
+
+    UPDATE job_role_categories
+    SET section_key = 'core'
+    WHERE section_key IS NULL;
+
+    CREATE TABLE IF NOT EXISTS job_role_category_sections (
+      id serial PRIMARY KEY,
+      job_role_id integer NOT NULL,
+      section_key text NOT NULL,
+      label text NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0
+    );
+
+    CREATE UNIQUE INDEX IF NOT EXISTS "IDX_job_role_categories_role_category"
+      ON job_role_categories (job_role_id, category_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS "IDX_job_role_category_sections_role_key"
+      ON job_role_category_sections (job_role_id, section_key);
+  `);
+
+  await pool.query(`
+    WITH ranked AS (
+      SELECT
+        jrc.id,
+        row_number() OVER (
+          PARTITION BY jrc.job_role_id
+          ORDER BY COALESCE(cc.sort_order, 0), jrc.id
+        ) - 1 AS next_sort_order
+      FROM job_role_categories jrc
+      LEFT JOIN competency_categories cc ON cc.id = jrc.category_id
+    )
+    UPDATE job_role_categories jrc
+    SET sort_order = ranked.next_sort_order
+    FROM ranked
+    WHERE jrc.id = ranked.id;
+
+    INSERT INTO job_role_category_sections (job_role_id, section_key, label, sort_order)
+    SELECT DISTINCT
+      jrc.job_role_id,
+      defaults.section_key,
+      defaults.label,
+      defaults.sort_order
+    FROM job_role_categories jrc
+    CROSS JOIN (
+      VALUES
+        ('core', 'Core Skills', 0),
+        ('role-specific', 'Role-Specific Skills', 1),
+        ('advanced', 'Advanced Skills', 2)
+    ) AS defaults(section_key, label, sort_order)
+    ON CONFLICT (job_role_id, section_key) DO NOTHING;
+  `);
+}

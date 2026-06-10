@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, invalidate } from "./api";
+import type { JobRoleMatrixLayout } from "./api";
 
 export function useUsers(options?: { enabled?: boolean }) {
   return useQuery({ queryKey: ["users"], queryFn: api.users.list, enabled: options?.enabled ?? true });
@@ -358,8 +359,8 @@ export function useAllJobRoleCategories() {
 
 export function useSetJobRoleCategories() {
   return useMutation({
-    mutationFn: ({ id, categoryIds }: { id: number; categoryIds: number[] }) =>
-      api.jobRoles.setCategories(id, categoryIds),
+    mutationFn: ({ id, layout }: { id: number; layout: JobRoleMatrixLayout }) =>
+      api.jobRoles.setCategories(id, layout),
     onSuccess: () => {
       invalidate("job-role-categories");
       invalidate("job-roles");

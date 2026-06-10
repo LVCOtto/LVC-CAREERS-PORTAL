@@ -2,6 +2,23 @@ import { queryClient } from "./queryClient";
 
 const BASE = "/api";
 
+export type JobRoleMatrixSection = {
+  sectionKey: string;
+  label: string;
+  sortOrder: number;
+};
+
+export type JobRoleMatrixAssignment = {
+  categoryId: number;
+  sectionKey: string;
+  sortOrder: number;
+};
+
+export type JobRoleMatrixLayout = {
+  sections: JobRoleMatrixSection[];
+  assignments: JobRoleMatrixAssignment[];
+};
+
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {
     credentials: "same-origin",
@@ -127,9 +144,9 @@ export const api = {
     reorder: (data: { id: number; reportsTo?: number | null; sortOrder?: number }) =>
       apiFetch<any>("/job-roles/reorder", { method: "PATCH", body: JSON.stringify(data) }),
     listCategories: () => apiFetch<any[]>("/job-role-categories"),
-    getCategories: (id: number) => apiFetch<number[]>(`/job-roles/${id}/categories`),
-    setCategories: (id: number, categoryIds: number[]) =>
-      apiFetch<{ success: boolean }>(`/job-roles/${id}/categories`, { method: "PUT", body: JSON.stringify({ categoryIds }) }),
+    getCategories: (id: number) => apiFetch<JobRoleMatrixLayout>(`/job-roles/${id}/categories`),
+    setCategories: (id: number, layout: JobRoleMatrixLayout) =>
+      apiFetch<{ success: boolean }>(`/job-roles/${id}/categories`, { method: "PUT", body: JSON.stringify(layout) }),
   },
   departments: {
     list: () => apiFetch<any[]>("/departments"),

@@ -94,6 +94,14 @@ export const insertCompetencyItemSchema = createInsertSchema(competencyItems).om
 export type InsertCompetencyItem = z.infer<typeof insertCompetencyItemSchema>;
 export type CompetencyItem = typeof competencyItems.$inferSelect;
 
+export const jobRoleMatrixSectionPresets = [
+  { key: "core", label: "Core Skills" },
+  { key: "role-specific", label: "Role-Specific Skills" },
+  { key: "advanced", label: "Advanced Skills" },
+] as const;
+
+export type JobRoleMatrixSectionKey = typeof jobRoleMatrixSectionPresets[number]["key"];
+
 export const trainingMatrixSubmissions = pgTable("training_matrix_submissions", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id", { length: 50 }).notNull(),
@@ -243,11 +251,25 @@ export const jobRoleCategories = pgTable("job_role_categories", {
   id: serial("id").primaryKey(),
   jobRoleId: integer("job_role_id").notNull(),
   categoryId: integer("category_id").notNull(),
+  sectionKey: text("section_key").notNull().default(jobRoleMatrixSectionPresets[0].key),
+  sortOrder: integer("sort_order").notNull().default(0),
 });
 
 export const insertJobRoleCategorySchema = createInsertSchema(jobRoleCategories).omit({ id: true });
 export type InsertJobRoleCategory = z.infer<typeof insertJobRoleCategorySchema>;
 export type JobRoleCategory = typeof jobRoleCategories.$inferSelect;
+
+export const jobRoleCategorySections = pgTable("job_role_category_sections", {
+  id: serial("id").primaryKey(),
+  jobRoleId: integer("job_role_id").notNull(),
+  sectionKey: text("section_key").notNull(),
+  label: text("label").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const insertJobRoleCategorySectionSchema = createInsertSchema(jobRoleCategorySections).omit({ id: true });
+export type InsertJobRoleCategorySection = z.infer<typeof insertJobRoleCategorySectionSchema>;
+export type JobRoleCategorySection = typeof jobRoleCategorySections.$inferSelect;
 
 export const jobRoleInductionSections = pgTable("job_role_induction_sections", {
   id: serial("id").primaryKey(),

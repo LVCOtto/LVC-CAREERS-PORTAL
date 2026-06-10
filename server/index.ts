@@ -5,7 +5,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { ensureAllJobRoles } from "./ensureJobRoles";
-import { migrateCompetencyDepartmentTypes, migrateActivateExistingUsers, migrateEngineeringDepartmentModel, migrateCanonicalRelationshipColumns } from "./migrations";
+import { migrateCompetencyDepartmentTypes, migrateActivateExistingUsers, migrateEngineeringDepartmentModel, migrateCanonicalRelationshipColumns, migrateJobRoleTrainingMatrixLayout } from "./migrations";
 import { pool } from "./db";
 
 // Ensure the session store table exists. We do this explicitly because
@@ -160,6 +160,7 @@ app.use((req, res, next) => {
   await ensureEmailAuthCodesTable();
   await ensureUsersEmailUniqueIndex();
   await migrateCanonicalRelationshipColumns();
+  await migrateJobRoleTrainingMatrixLayout();
   await ensureAllJobRoles();
   await migrateCompetencyDepartmentTypes();
   await migrateEngineeringDepartmentModel();

@@ -85,6 +85,35 @@ function calculateOverallAverage(ratings: Record<string, number>, categories: an
   return count > 0 ? total / count : 0;
 }
 
+function groupCategoriesBySection(categories: any[]) {
+  if (!categories.some((category: any) => category.sectionKey)) {
+    return [] as Array<{ key: string; label: string; sortOrder: number; categories: any[] }>;
+  }
+
+  const groups = new Map<string, { key: string; label: string; sortOrder: number; categories: any[] }>();
+  categories.forEach((category: any, index: number) => {
+    const key = category.sectionKey || 'matrix';
+    const existing = groups.get(key);
+    if (existing) {
+      existing.categories.push(category);
+      return;
+    }
+    groups.set(key, {
+      key,
+      label: category.sectionLabel || 'Training Matrix',
+      sortOrder: category.sectionSortOrder ?? index,
+      categories: [category],
+    });
+  });
+
+  return Array.from(groups.values())
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label))
+    .map((group) => ({
+      ...group,
+      categories: [...group.categories].sort((a: any, b: any) => (a.roleSortOrder ?? a.sortOrder ?? 0) - (b.roleSortOrder ?? b.sortOrder ?? 0)),
+    }));
+}
+
 function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
   const competencyLevels = useCompetencyLevels();
   const level = competencyLevels[rating] || competencyLevels[0];
@@ -206,6 +235,7 @@ export function IndividualView({
 }) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const sectionGroups = useMemo(() => groupCategoriesBySection(categories), [categories]);
   const overallAvg = calculateOverallAverage(ratings, categories);
   const totalCompetencies = categories.reduce((count: number, category: any) => count + category.items.length, 0);
 
@@ -297,17 +327,44 @@ export function IndividualView({
         {detailsExpanded && (
           <div className="border-t p-4 space-y-3 bg-background/80">
             <CompetencyLegend />
-            <div className="space-y-2">
-              {categories.map((category: any) => (
-                <CategorySection
-                  key={category.slug}
-                  category={category}
-                  ratings={ratings}
-                  expanded={expandedCategories.has(category.slug)}
-                  onToggle={() => toggleCategory(category.slug)}
-                />
-              ))}
-            </div>
+            {sectionGroups.length > 0 ? (
+              <div className="space-y-4">
+                {sectionGroups.map((section) => (
+                  <div key={section.key} className="space-y-2">
+                    <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/15 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-semibold">{section.label}</p>
+                        <p className="text-xs text-muted-foreground">{section.categories.length} categor{section.categories.length === 1 ? 'y' : 'ies'}</p>
+                      </div>
+                      <Badge variant="secondary">Section</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      {section.categories.map((category: any) => (
+                        <CategorySection
+                          key={category.slug}
+                          category={category}
+                          ratings={ratings}
+                          expanded={expandedCategories.has(category.slug)}
+                          onToggle={() => toggleCategory(category.slug)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {categories.map((category: any) => (
+                  <CategorySection
+                    key={category.slug}
+                    category={category}
+                    ratings={ratings}
+                    expanded={expandedCategories.has(category.slug)}
+                    onToggle={() => toggleCategory(category.slug)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -500,6 +557,8 @@ export default function Training() {
   const setRating = useCallback((slug: string, value: number) => {
     setDialogRatings(prev => ({ ...prev, [slug]: value }));
   }, []);
+
+  const dialogSectionGroups = useMemo(() => groupCategoriesBySection(categories), [categories]);
 
   const toggleDialogCategory = useCallback((slug: string) => {
     setDialogExpandedCategories(prev => {
@@ -805,76 +864,89 @@ export default function Training() {
 
             <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="px-6 py-4 space-y-3">
-                {categories.map((category: any) => {
-                  const isExpanded = dialogExpandedCategories.has(category.slug);
-                  const categoryRatedCount = category.items.filter((item: any) => dialogRatings[item.slug] !== undefined).length;
-                  return (
-                    <div key={category.slug} className="border rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => toggleDialogCategory(category.slug)}
-                        className="w-full flex items-center justify-between p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
-                        data-testid={`dialog-category-toggle-${category.slug}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          <span className="font-medium text-sm">{category.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {categoryRatedCount}/{category.items.length}
-                          </Badge>
+                {(dialogSectionGroups.length > 0 ? dialogSectionGroups : [{ key: 'default', label: '', sortOrder: 0, categories }]).map((section) => (
+                  <div key={section.key} className="space-y-3">
+                    {section.label ? (
+                      <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/15 px-3 py-2">
+                        <div>
+                          <p className="text-sm font-semibold">{section.label}</p>
+                          <p className="text-xs text-muted-foreground">{section.categories.length} categor{section.categories.length === 1 ? 'y' : 'ies'}</p>
                         </div>
-                      </button>
-                      {isExpanded && (
-                        <div className="divide-y">
-                          {category.items.map((item: any) => {
-                            const currentRating = dialogRatings[item.slug];
-                            const previousRating = ratings[item.slug];
-                            const hasPrevious = previousRating !== undefined && previousRating !== currentRating;
-                            return (
-                              <div
-                                key={item.id}
-                                className="flex items-center justify-between p-3 hover:bg-muted/10 gap-3"
-                                data-testid={`dialog-competency-row-${item.slug}`}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium">{item.name}</p>
-                                  {item.description && (
-                                    <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {competencyLevels.map((level) => {
-                                    const isActive = currentRating === level.value;
-                                    const wasPrevious = hasPrevious && previousRating === level.value;
-                                    return (
-                                      <button
-                                        key={level.value}
-                                        onClick={() => setRating(item.slug, level.value)}
-                                        className={`relative w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all ${
-                                          isActive
-                                            ? `${level.color} ring-2 ring-offset-1 ring-current scale-110`
-                                            : wasPrevious
-                                              ? `${level.color} opacity-30 ring-1 ring-current`
-                                              : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
-                                        }`}
-                                        title={wasPrevious ? `Previous rating: ${level.label}` : level.label}
-                                        data-testid={`rating-btn-${item.slug}-${level.value}`}
-                                      >
-                                        {level.value}
-                                        {wasPrevious && (
-                                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-muted-foreground/40" />
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
+                        <Badge variant="secondary">Section</Badge>
+                      </div>
+                    ) : null}
+                    {section.categories.map((category: any) => {
+                      const isExpanded = dialogExpandedCategories.has(category.slug);
+                      const categoryRatedCount = category.items.filter((item: any) => dialogRatings[item.slug] !== undefined).length;
+                      return (
+                        <div key={category.slug} className="border rounded-lg overflow-hidden">
+                          <button
+                            onClick={() => toggleDialogCategory(category.slug)}
+                            className="w-full flex items-center justify-between p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
+                            data-testid={`dialog-category-toggle-${category.slug}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                              <span className="font-medium text-sm">{category.name}</span>
+                              <Badge variant="secondary" className="text-xs">
+                                {categoryRatedCount}/{category.items.length}
+                              </Badge>
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="divide-y">
+                              {category.items.map((item: any) => {
+                                const currentRating = dialogRatings[item.slug];
+                                const previousRating = ratings[item.slug];
+                                const hasPrevious = previousRating !== undefined && previousRating !== currentRating;
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className="flex items-center justify-between p-3 hover:bg-muted/10 gap-3"
+                                    data-testid={`dialog-competency-row-${item.slug}`}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium">{item.name}</p>
+                                      {item.description && (
+                                        <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {competencyLevels.map((level) => {
+                                        const isActive = currentRating === level.value;
+                                        const wasPrevious = hasPrevious && previousRating === level.value;
+                                        return (
+                                          <button
+                                            key={level.value}
+                                            onClick={() => setRating(item.slug, level.value)}
+                                            className={`relative w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all ${
+                                              isActive
+                                                ? `${level.color} ring-2 ring-offset-1 ring-current scale-110`
+                                                : wasPrevious
+                                                  ? `${level.color} opacity-30 ring-1 ring-current`
+                                                  : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
+                                            }`}
+                                            title={wasPrevious ? `Previous rating: ${level.label}` : level.label}
+                                            data-testid={`rating-btn-${item.slug}-${level.value}`}
+                                          >
+                                            {level.value}
+                                            {wasPrevious && (
+                                              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-muted-foreground/40" />
+                                            )}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
 

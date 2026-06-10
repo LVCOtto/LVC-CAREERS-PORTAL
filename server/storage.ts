@@ -2,6 +2,67 @@ import { eq, and, inArray, desc, isNull, ne, sql } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 
+type JobRoleCategoryLayoutSection = {
+  sectionKey: string;
+  label: string;
+  sortOrder: number;
+};
+
+type JobRoleCategoryLayoutAssignment = {
+  categoryId: number;
+  sectionKey: string;
+  sortOrder: number;
+};
+
+type JobRoleCategoryLayout = {
+  sections: JobRoleCategoryLayoutSection[];
+  assignments: JobRoleCategoryLayoutAssignment[];
+};
+
+function getDefaultJobRoleCategorySections(): JobRoleCategoryLayoutSection[] {
+  return schema.jobRoleMatrixSectionPresets.map((section, index) => ({
+    sectionKey: section.key,
+    label: section.label,
+    sortOrder: index,
+  }));
+}
+
+function normalizeJobRoleCategoryLayout(layout: JobRoleCategoryLayout): JobRoleCategoryLayout {
+  const defaultSections = getDefaultJobRoleCategorySections();
+  const incomingSections = Array.isArray(layout.sections) ? layout.sections : [];
+  const sections = (incomingSections.length > 0 ? incomingSections : defaultSections)
+    .map((section, index) => ({
+      sectionKey: String(section.sectionKey || defaultSections[0].sectionKey),
+      label: String(section.label || section.sectionKey || defaultSections[0].label),
+      sortOrder: index,
+    }))
+    .filter((section, index, arr) => arr.findIndex((candidate) => candidate.sectionKey === section.sectionKey) === index);
+
+  const validSectionKeys = new Set(sections.map((section) => section.sectionKey));
+  const assignments = (Array.isArray(layout.assignments) ? layout.assignments : [])
+    .map((assignment) => ({
+      categoryId: Number(assignment.categoryId),
+      sectionKey: validSectionKeys.has(String(assignment.sectionKey))
+        ? String(assignment.sectionKey)
+        : sections[0].sectionKey,
+      sortOrder: Number.isFinite(assignment.sortOrder) ? Number(assignment.sortOrder) : 0,
+    }))
+    .filter((assignment) => Number.isInteger(assignment.categoryId) && assignment.categoryId > 0)
+    .filter((assignment, index, arr) => arr.findIndex((candidate) => candidate.categoryId === assignment.categoryId) === index)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.categoryId - b.categoryId);
+
+  const normalizedAssignments: JobRoleCategoryLayoutAssignment[] = [];
+  sections.forEach((section) => {
+    assignments
+      .filter((assignment) => assignment.sectionKey === section.sectionKey)
+      .forEach((assignment, index) => {
+        normalizedAssignments.push({ ...assignment, sortOrder: index });
+      });
+  });
+
+  return { sections, assignments: normalizedAssignments };
+}
+
 export interface IStorage {
   getUser(id: string): Promise<schema.User | undefined>;
   getUserByUsername(username: string): Promise<schema.User | undefined>;
@@ -89,7 +150,8 @@ export interface IStorage {
 
   getJobRoleCategories(jobRoleId: number): Promise<schema.JobRoleCategory[]>;
   getAllJobRoleCategories(): Promise<schema.JobRoleCategory[]>;
-  setJobRoleCategories(jobRoleId: number, categoryIds: number[]): Promise<void>;
+  getJobRoleCategoryLayout(jobRoleId: number): Promise<JobRoleCategoryLayout>;
+  setJobRoleCategoryLayout(jobRoleId: number, layout: JobRoleCategoryLayout): Promise<void>;
   getCompetencyCategoriesForJobRole(jobRole: string | number): Promise<(schema.CompetencyCategory & { items: schema.CompetencyItem[] })[] | null>;
 
   getPortalSettings(): Promise<schema.PortalSetting[]>;
@@ -598,20 +660,68 @@ export class DatabaseStorage implements IStorage {
 
   async getJobRoleCategories(jobRoleId: number) {
     return db.select().from(schema.jobRoleCategories)
-      .where(eq(schema.jobRoleCategories.jobRoleId, jobRoleId));
+      .where(eq(schema.jobRoleCategories.jobRoleId, jobRoleId))
+      .orderBy(schema.jobRoleCategories.sortOrder, schema.jobRoleCategories.id);
   }
 
   async getAllJobRoleCategories() {
-    return db.select().from(schema.jobRoleCategories);
+    return db.select().from(schema.jobRoleCategories)
+      .orderBy(schema.jobRoleCategories.jobRoleId, schema.jobRoleCategories.sortOrder, schema.jobRoleCategories.id);
   }
 
-  async setJobRoleCategories(jobRoleId: number, categoryIds: number[]) {
-    await db.delete(schema.jobRoleCategories)
-      .where(eq(schema.jobRoleCategories.jobRoleId, jobRoleId));
-    if (categoryIds.length > 0) {
-      await db.insert(schema.jobRoleCategories)
-        .values(categoryIds.map(categoryId => ({ jobRoleId, categoryId })));
-    }
+  async getJobRoleCategoryLayout(jobRoleId: number) {
+    const [assignments, storedSections] = await Promise.all([
+      this.getJobRoleCategories(jobRoleId),
+      db.select().from(schema.jobRoleCategorySections)
+        .where(eq(schema.jobRoleCategorySections.jobRoleId, jobRoleId))
+        .orderBy(schema.jobRoleCategorySections.sortOrder, schema.jobRoleCategorySections.id),
+    ]);
+
+    const sections = storedSections.length > 0
+      ? storedSections.map((section) => ({
+          sectionKey: section.sectionKey,
+          label: section.label,
+          sortOrder: section.sortOrder,
+        }))
+      : getDefaultJobRoleCategorySections();
+
+    return {
+      sections,
+      assignments: assignments.map((assignment) => ({
+        categoryId: assignment.categoryId,
+        sectionKey: assignment.sectionKey,
+        sortOrder: assignment.sortOrder,
+      })),
+    };
+  }
+
+  async setJobRoleCategoryLayout(jobRoleId: number, layout: JobRoleCategoryLayout) {
+    const normalized = normalizeJobRoleCategoryLayout(layout);
+
+    await db.transaction(async (tx) => {
+      await tx.delete(schema.jobRoleCategories)
+        .where(eq(schema.jobRoleCategories.jobRoleId, jobRoleId));
+      await tx.delete(schema.jobRoleCategorySections)
+        .where(eq(schema.jobRoleCategorySections.jobRoleId, jobRoleId));
+
+      await tx.insert(schema.jobRoleCategorySections)
+        .values(normalized.sections.map((section) => ({
+          jobRoleId,
+          sectionKey: section.sectionKey,
+          label: section.label,
+          sortOrder: section.sortOrder,
+        })));
+
+      if (normalized.assignments.length > 0) {
+        await tx.insert(schema.jobRoleCategories)
+          .values(normalized.assignments.map((assignment) => ({
+            jobRoleId,
+            categoryId: assignment.categoryId,
+            sectionKey: assignment.sectionKey,
+            sortOrder: assignment.sortOrder,
+          })));
+      }
+    });
   }
 
   async getCompetencyCategoriesForJobRole(jobRole: string | number) {
@@ -621,19 +731,39 @@ export class DatabaseStorage implements IStorage {
       : roles.find(r => r.title.toLowerCase() === jobRole.toLowerCase());
     if (!role) return null;
 
-    const assignments = await this.getJobRoleCategories(role.id);
-    if (assignments.length === 0) return null;
+    const layout = await this.getJobRoleCategoryLayout(role.id);
+    if (layout.assignments.length === 0) return null;
 
-    const categoryIds = assignments.map(a => a.categoryId);
+    const categoryIds = layout.assignments.map(a => a.categoryId);
     const categories = await db.select().from(schema.competencyCategories)
       .where(inArray(schema.competencyCategories.id, categoryIds))
       .orderBy(schema.competencyCategories.sortOrder);
     const items = await this.getCompetencyItems();
+    const categoriesById = new Map(categories.map((category) => [category.id, category]));
+    const itemsByCategoryId = new Map<number, schema.CompetencyItem[]>();
+    const sectionByKey = new Map(layout.sections.map((section) => [section.sectionKey, section]));
 
-    return categories.map(cat => ({
-      ...cat,
-      items: items.filter(item => item.categoryId === cat.id),
-    }));
+    items.forEach((item) => {
+      const categoryItems = itemsByCategoryId.get(item.categoryId) || [];
+      categoryItems.push(item);
+      itemsByCategoryId.set(item.categoryId, categoryItems);
+    });
+
+    return layout.assignments
+      .map((assignment) => {
+        const category = categoriesById.get(assignment.categoryId);
+        if (!category) return null;
+        const section = sectionByKey.get(assignment.sectionKey);
+        return {
+          ...category,
+          sectionKey: assignment.sectionKey,
+          sectionLabel: section?.label || assignment.sectionKey,
+          sectionSortOrder: section?.sortOrder ?? 0,
+          roleSortOrder: assignment.sortOrder,
+          items: itemsByCategoryId.get(category.id) || [],
+        };
+      })
+      .filter((category): category is schema.CompetencyCategory & { items: schema.CompetencyItem[] } => !!category);
   }
 
   async getPortalSettings() {

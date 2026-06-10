@@ -20,7 +20,7 @@ import { api, invalidate } from '@/lib/api';
 import type { JobRoleMatrixAssignment, JobRoleMatrixLayout, JobRoleMatrixSection } from '@/lib/api';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay, useDroppable } from '@dnd-kit/core';
+import { DndContext, closestCenter, closestCorners, pointerWithin, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent, DragStartEvent, DragOverlay, useDroppable, type CollisionDetection } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -763,6 +763,36 @@ type SkillDragData = {
   label?: string;
 };
 
+const roleMatrixCollisionDetection: CollisionDetection = (args) => {
+  const activeType = args.active.data.current?.type as SkillDragData['type'] | undefined;
+
+  if (activeType === 'section') {
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((container) => String(container.id).startsWith('section-order:')),
+    });
+  }
+
+  const categoryContainers = args.droppableContainers.filter((container) => {
+    const id = String(container.id);
+    return id === 'available-pane' || id.startsWith('selected:') || id.startsWith('section-drop:');
+  });
+
+  const pointerHits = pointerWithin({
+    ...args,
+    droppableContainers: categoryContainers,
+  });
+
+  if (pointerHits.length > 0) {
+    return pointerHits;
+  }
+
+  return closestCorners({
+    ...args,
+    droppableContainers: categoryContainers,
+  });
+};
+
 function normalizeRoleMatrixLayout(layout: JobRoleMatrixLayout): JobRoleMatrixLayout {
   const sections = (layout.sections || []).map((section, index) => ({
     sectionKey: section.sectionKey,
@@ -812,13 +842,13 @@ function DraggableAvailableCategory({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-lg border bg-background p-3 ${isDragging ? 'opacity-50' : ''}`}
+      className={`rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow ${isDragging ? 'opacity-50 shadow-lg' : 'hover:shadow-md'}`}
       data-testid={`role-category-card-${category.id}`}
     >
       <div className="flex items-start gap-3">
         <button
           type="button"
-          className="mt-0.5 cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          className="mt-0.5 cursor-grab rounded-md border border-transparent p-1 text-slate-400 hover:border-slate-200 hover:bg-slate-50 active:cursor-grabbing"
           {...attributes}
           {...listeners}
           data-testid={`drag-role-category-${category.id}`}
@@ -827,19 +857,19 @@ function DraggableAvailableCategory({
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{category.name}</span>
-            <Badge variant="secondary" className="text-xs">
+            <span className="text-sm font-semibold text-slate-900">{category.name}</span>
+            <Badge variant="secondary" className="border border-slate-200 bg-slate-50 text-[11px] text-slate-600">
               {(category.items || []).length} skills
             </Badge>
           </div>
           {(category.items || []).length > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               {(category.items || []).slice(0, 3).map((item: any) => item.name).join(', ')}
               {(category.items || []).length > 3 && ` +${(category.items || []).length - 3} more`}
             </p>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={() => onAdd(category.id)}>
+        <Button size="sm" variant="outline" className="border-slate-200 bg-white hover:bg-slate-50" onClick={() => onAdd(category.id)}>
           Add
         </Button>
       </div>
@@ -865,13 +895,13 @@ function SortableSelectedCategory({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-lg border bg-background p-3 ${isDragging ? 'opacity-50' : ''}`}
+      className={`rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-shadow ${isDragging ? 'opacity-50 shadow-lg' : 'hover:shadow-md'}`}
       data-testid={`selected-role-category-${category.id}`}
     >
       <div className="flex items-start gap-3">
         <button
           type="button"
-          className="mt-0.5 cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+          className="mt-0.5 cursor-grab rounded-md border border-transparent p-1 text-slate-400 hover:border-slate-200 hover:bg-slate-50 active:cursor-grabbing"
           {...attributes}
           {...listeners}
           data-testid={`drag-selected-role-category-${category.id}`}
@@ -880,19 +910,19 @@ function SortableSelectedCategory({
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{category.name}</span>
-            <Badge variant="secondary" className="text-xs">
+            <span className="text-sm font-semibold text-slate-900">{category.name}</span>
+            <Badge variant="secondary" className="border border-slate-200 bg-slate-50 text-[11px] text-slate-600">
               {(category.items || []).length} skills
             </Badge>
           </div>
           {(category.items || []).length > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs leading-5 text-slate-500">
               {(category.items || []).slice(0, 3).map((item: any) => item.name).join(', ')}
               {(category.items || []).length > 3 && ` +${(category.items || []).length - 3} more`}
             </p>
           )}
         </div>
-        <Button size="icon" variant="ghost" onClick={() => onRemove(category.id)} data-testid={`remove-role-category-${category.id}`}>
+        <Button size="icon" variant="ghost" className="text-slate-500 hover:bg-rose-50 hover:text-rose-600" onClick={() => onRemove(category.id)} data-testid={`remove-role-category-${category.id}`}>
           <X className="h-4 w-4" />
         </Button>
       </div>
@@ -922,14 +952,14 @@ function SortableRoleMatrixSection({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`rounded-xl border bg-muted/10 p-3 ${isDragging ? 'opacity-60' : ''}`}
+      className={`rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm transition-shadow ${isDragging ? 'opacity-60 shadow-lg' : 'hover:shadow-md'}`}
       data-testid={`role-matrix-section-${section.sectionKey}`}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="cursor-grab rounded p-1 text-muted-foreground hover:bg-muted active:cursor-grabbing"
+            className="cursor-grab rounded-md border border-transparent p-1 text-slate-400 hover:border-slate-200 hover:bg-white active:cursor-grabbing"
             {...attributes}
             {...listeners}
             data-testid={`drag-role-matrix-section-${section.sectionKey}`}
@@ -937,19 +967,19 @@ function SortableRoleMatrixSection({
             <GripVertical className="h-4 w-4" />
           </button>
           <div>
-            <p className="text-sm font-semibold">{section.label}</p>
-            <p className="text-xs text-muted-foreground">{categories.length} categor{categories.length === 1 ? 'y' : 'ies'}</p>
+            <p className="text-sm font-semibold text-slate-900">{section.label}</p>
+            <p className="text-xs text-slate-500">{categories.length} categor{categories.length === 1 ? 'y' : 'ies'}</p>
           </div>
         </div>
-        <Badge variant="secondary">Section</Badge>
+        <Badge variant="secondary" className="border border-slate-200 bg-white text-slate-600">Section</Badge>
       </div>
 
-      <div ref={setDropRef} className={`min-h-24 rounded-lg border border-dashed p-2 ${isOver ? 'border-primary bg-primary/5' : 'border-border/70 bg-background/70'}`}>
+      <div ref={setDropRef} className={`min-h-28 rounded-xl border border-dashed p-2 transition-colors ${isOver ? 'border-sky-500 bg-sky-50 shadow-inner' : 'border-slate-300 bg-white/80'}`}>
         <SortableContext items={categories.map((category) => `selected:${category.id}`)} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
             {categories.length === 0 ? (
-              <div className="flex min-h-20 items-center justify-center rounded-md text-sm text-muted-foreground">
-                Drag categories here
+              <div className="flex min-h-24 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/80 text-sm text-slate-500">
+                Drop categories into this section
               </div>
             ) : (
               categories.map((category) => (
@@ -1285,7 +1315,7 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
       return;
     }
 
-    if (overId === 'available-pane' || overData?.type === 'available-pane' || overData?.type === 'available-category') {
+    if (overId === 'available-pane' || overData?.type === 'available-pane') {
       removeCategory(activeData.categoryId);
       return;
     }
@@ -1319,8 +1349,8 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
             <GraduationCap className="w-5 h-5" />
             Training Matrix Skills — {role.title}
           </DialogTitle>
-          <DialogDescription>
-            Drag categories into sections to build this role&apos;s training matrix. Drag them back out to remove them, use the remove button for quick cleanup, and reorder both sections and categories.
+          <DialogDescription className="max-w-4xl leading-6 text-slate-600">
+            Drag categories into sections to build this role&apos;s training matrix. Drop them exactly where you want them to land, drag them back to the left to remove them, or use the remove button for quick cleanup.
             If none are selected, colleagues with this role will still use the department default matrix.
           </DialogDescription>
         </DialogHeader>
@@ -1334,20 +1364,20 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
         ) : (
           <DndContext
             sensors={dragSensors}
-            collisionDetection={closestCenter}
+            collisionDetection={roleMatrixCollisionDetection}
             onDragStart={(event: DragStartEvent) => setActiveDrag((event.active.data.current as SkillDragData | undefined) || null)}
             onDragEnd={handleDragEnd}
             onDragCancel={() => setActiveDrag(null)}
           >
             <div className="grid gap-4 lg:grid-cols-[1.05fr_1.35fr]">
-              <div className="rounded-xl border bg-muted/10">
-                <div className="border-b px-4 py-3">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white shadow-sm">
+                <div className="border-b border-slate-200 px-5 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold">Available Categories</p>
-                      <p className="text-xs text-muted-foreground">Drag into a section or use Add.</p>
+                      <p className="text-sm font-semibold text-slate-900">Available Categories</p>
+                      <p className="text-xs text-slate-500">Drag into a section or click Add for a quick placement.</p>
                     </div>
-                    <Badge variant="secondary">{availableCategories.length} available</Badge>
+                    <Badge variant="secondary" className="border border-slate-200 bg-white text-slate-600">{availableCategories.length} available</Badge>
                   </div>
                 </div>
                 <AvailableCategoriesPane
@@ -1358,14 +1388,14 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
                 />
               </div>
 
-              <div className="rounded-xl border bg-muted/10">
-                <div className="border-b px-4 py-3">
+              <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white shadow-sm">
+                <div className="border-b border-slate-200 px-5 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold">Role Matrix Layout</p>
-                      <p className="text-xs text-muted-foreground">Reorder sections and arrange categories inside each section.</p>
+                      <p className="text-sm font-semibold text-slate-900">Role Matrix Layout</p>
+                      <p className="text-xs text-slate-500">Reorder sections, then place categories exactly where they should appear for this role.</p>
                     </div>
-                    <Badge variant="secondary">{layout.assignments.length} selected</Badge>
+                    <Badge variant="secondary" className="border border-slate-200 bg-white text-slate-600">{layout.assignments.length} selected</Badge>
                   </div>
                 </div>
                 <ScrollArea className="h-[520px] px-4 py-4">
@@ -1387,9 +1417,9 @@ function SkillCategoryAssigner({ role, onClose }: { role: any; onClose: () => vo
 
             <DragOverlay>
               {activeDrag?.label ? (
-                <div className="rounded-lg border bg-background px-3 py-2 shadow-lg">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <GripVertical className="h-4 w-4 text-muted-foreground" />
+                <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-2xl ring-1 ring-slate-200/80">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <GripVertical className="h-4 w-4 text-slate-400" />
                     <span>{activeDrag.label}</span>
                   </div>
                 </div>
@@ -1444,9 +1474,9 @@ function AvailableCategoriesPane({
 
   return (
     <ScrollArea className="h-[520px] px-4 py-4">
-      <div ref={setNodeRef} className={`space-y-4 rounded-xl border border-dashed p-2 ${isOver ? 'border-primary bg-primary/5' : 'border-transparent'}`}>
+      <div ref={setNodeRef} className={`space-y-4 rounded-2xl border border-dashed p-3 transition-colors ${isOver ? 'border-sky-500 bg-sky-50' : 'border-transparent'}`}>
         {groupedCategories.length === 0 ? (
-          <div className="flex min-h-28 items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
+          <div className="flex min-h-28 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-500">
             All categories are already assigned to this role.
           </div>
         ) : (
@@ -1456,16 +1486,16 @@ function AvailableCategoriesPane({
               <div key={label} className="space-y-2">
                 <button
                   type="button"
-                  className="flex w-full items-center justify-between rounded-lg border bg-background px-3 py-3 text-left hover:bg-muted/40"
+                  className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition-colors hover:bg-slate-50"
                   onClick={() => onToggleGroup(label)}
                   data-testid={`button-toggle-role-category-group-${label}`}
                 >
                   <div className="flex items-center gap-2">
                     {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    <span className="text-sm font-medium">{label}</span>
-                    <Badge variant="secondary" className="text-xs">{categories.length}</Badge>
+                    <span className="text-sm font-semibold text-slate-900">{label}</span>
+                    <Badge variant="secondary" className="border border-slate-200 bg-slate-50 text-[11px] text-slate-600">{categories.length}</Badge>
                   </div>
-                  <span className="text-xs text-muted-foreground">Available</span>
+                  <span className="text-xs text-slate-500">Available</span>
                 </button>
                 {!isCollapsed && (
                   <SortableContext items={categories.map((category) => `available:${category.id}`)} strategy={verticalListSortingStrategy}>

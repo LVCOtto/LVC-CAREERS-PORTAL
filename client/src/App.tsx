@@ -91,6 +91,9 @@ function Router() {
       <Route path="/milestones">
         {() => <ProtectedRoute component={Milestones} />}
       </Route>
+      <Route path="/team/member/:encodedId">
+        {() => <ProtectedRoute component={Team} />}
+      </Route>
       <Route path="/team/:id?">
         {() => <ProtectedRoute component={Team} />}
       </Route>

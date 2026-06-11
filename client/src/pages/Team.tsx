@@ -36,6 +36,7 @@ import {
   useGenerateShareToken,
 } from '@/lib/hooks';
 import { getCompetencyDepartmentType } from '@/lib/departmentClassification';
+import { buildTeamMemberHref, decodeTeamMemberRouteId } from '@/lib/teamRoutes';
 import { IndividualView, TrainingProgressChart } from '@/pages/Training';
 import {
   ArrowLeft,
@@ -1658,10 +1659,6 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
   );
 }
 
-function buildTeamMemberHref(memberId: string) {
-  return `/team?memberId=${encodeURIComponent(memberId)}`;
-}
-
 function TeamList() {
   const { currentUser } = useAuth();
 
@@ -1766,9 +1763,14 @@ function TeamList() {
 
 export default function Team() {
   const [location] = useLocation();
+  const [encodedMatch, encodedParams] = useRoute('/team/member/:encodedId');
   const [match, params] = useRoute('/team/:id');
-  const memberIdFromQuery = new URLSearchParams(location.split('?')[1] || '').get('memberId');
-  const memberId = memberIdFromQuery || params?.id;
+  const memberIdFromQuery = new URLSearchParams(
+    typeof window !== 'undefined' ? window.location.search : location.split('?')[1] || ''
+  ).get('memberId');
+  const memberId = encodedMatch && encodedParams?.encodedId
+    ? decodeTeamMemberRouteId(encodedParams.encodedId)
+    : memberIdFromQuery || params?.id;
 
   if (memberId) {
     return <TeamMemberProfile memberId={memberId} />;

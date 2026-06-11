@@ -14,6 +14,7 @@ import { Briefcase, Plus, Edit, Trash2, Download, Upload, GraduationCap, Check, 
 import { Link } from 'wouter';
 import { useToast } from '@/hooks/use-toast';
 import { useUsers, useJobRoles, useCreateJobRole, useUpdateJobRole, useDeleteJobRole, useReorderJobRole, useCompetencies, useJobRoleCategories, useAllJobRoleCategories, useSetJobRoleCategories, useInductionTemplates, useInductionSectionSettings, useUpsertInductionSectionSetting, useJobRoleInductionSections, useSetJobRoleInductionSections, useDepartments, useUpdateDepartment, useRenameDepartment } from '@/lib/hooks';
+import { buildTeamMemberHref } from '@/lib/teamRoutes';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api, invalidate } from '@/lib/api';
@@ -463,7 +464,7 @@ export default function AdminRoles() {
                 {assignedUsers.map((u: any) => (
                   <Link
                     key={u.id}
-                    href={`/team?memberId=${encodeURIComponent(u.id)}`}
+                    href={buildTeamMemberHref(u.id)}
                     className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 transition-colors text-sm"
                     data-testid={`link-user-${u.id}`}
                   >

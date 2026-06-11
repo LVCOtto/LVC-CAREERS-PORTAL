@@ -1,4 +1,4 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -25,14 +25,25 @@ import SharedTrainingMatrix from "@/pages/SharedTrainingMatrix";
 import SharedInduction from "@/pages/SharedInduction";
 import ArchitectStudio from "@/pages/ArchitectStudio";
 import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
-  const { isAuthenticated } = useAuth();
-  
+  const { isAuthenticated, isAuthLoading } = useAuth();
+  const [location] = useLocation();
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
+    sessionStorage.setItem("postLoginRedirect", location);
     return <Redirect to="/" />;
   }
-  
+
   return <Component />;
 }
 

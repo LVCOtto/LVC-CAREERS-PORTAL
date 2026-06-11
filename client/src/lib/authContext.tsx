@@ -26,21 +26,29 @@ interface AuthContextType {
   verifyCode: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     api.auth.me()
       .then((user) => {
-        if (mounted) setCurrentUser(user as User);
+        if (mounted) {
+          setCurrentUser(user as User);
+          setIsAuthLoading(false);
+        }
       })
       .catch(() => {
-        if (mounted) setCurrentUser(null);
+        if (mounted) {
+          setCurrentUser(null);
+          setIsAuthLoading(false);
+        }
       });
 
     return () => {
@@ -75,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyCode,
         logout,
         isAuthenticated: currentUser !== null,
+        isAuthLoading,
       }}
     >
       {children}

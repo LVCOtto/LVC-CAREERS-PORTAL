@@ -13,9 +13,9 @@ import lvcLogo from '@assets/image-1_1767968047751.png';
 type Step = 'email' | 'code';
 
 export default function Login() {
-  const { requestCode, verifyCode } = useAuth();
+  const { requestCode, verifyCode, isAuthenticated, isAuthLoading } = useAuth();
   const { getSetting } = usePortalSettings();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
@@ -23,6 +23,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(0);
+
+  useEffect(() => {
+    if (isAuthLoading || !isAuthenticated || location !== '/') return;
+    const redirectTarget = sessionStorage.getItem('postLoginRedirect') || '/dashboard';
+    sessionStorage.removeItem('postLoginRedirect');
+    setLocation(redirectTarget);
+  }, [isAuthenticated, isAuthLoading, location, setLocation]);
 
   useEffect(() => {
     if (resendCountdown <= 0) return;
@@ -60,7 +67,9 @@ export default function Login() {
     setLoading(true);
     try {
       await verifyCode(email.trim(), code);
-      setLocation('/dashboard');
+      const redirectTarget = sessionStorage.getItem('postLoginRedirect') || '/dashboard';
+      sessionStorage.removeItem('postLoginRedirect');
+      setLocation(redirectTarget);
     } catch (err: any) {
       setError(err.message || 'Invalid or expired code. Please try again.');
       setCode('');

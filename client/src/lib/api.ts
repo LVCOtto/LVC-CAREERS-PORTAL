@@ -96,6 +96,8 @@ export const api = {
       window.open(`${BASE}/training-matrix/export?${search.toString()}`, "_blank");
     },
     generateShareToken: (id: number) => apiFetch<{ token: string }>(`/training-matrix/${id}/share`, { method: "POST" }),
+    generateShareTokenForUser: (userId: string) =>
+      apiFetch<{ token: string; submission: any }>("/training-matrix/share", { method: "POST", body: JSON.stringify({ userId }) }),
     getShared: (token: string) => apiFetch<any>(`/training-matrix/shared/${token}`),
     updateShared: (token: string, data: any) => apiFetch<any>(`/training-matrix/shared/${token}`, { method: "PATCH", body: JSON.stringify(data) }),
   },

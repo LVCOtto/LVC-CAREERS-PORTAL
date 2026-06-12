@@ -33,7 +33,7 @@ import {
   useCompetenciesForRole,
   useStandardsSurvey,
   useUpdateTrainingMatrix,
-  useGenerateShareToken,
+  useGenerateShareTokenForUser,
 } from '@/lib/hooks';
 import { getCompetencyDepartmentType } from '@/lib/departmentClassification';
 import { buildTeamMemberHref, decodeTeamMemberRouteId } from '@/lib/teamRoutes';
@@ -828,7 +828,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
 
   const completeItem = useCompleteInductionItem(memberId);
   const updateMatrix = useUpdateTrainingMatrix();
-  const generateShareToken = useGenerateShareToken();
+  const generateShareTokenForUser = useGenerateShareTokenForUser();
   const [matrixShareUrl, setMatrixShareUrl] = useState('');
   const [matrixShareCopied, setMatrixShareCopied] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -1191,15 +1191,10 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                     variant="outline"
                     className="gap-2"
                     data-testid="button-share-team-matrix"
-                    disabled={generateShareToken.isPending}
+                    disabled={generateShareTokenForUser.isPending}
                     onClick={async () => {
                       try {
-                        let submissionId = matrixSubmission?.id;
-                        if (!submissionId) {
-                          toast({ title: 'No matrix to share', description: 'This colleague hasn\'t submitted a training matrix yet.', variant: 'destructive' });
-                          return;
-                        }
-                        const result = await generateShareToken.mutateAsync(submissionId);
+                        const result = await generateShareTokenForUser.mutateAsync(member.id);
                         const url = `${window.location.origin}/training-matrix/shared/${result.token}`;
                         setMatrixShareUrl(url);
                         try {
@@ -1215,7 +1210,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                       }
                     }}
                   >
-                    {generateShareToken.isPending ? (
+                    {generateShareTokenForUser.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : matrixShareCopied ? (
                       <Check className="h-4 w-4" />

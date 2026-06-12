@@ -999,6 +999,38 @@ export async function registerRoutes(
     res.json(submission);
   });
 
+  app.post("/api/training-matrix/share", async (req, res) => {
+    const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
+    if (!userId) {
+      return res.status(400).json({ message: "userId is required" });
+    }
+    if (!await canAccessUser(req, userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    let createdDraft = false;
+    let submission = await storage.getTrainingMatrixSubmission(userId);
+    if (!submission) {
+      const snapshot = await buildTrainingMatrixSnapshot(userId);
+      submission = await storage.createTrainingMatrixSubmission({
+        userId,
+        status: "draft",
+        ratings: {},
+        ...snapshot,
+      });
+      createdDraft = true;
+    }
+
+    if (submission.shareToken) {
+      return res.json({ token: submission.shareToken, submission });
+    }
+
+    const token = await storage.generateShareToken(submission.id);
+    const updated = await storage.getTrainingMatrixSubmissionById(submission.id);
+    res.status(createdDraft ? 201 : 200)
+      .json({ token, submission: updated || { ...submission, shareToken: token } });
+  });
+
   app.post("/api/training-matrix/:id/share", async (req, res) => {
     const found = await storage.getTrainingMatrixSubmissionById(Number(req.params.id));
     if (!found) return res.status(404).json({ message: "Submission not found" });

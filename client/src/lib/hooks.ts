@@ -271,6 +271,13 @@ export function useGenerateShareToken() {
   });
 }
 
+export function useGenerateShareTokenForUser() {
+  return useMutation({
+    mutationFn: (userId: string) => api.trainingMatrix.generateShareTokenForUser(userId),
+    onSuccess: () => invalidate("training-matrix", "training-matrix-history"),
+  });
+}
+
 export function useSharedTrainingMatrix(token: string) {
   return useQuery({
     queryKey: ["shared-training-matrix", token],

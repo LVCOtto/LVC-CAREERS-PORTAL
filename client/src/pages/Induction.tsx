@@ -54,23 +54,42 @@ const sectionBadgeColors = [
 export default function Induction() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const userId = currentUser?.id ?? '';
 
   const signOffStorageKey = useMemo(() => {
-    if (!currentUser?.id) return '';
-    return `induction-section-signoffs:${currentUser.id}`;
-  }, [currentUser?.id]);
+    if (!userId) return '';
+    return `induction-section-signoffs:${userId}`;
+  }, [userId]);
 
-  const [sectionSignOffs, setSectionSignOffs] = useState<Record<string, { colleague: boolean; manager: boolean }>>(() => {
-    if (typeof window === 'undefined' || !currentUser?.id) return {};
-    try {
-      const raw = localStorage.getItem(`induction-section-signoffs:${currentUser.id}`);
-      if (!raw) return {};
-      const parsed = JSON.parse(raw) as Record<string, { colleague: boolean; manager: boolean }>;
-      return parsed || {};
-    } catch {
-      return {};
+  const [sectionSignOffs, setSectionSignOffs] = useState<Record<string, { colleague: boolean; manager: boolean }>>({});
+
+  const { data: inductionData, isLoading } = useInduction(userId);
+  const completeItemMutation = useCompleteInductionItem(userId);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !signOffStorageKey) {
+      setSectionSignOffs({});
+      return;
     }
-  });
+
+    try {
+      const raw = localStorage.getItem(signOffStorageKey);
+      if (!raw) {
+        setSectionSignOffs({});
+        return;
+      }
+
+      const parsed = JSON.parse(raw) as Record<string, { colleague: boolean; manager: boolean }>;
+      setSectionSignOffs(parsed || {});
+    } catch {
+      setSectionSignOffs({});
+    }
+  }, [signOffStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !signOffStorageKey) return;
+    localStorage.setItem(signOffStorageKey, JSON.stringify(sectionSignOffs));
+  }, [signOffStorageKey, sectionSignOffs]);
 
   if (!currentUser) return null;
 
@@ -87,9 +106,6 @@ export default function Induction() {
   }
 
   const isManager = currentUser.role === 'manager' || currentUser.role === 'admin';
-
-  const { data: inductionData, isLoading } = useInduction(currentUser.id);
-  const completeItemMutation = useCompleteInductionItem(currentUser.id);
 
   if (isLoading) {
     return (
@@ -143,11 +159,6 @@ export default function Induction() {
   const getSectionItems = (section: string) => items.filter((item: any) => item.section === section);
 
   const sectionsFullySignedOff = sections.filter((s) => sectionSignOffs[s]?.manager && sectionSignOffs[s]?.colleague).length;
-
-  useEffect(() => {
-    if (!signOffStorageKey) return;
-    localStorage.setItem(signOffStorageKey, JSON.stringify(sectionSignOffs));
-  }, [signOffStorageKey, sectionSignOffs]);
 
   if (inductionComplete) {
     return (

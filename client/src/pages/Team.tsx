@@ -1499,7 +1499,10 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
                 ) : (
                   <div className="text-center py-12 text-muted-foreground">
                     <GraduationCap className="w-12 h-12 mx-auto mb-4 opacity-40" />
-                    <p>No training matrix submitted yet</p>
+                    <p className="font-medium text-foreground">No training matrix template configured</p>
+                    <p className="text-sm mt-1">
+                      No competency categories are assigned to {member.jobRole || 'this role'} yet.
+                    </p>
                   </div>
                 )}
               </CardContent>

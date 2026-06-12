@@ -294,3 +294,37 @@ export async function migrateJobRoleTrainingMatrixLayout() {
     ON CONFLICT (job_role_id, section_key) DO NOTHING;
   `);
 }
+
+export async function migrateTrainingMatrixSnapshotColumns() {
+  await pool.query(`
+    ALTER TABLE training_matrix_submissions ADD COLUMN IF NOT EXISTS user_name_snapshot text;
+    ALTER TABLE training_matrix_submissions ADD COLUMN IF NOT EXISTS department_id_snapshot integer;
+    ALTER TABLE training_matrix_submissions ADD COLUMN IF NOT EXISTS department_snapshot text;
+    ALTER TABLE training_matrix_submissions ADD COLUMN IF NOT EXISTS job_role_id_snapshot integer;
+    ALTER TABLE training_matrix_submissions ADD COLUMN IF NOT EXISTS job_role_snapshot text;
+    ALTER TABLE training_matrix_submissions ADD COLUMN IF NOT EXISTS share_token varchar(100);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS "IDX_training_matrix_share_token"
+      ON training_matrix_submissions (share_token)
+      WHERE share_token IS NOT NULL;
+  `);
+
+  await pool.query(`
+    UPDATE training_matrix_submissions tms
+    SET
+      user_name_snapshot = COALESCE(tms.user_name_snapshot, u.name),
+      department_id_snapshot = COALESCE(tms.department_id_snapshot, u.department_id),
+      department_snapshot = COALESCE(tms.department_snapshot, u.department),
+      job_role_id_snapshot = COALESCE(tms.job_role_id_snapshot, u.job_role_id),
+      job_role_snapshot = COALESCE(tms.job_role_snapshot, u.job_role)
+    FROM users u
+    WHERE tms.user_id = u.id
+      AND (
+        tms.user_name_snapshot IS NULL
+        OR tms.department_snapshot IS NULL
+        OR tms.job_role_snapshot IS NULL
+        OR tms.department_id_snapshot IS NULL
+        OR tms.job_role_id_snapshot IS NULL
+      );
+  `);
+}

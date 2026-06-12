@@ -725,10 +725,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getCompetencyCategoriesForJobRole(jobRole: string | number) {
+    const normalizeRoleTitle = (value: string) => value.trim().replace(/\s+/g, " ").toLowerCase();
     const roles = await db.select().from(schema.jobRoles);
     const role = typeof jobRole === "number"
       ? roles.find(r => r.id === jobRole)
-      : roles.find(r => r.title.toLowerCase() === jobRole.toLowerCase());
+      : roles.find(r => normalizeRoleTitle(r.title) === normalizeRoleTitle(jobRole));
     if (!role) return null;
 
     const layout = await this.getJobRoleCategoryLayout(role.id);

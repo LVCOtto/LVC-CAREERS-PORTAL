@@ -48,30 +48,8 @@ async function ensureEmailAuthCodesTable() {
   );
 }
 
-async function ensureUsersEmailUniqueIndex() {
-  const duplicates = await pool.query<{
-    normalized_email: string;
-    count: number;
-  }>(`
-    SELECT lower(btrim(email)) AS normalized_email, count(*)::int AS count
-    FROM users
-    WHERE email IS NOT NULL AND btrim(email) <> ''
-    GROUP BY lower(btrim(email))
-    HAVING count(*) > 1
-    LIMIT 5;
-  `);
-
-  if (duplicates.rows.length > 0) {
-    const sample = duplicates.rows
-      .map((row) => `${row.normalized_email} (${row.count})`)
-      .join(", ");
-    console.warn(`[startup] Skipping unique email index; duplicates exist: ${sample}`);
-    return;
-  }
-
-  await pool.query(
-    `CREATE UNIQUE INDEX IF NOT EXISTS "IDX_users_email_unique_ci" ON "users" (lower(btrim("email"))) WHERE "email" IS NOT NULL AND btrim("email") <> '';`
-  );
+async function ensureUsersEmailIsNonUnique() {
+  await pool.query(`DROP INDEX IF EXISTS "IDX_users_email_unique_ci";`);
 }
 
 const app = express();
@@ -158,7 +136,7 @@ app.use((req, res, next) => {
 (async () => {
   await ensureSessionTable();
   await ensureEmailAuthCodesTable();
-  await ensureUsersEmailUniqueIndex();
+  await ensureUsersEmailIsNonUnique();
   await migrateCanonicalRelationshipColumns();
   await migrateJobRoleTrainingMatrixLayout();
   await migrateTrainingMatrixSnapshotColumns();

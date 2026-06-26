@@ -316,13 +316,6 @@ export async function registerRoutes(
     delete body.username;
     delete body.password;
 
-    if (body.email) {
-      const existingByEmail = await storage.getUserByEmail(body.email);
-      if (existingByEmail) {
-        return res.status(409).json({ message: "Email is already used by another user" });
-      }
-    }
-
     if (!body.id) {
       const slug = (body.name || "user")
         .toLowerCase()
@@ -344,12 +337,6 @@ export async function registerRoutes(
     delete data.username;
     if (data.email !== undefined) {
       data.email = normalizeEmail(data.email);
-      if (data.email) {
-        const existingByEmail = await storage.getUserByEmail(data.email);
-        if (existingByEmail && existingByEmail.id !== existing.id) {
-          return res.status(409).json({ message: "Email is already used by another user" });
-        }
-      }
     }
     delete data.password;
     data.username = null;
@@ -1674,14 +1661,6 @@ export async function registerRoutes(
             const ri = row.requiresInduction || row.requires_induction || "";
             const requiresInduction = ri === "true" || ri === "yes" || ri === "1";
             const normalizedEmail = normalizeEmail(row.email);
-            if (normalizedEmail) {
-              const existingByEmail = await storage.getUserByEmail(normalizedEmail);
-              if (existingByEmail) {
-                errors.push(`Row ${i + 1} (${row.name}): Email \"${normalizedEmail}\" already exists`);
-                skipped++;
-                continue;
-              }
-            }
             const hasCredentials = !!normalizedEmail;
             const userData = await normalizeUserRelationships({
               id: row.id || `${slug}-${Date.now().toString(36)}${i}`,

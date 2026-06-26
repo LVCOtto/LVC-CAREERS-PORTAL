@@ -1,16 +1,9 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useRoute } from 'wouter';
 import { usePortalSettings } from '@/lib/portalSettingsContext';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-  ChevronDown,
-  ChevronRight,
-  Send,
   CheckCircle2,
   User as UserIcon,
 } from 'lucide-react';
@@ -18,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 import { useSharedTrainingMatrix, useUpdateSharedTrainingMatrix } from '@/lib/hooks';
 import { Spinner } from '@/components/ui/spinner';
+import TrainingMatrixWizard from '@/components/TrainingMatrixWizard';
 
 const competencyColors = [
   'bg-gray-200 text-gray-600',
@@ -84,7 +78,6 @@ export default function SharedTrainingMatrix() {
   const updateShared = useUpdateSharedTrainingMatrix();
 
   const [localRatings, setLocalRatings] = useState<Record<string, number> | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [submitted, setSubmitted] = useState(false);
 
   const categories = data?.competencies || [];
@@ -94,40 +87,13 @@ export default function SharedTrainingMatrix() {
   const ratings = localRatings ?? existingRatings;
   const sectionGroups = useMemo(() => groupCategoriesBySection(categories), [categories]);
 
-  if (localRatings === null && categories.length > 0 && submission) {
+  useEffect(() => {
+    if (!submission) return;
     setLocalRatings({ ...existingRatings });
-    setExpandedCategories(new Set());
-  }
-
-  const totalItems = useMemo(() => {
-    let count = 0;
-    categories.forEach((cat: any) => {
-      count += cat.items.length;
-    });
-    return count;
-  }, [categories]);
-
-  const ratedCount = useMemo(() => {
-    let count = 0;
-    categories.forEach((cat: any) => {
-      cat.items.forEach((item: any) => {
-        if (ratings[item.slug] !== undefined) count++;
-      });
-    });
-    return count;
-  }, [ratings, categories]);
+  }, [token, submission?.id]);
 
   const setRating = useCallback((slug: string, value: number) => {
     setLocalRatings(prev => ({ ...(prev || {}), [slug]: value }));
-  }, []);
-
-  const toggleCategory = useCallback((slug: string) => {
-    setExpandedCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
   }, []);
 
   const handleSubmit = async () => {
@@ -136,7 +102,7 @@ export default function SharedTrainingMatrix() {
       await updateShared.mutateAsync({
         token,
         data: {
-          ratings: localRatings || {},
+          ratings,
           status: 'pending_review',
           submittedDate: today,
           lastAssessment: today,
@@ -151,6 +117,30 @@ export default function SharedTrainingMatrix() {
       toast({
         title: 'Error',
         description: 'Failed to submit training matrix.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await updateShared.mutateAsync({
+        token,
+        data: {
+          ratings,
+          status: 'draft',
+          lastAssessment: submission?.lastAssessment || today,
+        },
+      });
+      toast({
+        title: 'Progress saved',
+        description: 'Your current ratings have been saved.',
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save progress.',
         variant: 'destructive',
       });
     }
@@ -233,127 +223,23 @@ export default function SharedTrainingMatrix() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <span className="text-sm font-medium" data-testid="text-shared-progress-count">
-                {ratedCount} / {totalItems} items rated
-              </span>
-              <span className="text-xs text-muted-foreground ml-2">
-                {totalItems > 0 ? Math.round((ratedCount / totalItems) * 100) : 0}%
-              </span>
-            </div>
-          </div>
-          <Progress value={totalItems > 0 ? (ratedCount / totalItems) * 100 : 0} className="h-2 mb-4" data-testid="progress-shared-rated" />
-
-          <div className="flex flex-wrap gap-2 p-3 bg-muted/30 rounded-lg border mb-4">
-            {competencyLevels.map((level) => (
-              <div key={level.value} className="flex items-center gap-1.5">
-                <div className={`${level.color} w-6 h-6 rounded flex items-center justify-center font-semibold text-xs`}>
-                  {level.value}
-                </div>
-                <span className="text-xs text-muted-foreground">{level.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex-1 overflow-auto space-y-3 mb-6">
-            {(sectionGroups.length > 0 ? sectionGroups : [{ key: 'default', label: '', sortOrder: 0, categories }]).map((section) => (
-              <div key={section.key} className="space-y-3">
-                {section.label ? (
-                  <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/15 px-3 py-2">
-                    <div>
-                      <p className="text-sm font-semibold">{section.label}</p>
-                      <p className="text-xs text-muted-foreground">{section.categories.length} categor{section.categories.length === 1 ? 'y' : 'ies'}</p>
-                    </div>
-                    <Badge variant="secondary">Section</Badge>
-                  </div>
-                ) : null}
-                {section.categories.map((category: any) => {
-                  const isExpanded = expandedCategories.has(category.slug);
-                  const categoryRatedCount = category.items.filter((item: any) => ratings[item.slug] !== undefined).length;
-                  return (
-                    <div key={category.slug} className="border rounded-lg overflow-hidden">
-                      <button
-                        onClick={() => toggleCategory(category.slug)}
-                        className="w-full flex items-center justify-between p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
-                        data-testid={`shared-category-toggle-${category.slug}`}
-                      >
-                        <div className="flex items-center gap-2">
-                          {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          <span className="font-medium text-sm">{category.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {categoryRatedCount}/{category.items.length}
-                          </Badge>
-                        </div>
-                      </button>
-                      {isExpanded && (
-                        <div className="divide-y">
-                          {category.items.map((item: any) => {
-                            const currentRating = ratings[item.slug];
-                            const previousRating = existingRatings[item.slug];
-                            const hasPrevious = previousRating !== undefined && previousRating !== currentRating;
-                            return (
-                              <div
-                                key={item.id}
-                                className="flex items-center justify-between p-3 hover:bg-muted/10 gap-3"
-                                data-testid={`shared-competency-row-${item.slug}`}
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium">{item.name}</p>
-                                  {item.description && (
-                                    <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  {competencyLevels.map((level) => {
-                                    const isActive = currentRating === level.value;
-                                    const wasPrevious = hasPrevious && previousRating === level.value;
-                                    return (
-                                      <button
-                                        key={level.value}
-                                        onClick={() => setRating(item.slug, level.value)}
-                                        className={`relative w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all ${
-                                          isActive
-                                            ? `${level.color} ring-2 ring-offset-1 ring-current scale-110`
-                                            : wasPrevious
-                                              ? `${level.color} opacity-30 ring-1 ring-current`
-                                              : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
-                                        }`}
-                                        title={wasPrevious ? `Previous rating: ${level.label}` : level.label}
-                                        data-testid={`shared-rating-btn-${item.slug}-${level.value}`}
-                                      >
-                                        {level.value}
-                                        {wasPrevious && (
-                                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-muted-foreground/40" />
-                                        )}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-
-          <div className="border-t pt-4 bg-background shrink-0">
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSubmit}
-                className="gap-2"
-                disabled={updateShared.isPending}
-                data-testid="button-shared-submit"
-              >
-                <Send className="h-4 w-4" />
-                Submit for sign-off
-              </Button>
-            </div>
+          <div className="flex-1 min-h-0 overflow-hidden rounded-xl border bg-white">
+            <TrainingMatrixWizard
+              title="Self-Assessment"
+              description="Complete one section at a time, then review and submit for sign-off."
+              sectionGroups={sectionGroups.length > 0 ? sectionGroups : [{ key: 'default', label: 'Training Matrix', sortOrder: 0, categories }]}
+              ratings={ratings}
+              baselineRatings={existingRatings}
+              competencyLevels={competencyLevels}
+              onRate={setRating}
+              onSubmit={handleSubmit}
+              onSaveDraft={handleSaveDraft}
+              isSubmitting={updateShared.isPending}
+              isSavingDraft={updateShared.isPending}
+              submitLabel="Submit for sign-off"
+              saveDraftLabel="Save progress"
+              dataTestPrefix="shared-wizard"
+            />
           </div>
         </div>
       </div>

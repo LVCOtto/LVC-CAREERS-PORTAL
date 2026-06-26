@@ -37,6 +37,7 @@ import {
 } from 'recharts';
 import { Spinner } from '@/components/ui/spinner';
 import { getCompetencyDepartmentType } from '@/lib/departmentClassification';
+import TrainingMatrixWizard from '@/components/TrainingMatrixWizard';
 
 const competencyColors = [
   'bg-gray-200 text-gray-600',
@@ -521,7 +522,6 @@ export default function Training() {
   const { toast } = useToast();
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [dialogRatings, setDialogRatings] = useState<Record<string, number>>({});
-  const [dialogExpandedCategories, setDialogExpandedCategories] = useState<Set<string>>(new Set());
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -538,36 +538,11 @@ export default function Training() {
   const updateMatrix = useUpdateTrainingMatrix();
   const generateShareToken = useGenerateShareToken();
 
-  const totalItems = useMemo(() => {
-    let count = 0;
-    categories.forEach((cat: any) => { count += cat.items.length; });
-    return count;
-  }, [categories]);
-
-  const ratedCount = useMemo(() => {
-    let count = 0;
-    categories.forEach((cat: any) => {
-      cat.items.forEach((item: any) => {
-        if (dialogRatings[item.slug] !== undefined) count++;
-      });
-    });
-    return count;
-  }, [dialogRatings, categories]);
-
   const setRating = useCallback((slug: string, value: number) => {
     setDialogRatings(prev => ({ ...prev, [slug]: value }));
   }, []);
 
   const dialogSectionGroups = useMemo(() => groupCategoriesBySection(categories), [categories]);
-
-  const toggleDialogCategory = useCallback((slug: string) => {
-    setDialogExpandedCategories(prev => {
-      const next = new Set(prev);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
-  }, []);
 
   if (!currentUser) return null;
 
@@ -607,7 +582,6 @@ export default function Training() {
     } else {
       setDialogRatings({ ...ratings });
     }
-    setDialogExpandedCategories(new Set());
     setIsSubmitOpen(true);
   };
 
@@ -638,6 +612,42 @@ export default function Training() {
       toast({
         title: 'Error',
         description: 'Failed to submit training matrix.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      if (matrixSubmission?.id && matrixStatus !== 'approved') {
+        await updateMatrix.mutateAsync({
+          id: matrixSubmission.id,
+          data: {
+            ratings: dialogRatings,
+            status: 'draft',
+            lastAssessment: matrixSubmission.lastAssessment || today,
+          },
+        });
+      } else {
+        await createMatrix.mutateAsync({
+          userId: currentUser.id,
+          status: 'draft',
+          ratings: dialogRatings,
+          lastAssessment: today,
+          nextReviewDate: matrixSubmission?.nextReviewDate || undefined,
+        });
+      }
+
+      setIsSubmitOpen(false);
+      toast({
+        title: 'Draft saved',
+        description: 'Your progress has been saved and you can continue later.',
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to save draft.',
         variant: 'destructive',
       });
     }
@@ -841,131 +851,23 @@ export default function Training() {
 
         <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
           <DialogContent className="max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col [display:flex]" data-testid="dialog-submit-matrix">
-            <div className="px-6 py-5 border-b bg-gradient-to-b from-slate-50 to-white shrink-0">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-display">Self-Assessment</DialogTitle>
-                <DialogDescription>
-                  {getSetting('page.training.assessmentInstructions')}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="mt-4 flex items-center gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium" data-testid="text-progress-count">{ratedCount} / {totalItems} items rated</span>
-                    <span className="text-xs text-muted-foreground">{totalItems > 0 ? Math.round((ratedCount / totalItems) * 100) : 0}%</span>
-                  </div>
-                  <Progress value={totalItems > 0 ? (ratedCount / totalItems) * 100 : 0} className="h-2" data-testid="progress-rated" />
-                </div>
-              </div>
-              <div className="mt-3">
-                <CompetencyLegend />
-              </div>
-            </div>
-
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="px-6 py-4 space-y-3">
-                {(dialogSectionGroups.length > 0 ? dialogSectionGroups : [{ key: 'default', label: '', sortOrder: 0, categories }]).map((section) => (
-                  <div key={section.key} className="space-y-3">
-                    {section.label ? (
-                      <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/15 px-3 py-2">
-                        <div>
-                          <p className="text-sm font-semibold">{section.label}</p>
-                          <p className="text-xs text-muted-foreground">{section.categories.length} categor{section.categories.length === 1 ? 'y' : 'ies'}</p>
-                        </div>
-                        <Badge variant="secondary">Section</Badge>
-                      </div>
-                    ) : null}
-                    {section.categories.map((category: any) => {
-                      const isExpanded = dialogExpandedCategories.has(category.slug);
-                      const categoryRatedCount = category.items.filter((item: any) => dialogRatings[item.slug] !== undefined).length;
-                      return (
-                        <div key={category.slug} className="border rounded-lg overflow-hidden">
-                          <button
-                            onClick={() => toggleDialogCategory(category.slug)}
-                            className="w-full flex items-center justify-between p-3 bg-muted/20 hover:bg-muted/40 transition-colors"
-                            data-testid={`dialog-category-toggle-${category.slug}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                              <span className="font-medium text-sm">{category.name}</span>
-                              <Badge variant="secondary" className="text-xs">
-                                {categoryRatedCount}/{category.items.length}
-                              </Badge>
-                            </div>
-                          </button>
-                          {isExpanded && (
-                            <div className="divide-y">
-                              {category.items.map((item: any) => {
-                                const currentRating = dialogRatings[item.slug];
-                                const previousRating = ratings[item.slug];
-                                const hasPrevious = previousRating !== undefined && previousRating !== currentRating;
-                                return (
-                                  <div
-                                    key={item.id}
-                                    className="flex items-center justify-between p-3 hover:bg-muted/10 gap-3"
-                                    data-testid={`dialog-competency-row-${item.slug}`}
-                                  >
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium">{item.name}</p>
-                                      {item.description && (
-                                        <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      {competencyLevels.map((level) => {
-                                        const isActive = currentRating === level.value;
-                                        const wasPrevious = hasPrevious && previousRating === level.value;
-                                        return (
-                                          <button
-                                            key={level.value}
-                                            onClick={() => setRating(item.slug, level.value)}
-                                            className={`relative w-9 h-9 rounded-lg flex items-center justify-center font-semibold text-sm transition-all ${
-                                              isActive
-                                                ? `${level.color} ring-2 ring-offset-1 ring-current scale-110`
-                                                : wasPrevious
-                                                  ? `${level.color} opacity-30 ring-1 ring-current`
-                                                  : 'bg-muted/40 text-muted-foreground hover:bg-muted/60'
-                                            }`}
-                                            title={wasPrevious ? `Previous rating: ${level.label}` : level.label}
-                                            data-testid={`rating-btn-${item.slug}-${level.value}`}
-                                          >
-                                            {level.value}
-                                            {wasPrevious && (
-                                              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-muted-foreground/40" />
-                                            )}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t bg-white shrink-0">
-              <DialogFooter className="sm:justify-between">
-                <Button variant="ghost" onClick={() => setIsSubmitOpen(false)} data-testid="button-cancel-submit">
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSubmit}
-                  className="gap-2"
-                  disabled={createMatrix.isPending || updateMatrix.isPending}
-                  data-testid="button-confirm-submit"
-                >
-                  <Send className="h-4 w-4" />
-                  Submit for sign-off
-                </Button>
-              </DialogFooter>
-            </div>
+            <TrainingMatrixWizard
+              title="Self-Assessment"
+              description={getSetting('page.training.assessmentInstructions')}
+              sectionGroups={dialogSectionGroups.length > 0 ? dialogSectionGroups : [{ key: 'default', label: 'Training Matrix', sortOrder: 0, categories }]}
+              ratings={dialogRatings}
+              baselineRatings={ratings}
+              competencyLevels={competencyLevels}
+              onRate={setRating}
+              onSubmit={handleSubmit}
+              onCancel={() => setIsSubmitOpen(false)}
+              onSaveDraft={handleSaveDraft}
+              isSubmitting={createMatrix.isPending || updateMatrix.isPending}
+              isSavingDraft={createMatrix.isPending || updateMatrix.isPending}
+              submitLabel="Submit for sign-off"
+              saveDraftLabel="Save draft"
+              dataTestPrefix="dialog-wizard"
+            />
           </DialogContent>
         </Dialog>
 

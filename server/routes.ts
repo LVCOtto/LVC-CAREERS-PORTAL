@@ -22,12 +22,16 @@ function isPublicApiRoute(req: Request) {
   const isSharedInductionItemPatch =
     req.method === "PATCH" &&
     /^\/api\/induction\/shared\/[^/]+\/items\/\d+$/.test(routePath);
+  const isSharedTrainingMatrixPatch =
+    req.method === "PATCH" &&
+    /^\/api\/training-matrix\/shared\/[^/]+$/.test(routePath);
 
   if (routePath === "/api/auth/request-code") return true;
   if (routePath === "/api/auth/verify-code") return true;
   if (req.method === "GET" && routePath.startsWith("/api/induction/shared/")) return true;
   if (isSharedInductionItemPatch) return true;
   if (req.method === "GET" && routePath.startsWith("/api/training-matrix/shared/")) return true;
+  if (isSharedTrainingMatrixPatch) return true;
   return false;
 }
 

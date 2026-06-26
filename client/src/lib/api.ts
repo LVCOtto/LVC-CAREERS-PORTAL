@@ -23,6 +23,17 @@ export type JobRoleMatrixLayout = {
   assignments: JobRoleMatrixAssignment[];
 };
 
+export type AuthAccountOption = {
+  id: string;
+  name: string;
+};
+
+export type RequestCodeResponse = {
+  message: string;
+  requiresAccountSelection?: boolean;
+  accounts?: AuthAccountOption[];
+};
+
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${url}`, {
     credentials: "same-origin",
@@ -47,10 +58,10 @@ export const api = {
     team: (managerId: string) => apiFetch<any[]>(`/users/${encodePathSegment(managerId)}/team`),
   },
   auth: {
-    requestCode: (email: string) =>
-      apiFetch<{ message: string }>("/auth/request-code", { method: "POST", body: JSON.stringify({ email }) }),
-    verifyCode: (email: string, code: string) =>
-      apiFetch<any>("/auth/verify-code", { method: "POST", body: JSON.stringify({ email, code }) }),
+    requestCode: (email: string, userId?: string) =>
+      apiFetch<RequestCodeResponse>("/auth/request-code", { method: "POST", body: JSON.stringify({ email, userId }) }),
+    verifyCode: (email: string, code: string, userId?: string) =>
+      apiFetch<any>("/auth/verify-code", { method: "POST", body: JSON.stringify({ email, code, userId }) }),
     me: () => apiFetch<any>("/auth/me"),
     logout: () => apiFetch<void>("/auth/logout", { method: "POST" }),
   },

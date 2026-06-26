@@ -19,11 +19,21 @@ export interface User {
   activated: boolean;
 }
 
+export type AccountOption = {
+  id: string;
+  name: string;
+};
+
+export type RequestCodeResult = {
+  requiresAccountSelection: boolean;
+  accounts: AccountOption[];
+};
+
 interface AuthContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
-  requestCode: (email: string) => Promise<void>;
-  verifyCode: (email: string, code: string) => Promise<void>;
+  requestCode: (email: string, userId?: string) => Promise<RequestCodeResult>;
+  verifyCode: (email: string, code: string, userId?: string) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAuthLoading: boolean;
@@ -56,12 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const requestCode = async (email: string) => {
-    await api.auth.requestCode(email);
+  const requestCode = async (email: string, userId?: string) => {
+    const response = await api.auth.requestCode(email, userId);
+    return {
+      requiresAccountSelection: !!response.requiresAccountSelection,
+      accounts: response.accounts || [],
+    };
   };
 
-  const verifyCode = async (email: string, code: string) => {
-    const user = await api.auth.verifyCode(email, code);
+  const verifyCode = async (email: string, code: string, userId?: string) => {
+    const user = await api.auth.verifyCode(email, code, userId);
     setCurrentUser(user as User);
   };
 

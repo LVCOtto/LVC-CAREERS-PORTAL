@@ -172,6 +172,7 @@ export interface IStorage {
 
   // Passwordless email auth
   getUserByEmail(email: string): Promise<schema.User | undefined>;
+  getUsersByEmail(email: string): Promise<schema.User[]>;
   createEmailAuthCode(data: schema.InsertEmailAuthCode): Promise<schema.EmailAuthCode>;
   getLatestActiveEmailAuthCode(userId: string): Promise<schema.EmailAuthCode | undefined>;
   incrementEmailAuthCodeAttempts(id: number): Promise<void>;
@@ -195,6 +196,12 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(schema.users)
       .where(sql`lower(btrim(${schema.users.email})) = ${normalized}`);
     return user;
+  }
+
+  async getUsersByEmail(email: string) {
+    const normalized = email.trim().toLowerCase();
+    return db.select().from(schema.users)
+      .where(sql`lower(btrim(${schema.users.email})) = ${normalized}`);
   }
 
   async createEmailAuthCode(data: schema.InsertEmailAuthCode) {

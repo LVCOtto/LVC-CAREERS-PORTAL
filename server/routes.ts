@@ -368,18 +368,39 @@ export async function registerRoutes(
     }
 
     const rawEmail = req.body?.email;
+    const rawUserId = req.body?.userId;
     if (!rawEmail || typeof rawEmail !== "string") {
       return res.status(400).json({ message: "Email is required" });
     }
     const email = rawEmail.trim().toLowerCase();
+    const userId = typeof rawUserId === "string" && rawUserId.trim()
+      ? rawUserId.trim()
+      : null;
 
     // Always return the same response regardless of whether the email exists
     // to prevent email enumeration attacks
     const GENERIC_OK = { message: "If that email is registered, a sign-in code has been sent." };
 
     try {
-      const user = await storage.getUserByEmail(email);
-      if (!user || !user.activated) return res.json(GENERIC_OK);
+      const usersByEmail = await storage.getUsersByEmail(email);
+      const activeUsers = usersByEmail.filter((user) => user.activated);
+      if (activeUsers.length === 0) return res.json(GENERIC_OK);
+
+      if (activeUsers.length > 1 && !userId) {
+        return res.json({
+          message: "Multiple accounts found for this email",
+          requiresAccountSelection: true,
+          accounts: activeUsers.map((user) => ({ id: user.id, name: user.name })),
+        });
+      }
+
+      const user = userId
+        ? activeUsers.find((candidate) => candidate.id === userId)
+        : activeUsers[0];
+
+      if (!user) {
+        return res.status(400).json({ message: "Selected account is not valid for this email" });
+      }
 
       // Per-user rate limit (separate from IP limit)
       if (!checkRateLimit(`user:${user.id}`)) return res.json(GENERIC_OK);
@@ -432,15 +453,36 @@ export async function registerRoutes(
 
     const rawEmail = req.body?.email;
     const rawCode = req.body?.code;
+    const rawUserId = req.body?.userId;
     if (!rawEmail || !rawCode || typeof rawEmail !== "string" || typeof rawCode !== "string") {
       return res.status(400).json({ message: "Email and code are required" });
     }
     const email = rawEmail.trim().toLowerCase();
     const code = rawCode.trim();
+    const userId = typeof rawUserId === "string" && rawUserId.trim()
+      ? rawUserId.trim()
+      : null;
 
     try {
-      const user = await storage.getUserByEmail(email);
-      if (!user || !user.activated) {
+      const usersByEmail = await storage.getUsersByEmail(email);
+      const activeUsers = usersByEmail.filter((user) => user.activated);
+      if (activeUsers.length === 0) {
+        return res.status(401).json({ message: "Invalid or expired code" });
+      }
+
+      if (activeUsers.length > 1 && !userId) {
+        return res.status(400).json({ message: "Please select an account for this email before verifying." });
+      }
+
+      const user = userId
+        ? activeUsers.find((candidate) => candidate.id === userId)
+        : activeUsers[0];
+
+      if (!user) {
+        return res.status(401).json({ message: "Invalid or expired code" });
+      }
+
+      if (!user.activated) {
         return res.status(401).json({ message: "Invalid or expired code" });
       }
 

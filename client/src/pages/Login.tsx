@@ -10,7 +10,11 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { Mail, ArrowRight } from 'lucide-react';
 import lvcLogo from '@assets/image-1_1767968047751.png';
 
-type Step = 'email' | 'code';
+type Step = 'email' | 'account' | 'code';
+type AccountOption = {
+  id: string;
+  name: string;
+};
 
 export default function Login() {
   const { requestCode, verifyCode, isAuthenticated, isAuthLoading } = useAuth();
@@ -19,6 +23,8 @@ export default function Login() {
 
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [accountOptions, setAccountOptions] = useState<AccountOption[]>([]);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +53,32 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await requestCode(trimmedEmail);
+      const result = await requestCode(trimmedEmail);
+      if (result.requiresAccountSelection) {
+        setAccountOptions(result.accounts);
+        setSelectedAccountId(result.accounts[0]?.id || '');
+        setStep('account');
+        return;
+      }
+      setStep('code');
+      setResendCountdown(60);
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelectAccount = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAccountId) {
+      setError('Please select the account name you want to sign in as.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      await requestCode(email.trim(), selectedAccountId);
       setStep('code');
       setResendCountdown(60);
     } catch (err: any) {
@@ -66,7 +97,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await verifyCode(email.trim(), code);
+      await verifyCode(email.trim(), code, selectedAccountId || undefined);
       const redirectTarget = sessionStorage.getItem('postLoginRedirect') || '/dashboard';
       sessionStorage.removeItem('postLoginRedirect');
       setLocation(redirectTarget);
@@ -83,7 +114,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      await requestCode(email.trim());
+      await requestCode(email.trim(), selectedAccountId || undefined);
       setResendCountdown(60);
       setCode('');
     } catch (err: any) {
@@ -112,6 +143,8 @@ export default function Login() {
             <CardDescription className="text-base">
               {step === 'email'
                 ? 'Enter your work email to receive a sign-in code'
+                : step === 'account'
+                  ? 'Select which account name you want to sign in as'
                 : `Enter the 6-digit code sent to ${email}`}
             </CardDescription>
           </CardHeader>
@@ -147,6 +180,54 @@ export default function Login() {
                   <Mail className="h-4 w-4" />
                   {loading ? 'Sending…' : 'Send Sign-In Code'}
                 </Button>
+              </form>
+            ) : step === 'account' ? (
+              <form onSubmit={handleSelectAccount} className="space-y-5">
+                <div className="space-y-2">
+                  <Label htmlFor="account">Account Name</Label>
+                  <select
+                    id="account"
+                    value={selectedAccountId}
+                    onChange={(e) => setSelectedAccountId(e.target.value)}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    data-testid="select-login-account"
+                  >
+                    {accountOptions.map((account) => (
+                      <option key={account.id} value={account.id}>{account.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {error && (
+                  <div className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg p-3" data-testid="text-login-error">
+                    {error}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  className="w-full gap-2"
+                  disabled={loading || !selectedAccountId}
+                  data-testid="button-send-code-selected-account"
+                >
+                  <Mail className="h-4 w-4" />
+                  {loading ? 'Sending…' : 'Send Code To Selected Account'}
+                </Button>
+
+                <div className="flex items-center justify-between text-sm pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('email');
+                      setSelectedAccountId('');
+                      setAccountOptions([]);
+                      setError('');
+                    }}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    ← Change email
+                  </button>
+                </div>
               </form>
             ) : (
               <form onSubmit={handleVerifyCode} className="space-y-5">
@@ -191,7 +272,13 @@ export default function Login() {
                 <div className="flex items-center justify-between text-sm pt-1">
                   <button
                     type="button"
-                    onClick={() => { setStep('email'); setCode(''); setError(''); }}
+                    onClick={() => {
+                      setStep('email');
+                      setCode('');
+                      setError('');
+                      setSelectedAccountId('');
+                      setAccountOptions([]);
+                    }}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     ← Change email

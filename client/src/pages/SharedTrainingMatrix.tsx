@@ -5,7 +5,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   CheckCircle2,
-  Clock3,
   ShieldCheck,
   Sparkles,
   User as UserIcon,
@@ -112,7 +111,6 @@ export default function SharedTrainingMatrix() {
     }
     return false;
   }, [existingRatings, ratings]);
-  const estimatedMinutes = Math.max(5, Math.round(totalItems * 0.4));
 
   useEffect(() => {
     if (!submission) return;
@@ -257,14 +255,10 @@ export default function SharedTrainingMatrix() {
               </span>
             </div>
 
-            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <div className="rounded-lg border bg-white/80 px-3 py-2">
                 <p className="text-xs text-muted-foreground">Progress</p>
                 <p className="text-lg font-semibold">{ratedItems}/{totalItems} rated ({completion}%)</p>
-              </div>
-              <div className="rounded-lg border bg-white/80 px-3 py-2">
-                <p className="text-xs text-muted-foreground">Estimated time</p>
-                <p className="text-lg font-semibold inline-flex items-center gap-2"><Clock3 className="h-4 w-4 text-primary" /> ~{estimatedMinutes} min</p>
               </div>
               <div className="rounded-lg border bg-white/80 px-3 py-2">
                 <p className="text-xs text-muted-foreground">Save state</p>

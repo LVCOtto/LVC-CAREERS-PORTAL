@@ -236,9 +236,13 @@ export function IndividualView({
 }) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [showAllCategoryCards, setShowAllCategoryCards] = useState(false);
   const sectionGroups = useMemo(() => groupCategoriesBySection(categories), [categories]);
   const overallAvg = calculateOverallAverage(ratings, categories);
   const totalCompetencies = categories.reduce((count: number, category: any) => count + category.items.length, 0);
+  const previewCategoryCount = 3;
+  const visibleCategories = showAllCategoryCards ? categories : categories.slice(0, previewCategoryCount);
+  const hasHiddenCategoryCards = categories.length > previewCategoryCount;
 
   const toggleCategory = (categorySlug: string) => {
     setExpandedCategories((prev) => {
@@ -289,8 +293,14 @@ export function IndividualView({
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {categories.slice(0, 4).map((category: any) => {
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold">Score Snapshot</p>
+          <p className="text-xs text-muted-foreground">Top categories at a glance</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {visibleCategories.map((category: any) => {
           const avg = calculateCategoryAverage(ratings, category);
           const percentage = (avg / 4) * 100;
           return (
@@ -308,6 +318,21 @@ export function IndividualView({
             </Card>
           );
         })}
+
+        </div>
+        {hasHiddenCategoryCards && (
+          <div className="flex justify-start">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAllCategoryCards((prev) => !prev)}
+              data-testid="button-toggle-category-preview"
+            >
+              {showAllCategoryCards ? 'Show fewer categories' : `Show all ${categories.length} categories`}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="border rounded-xl overflow-hidden">
@@ -525,6 +550,7 @@ export default function Training() {
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [copied, setCopied] = useState(false);
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
 
   const departmentType = currentUser?.department || getCompetencyDepartmentType(currentUser);
 
@@ -561,6 +587,32 @@ export default function Training() {
 
   const ratings: Record<string, number> = (matrixSubmission?.ratings as Record<string, number>) || {};
   const matrixStatus = matrixSubmission?.status || 'draft';
+  const submitButtonDisabled = matrixStatus === 'pending_review';
+  const submitButtonLabel = matrixStatus === 'approved'
+    ? 'Start new self-assessment'
+    : matrixStatus === 'pending_review'
+      ? 'Awaiting manager sign-off'
+      : 'Submit training matrix';
+  const totalSkills = categories.reduce((count: number, category: any) => count + category.items.length, 0);
+  const ratedSkills = categories.reduce(
+    (count: number, category: any) => count + category.items.filter((item: any) => ratings[item.slug] !== undefined).length,
+    0
+  );
+  const completionPercent = totalSkills > 0 ? Math.round((ratedSkills / totalSkills) * 100) : 0;
+  const overallScore = calculateOverallAverage(ratings, categories);
+  const nextActionText = matrixStatus === 'pending_review'
+    ? 'No action needed right now. Your manager will review and sign this off.'
+    : matrixStatus === 'approved'
+      ? 'Your last matrix is approved. Start a new self-assessment when ready.'
+      : 'Continue rating your skills, then submit for manager sign-off.';
+  const statusPanelTone = matrixStatus === 'approved'
+    ? 'border-emerald-200 bg-emerald-50/40'
+    : matrixStatus === 'pending_review'
+      ? 'border-amber-200 bg-amber-50/35'
+      : 'border-slate-200 bg-slate-50/60';
+  const actionPanelTone = matrixStatus === 'pending_review'
+    ? 'border-amber-200/80 bg-amber-50/30'
+    : 'border-border bg-background';
   const lastAssessment = matrixSubmission?.lastAssessment || undefined;
   const nextReviewDate = matrixSubmission?.nextReviewDate
     ? new Date(matrixSubmission.nextReviewDate + 'T00:00:00')
@@ -692,18 +744,20 @@ export default function Training() {
 
   return (
     <Layout>
-      <div className="mx-auto w-full max-w-6xl space-y-8 animate-fade-in">
-        <Card className="border-border/60 shadow-sm bg-gradient-to-br from-card to-muted/20">
+      <div className="mx-auto w-full max-w-6xl space-y-6 animate-fade-in">
+        <Card className="relative overflow-hidden border-border/60 shadow-sm bg-gradient-to-br from-card via-card to-muted/20">
+          <div className="pointer-events-none absolute inset-y-0 right-0 w-1/3 bg-gradient-to-l from-primary/10 to-transparent" aria-hidden="true" />
           <CardContent className="p-6 md:p-8">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h1 className="text-3xl font-display font-bold">{getSetting('page.training.heading')}</h1>
-                <p className="text-muted-foreground mt-1 max-w-3xl">{getSetting('page.training.description')}</p>
+                <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">Training overview</p>
+                <h1 className="mt-1 text-3xl font-display font-bold md:text-4xl">{getSetting('page.training.heading')}</h1>
+                <p className="text-muted-foreground mt-2 max-w-3xl">{getSetting('page.training.description')}</p>
               </div>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" data-testid="button-training-help">
+                    <Button variant="outline" size="icon" className="bg-background/90" data-testid="button-training-help">
                       <HelpCircle className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -723,23 +777,25 @@ export default function Training() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 shadow-sm">
-          <CardHeader className="pb-3">
-            <div className="flex flex-col gap-5">
+        <Card className="overflow-hidden border-border/60 shadow-sm">
+          <CardHeader className="pb-3 bg-gradient-to-b from-muted/20 to-background">
+            <div className="flex flex-col gap-4">
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
                   My Training Matrix
                 </CardTitle>
-                <CardDescription>
-                  Your self-assessment ratings. Submit when you&apos;re happy — your line manager will review and sign it off.
+                <CardDescription className="mt-1">
+                  Clear status, clear next step, and your latest competency snapshot.
                 </CardDescription>
               </div>
 
               {isColleague && (
-                <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
-                  <div className="rounded-xl border bg-muted/20 px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="grid gap-3 lg:grid-cols-3">
+                  <div className={`rounded-xl border px-4 py-4 lg:col-span-2 ${statusPanelTone}`}>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Current assessment status</p>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       {matrixStatus === 'pending_review' && (
                         <Badge variant="secondary" className="bg-amber-100 text-amber-800" data-testid="status-matrix-pending">
                           Pending line manager sign-off
@@ -777,35 +833,82 @@ export default function Training() {
                         </span>
                       )}
                     </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4" data-testid="matrix-state-steps">
+                      <div className={`rounded-md border px-2 py-1 text-xs ${matrixStatus !== 'draft' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'bg-background text-foreground'}`}>
+                        1. Draft
+                      </div>
+                      <div className={`rounded-md border px-2 py-1 text-xs ${(matrixSubmission?.submittedDate || matrixStatus === 'pending_review' || matrixStatus === 'approved') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'bg-background text-muted-foreground'}`}>
+                        2. Submitted
+                      </div>
+                      <div className={`rounded-md border px-2 py-1 text-xs ${matrixStatus === 'pending_review' || matrixStatus === 'approved' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'bg-background text-muted-foreground'}`}>
+                        3. Pending review
+                      </div>
+                      <div className={`rounded-md border px-2 py-1 text-xs ${matrixStatus === 'approved' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'bg-background text-muted-foreground'}`}>
+                        4. Approved
+                      </div>
+                    </div>
+
+                    <p className="mt-3 text-sm font-medium text-foreground" data-testid="text-next-action-hint">{nextActionText}</p>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 md:justify-end">
-                    <Button
-                      onClick={openSelfAssessment}
-                      className="gap-2"
-                      disabled={matrixStatus === 'pending_review'}
-                      data-testid="button-submit-matrix"
-                    >
-                      <Send className="h-4 w-4" />
-                      {matrixStatus === 'approved' ? 'Start new self-assessment' : 'Submit training matrix'}
-                    </Button>
+                  <div className={`rounded-xl border px-4 py-4 ${actionPanelTone}`}>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Next action</p>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <Button
+                        onClick={openSelfAssessment}
+                        className="gap-2 justify-start"
+                        disabled={submitButtonDisabled}
+                        data-testid="button-submit-matrix"
+                      >
+                        <Send className="h-4 w-4" />
+                        {submitButtonLabel}
+                      </Button>
 
-                    <Button
-                      onClick={handleShareLink}
-                      variant="outline"
-                      className="gap-2"
-                      disabled={generateShareToken.isPending}
-                      data-testid="button-share-matrix"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      Share link
-                    </Button>
+                      <Button
+                        onClick={handleShareLink}
+                        variant="outline"
+                        className="gap-2 justify-start"
+                        disabled={generateShareToken.isPending}
+                        data-testid="button-share-matrix"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Share link
+                      </Button>
+                    </div>
+
+                    {submitButtonDisabled && (
+                      <p className="mt-3 text-xs text-muted-foreground" data-testid="text-submit-disabled-reason">
+                        Already submitted. You can open a new assessment after manager sign-off.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
+
+              <div className="grid gap-2 sm:grid-cols-3" data-testid="matrix-snapshot-cards">
+                <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Overall score</p>
+                  <p className="text-xl font-semibold">{overallScore.toFixed(1)} / 4</p>
+                </div>
+                <div className="rounded-lg border border-sky-200 bg-gradient-to-br from-sky-50 to-sky-100/60 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Completion</p>
+                  <p className="text-xl font-semibold">{completionPercent}%</p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/60 px-3 py-2">
+                  <p className="text-xs text-muted-foreground">Rated skills</p>
+                  <p className="text-xl font-semibold">{ratedSkills} / {totalSkills}</p>
+                </div>
+              </div>
+
+              {matrixSubmission?.submittedDate && (
+                <p className="text-xs text-muted-foreground">
+                  Current cycle submitted on {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}.
+                </p>
+              )}
             </div>
           </CardHeader>
-          <CardContent className="pt-1">
+          <CardContent className="pt-3">
             <IndividualView
               name={currentUser.name}
               jobRole={currentUser.jobRole || 'Engineer'}
@@ -814,38 +917,56 @@ export default function Training() {
               lastAssessment={lastAssessment}
               categories={categories}
               showBackButton={false}
+              compact
             />
           </CardContent>
         </Card>
 
         {categories.length > 0 && (
           <Card className="border-border/60 shadow-sm">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="h-4 w-4 text-primary" />
-                Progress Timeline
-              </CardTitle>
-              <CardDescription>
-                Overall training matrix score across assessments.
-                <span className="ml-2 inline-flex items-center gap-2 text-xs">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
-                    Approved
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-                    Pending review
-                  </span>
-                </span>
-              </CardDescription>
+            <CardHeader className="pb-2 bg-gradient-to-b from-muted/10 to-background">
+              <button
+                type="button"
+                onClick={() => setTimelineExpanded((prev) => !prev)}
+                className="flex w-full items-center justify-between text-left"
+                data-testid="button-toggle-progress-timeline"
+              >
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    Progress Timeline
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    Track score history across submitted assessments.
+                    <span className="ml-2 inline-flex items-center gap-2 text-xs">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                        Approved
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                        Pending review
+                      </span>
+                    </span>
+                  </CardDescription>
+                </div>
+                {timelineExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
             </CardHeader>
-            <CardContent>
-              <TrainingProgressChart
-                userId={currentUser.id}
-                categories={categories}
-                nextReviewDate={matrixSubmission?.nextReviewDate}
-              />
-            </CardContent>
+
+            {timelineExpanded ? (
+              <CardContent>
+                <TrainingProgressChart
+                  userId={currentUser.id}
+                  categories={categories}
+                  nextReviewDate={matrixSubmission?.nextReviewDate}
+                />
+              </CardContent>
+            ) : (
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Collapsed to keep focus on your current assessment.</p>
+              </CardContent>
+            )}
           </Card>
         )}
 

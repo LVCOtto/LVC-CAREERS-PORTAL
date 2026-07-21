@@ -1712,36 +1712,7 @@ function TeamList() {
 
         <div className="grid gap-4">
           {members.map((member: User) => (
-            <Link key={member.id} href={buildTeamMemberHref(member.id)}>
-              <Card
-                className="border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
-                data-testid={`team-card-${member.id}`}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-primary">
-                        {member.name
-                          .split(' ')
-                          .map((n) => n[0])
-                          .join('')}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-lg" data-testid={`text-member-name-${member.id}`}>{member.name}</p>
-                        <p className="text-muted-foreground" data-testid={`text-member-role-${member.id}`}>{member.jobRole}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="w-4 h-4" />
-                        <span>Started {new Date(member.startDate).toLocaleDateString('en-GB')}</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
+            <TeamMemberListCard key={member.id} member={member} />
           ))}
 
           {members.length === 0 && (
@@ -1756,6 +1727,86 @@ function TeamList() {
         </div>
       </div>
     </Layout>
+  );
+}
+
+function TeamMemberListCard({ member }: { member: User }) {
+  const { data: matrixSubmission } = useTrainingMatrixForUser(member.id);
+
+  const ratings = (matrixSubmission?.ratings as Record<string, number> | undefined) ?? {};
+  const ratingValues = Object.values(ratings).filter((value) => typeof value === 'number');
+  const overallScore = ratingValues.length > 0
+    ? ratingValues.reduce((sum, value) => sum + value, 0) / ratingValues.length
+    : null;
+
+  const lastFulfilledRaw = matrixSubmission?.lastAssessment || matrixSubmission?.approvedDate || matrixSubmission?.submittedDate || null;
+  const lastFulfilledDate = lastFulfilledRaw ? new Date(`${lastFulfilledRaw}T00:00:00`) : null;
+  const now = new Date();
+  const dayMs = 1000 * 60 * 60 * 24;
+  const daysSinceLastFulfilled = lastFulfilledDate
+    ? Math.floor((now.getTime() - lastFulfilledDate.getTime()) / dayMs)
+    : null;
+
+  const indicatorLabel = daysSinceLastFulfilled === null
+    ? 'No matrix yet'
+    : daysSinceLastFulfilled <= 365
+      ? 'Up to date'
+      : 'Review due';
+  const indicatorTone = daysSinceLastFulfilled === null
+    ? 'bg-slate-100 text-slate-700'
+    : daysSinceLastFulfilled <= 365
+      ? 'bg-emerald-100 text-emerald-800'
+      : 'bg-amber-100 text-amber-800';
+
+  return (
+    <Link href={buildTeamMemberHref(member.id)}>
+      <Card
+        className="border-border/50 hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+        data-testid={`team-card-${member.id}`}
+      >
+        <CardContent className="p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center font-semibold text-primary">
+                {member.name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')}
+              </div>
+              <div>
+                <p className="font-semibold text-lg" data-testid={`text-member-name-${member.id}`}>{member.name}</p>
+                <p className="text-muted-foreground" data-testid={`text-member-role-${member.id}`}>{member.jobRole}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="w-4 h-4" />
+              <span>Started {new Date(member.startDate).toLocaleDateString('en-GB')}</span>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <div className="rounded-md border bg-muted/20 px-3 py-2" data-testid={`text-member-score-${member.id}`}>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Overall score</p>
+              <p className="text-sm font-semibold">
+                {overallScore === null ? 'Not available' : `${overallScore.toFixed(1)} / 4`}
+              </p>
+            </div>
+            <div className="rounded-md border bg-muted/20 px-3 py-2" data-testid={`text-member-last-fulfilled-${member.id}`}>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Last fulfilled</p>
+              <div className="mt-1 flex items-center gap-2">
+                <p className="text-sm font-semibold">
+                  {lastFulfilledRaw
+                    ? new Date(`${lastFulfilledRaw}T00:00:00`).toLocaleDateString('en-GB')
+                    : 'Not yet submitted'}
+                </p>
+                <Badge variant="secondary" className={indicatorTone}>{indicatorLabel}</Badge>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 

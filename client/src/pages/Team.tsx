@@ -803,7 +803,7 @@ function InductionSectionView({ items, completeItem, currentUser, memberId, toas
   );
 }
 
-function TeamMemberProfile({ memberId }: { memberId: string }) {
+function TeamMemberProfile({ memberId, initialTab = 'induction' }: { memberId: string; initialTab?: 'induction' | 'training' }) {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
@@ -1045,7 +1045,7 @@ function TeamMemberProfile({ memberId }: { memberId: string }) {
           </Card>
         </div>
 
-        <Tabs defaultValue="induction">
+        <Tabs defaultValue={initialTab}>
           <TabsList>
             <TabsTrigger value="induction" className="gap-2" data-testid="tab-profile-induction">
               <ClipboardCheck className="w-4 h-4" />
@@ -1814,15 +1814,16 @@ export default function Team() {
   const [location] = useLocation();
   const [encodedMatch, encodedParams] = useRoute('/team/member/:encodedId');
   const [match, params] = useRoute('/team/:id');
-  const memberIdFromQuery = new URLSearchParams(
+  const searchParams = new URLSearchParams(
     typeof window !== 'undefined' ? window.location.search : location.split('?')[1] || ''
-  ).get('memberId');
+  );
+  const memberIdFromQuery = searchParams.get('memberId');
   const memberId = encodedMatch && encodedParams?.encodedId
     ? decodeTeamMemberRouteId(encodedParams.encodedId)
     : memberIdFromQuery || params?.id;
 
   if (memberId) {
-    return <TeamMemberProfile memberId={memberId} />;
+    return <TeamMemberProfile key={memberId} memberId={memberId} initialTab={searchParams.get('tab') === 'training' ? 'training' : 'induction'} />;
   }
 
   return <TeamList />;

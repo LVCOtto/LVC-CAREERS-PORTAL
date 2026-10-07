@@ -15,6 +15,7 @@ import RolePlaybook from "@/pages/RolePlaybook";
 import Resources from "@/pages/Resources";
 import Milestones from "@/pages/Milestones";
 import Team from "@/pages/Team";
+import TeamTraining from "@/pages/TeamTraining";
 import AdminUsers from "@/pages/admin/Users";
 import AdminTemplates from "@/pages/admin/Templates";
 import AdminRoles from "@/pages/admin/Roles";
@@ -93,6 +94,9 @@ function Router() {
       </Route>
       <Route path="/team/member/:encodedId">
         {() => <ProtectedRoute component={Team} />}
+      </Route>
+      <Route path="/team/training">
+        {() => <ProtectedRoute component={TeamTraining} />}
       </Route>
       <Route path="/team/:id?">
         {() => <ProtectedRoute component={Team} />}

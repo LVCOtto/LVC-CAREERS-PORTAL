@@ -2,6 +2,16 @@ import { db, pool } from "./db";
 import { eq, sql, and, isNotNull } from "drizzle-orm";
 import { careerNodes, competencyCategories, departmentsTable, jobRoles, users } from "@shared/schema";
 
+export async function migrateTrainingMatrixRequests() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS training_matrix_requests (
+      user_id varchar(50) PRIMARY KEY,
+      sent_at text NOT NULL,
+      responded_at text
+    );
+  `);
+}
+
 export async function migrateCompetencyDepartmentTypes() {
   const departments = await db.select().from(departmentsTable);
   const deptNames = new Set(departments.map(d => d.name));

@@ -1,0 +1,55 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import type { TrainingMatrixSubmission } from "./schema";
+import { summarizeTraining, trainingScore, isNewTrainingSubmission } from "./teamTraining";
+
+function assessment(id: number, fields: Partial<TrainingMatrixSubmission> = {}): TrainingMatrixSubmission {
+  return { id, userId: "member", status: "draft", ratings: {}, submittedDate: null,
+    lastAssessment: null, approvedBy: null, approvedDate: null, nextReviewDate: null,
+    shareToken: null, userNameSnapshot: null, departmentIdSnapshot: null,
+    departmentSnapshot: null, jobRoleIdSnapshot: null, jobRoleSnapshot: null, ...fields };
+}
+
+test("missing assessments and drafts have never been completed", () => {
+  for (const history of [[], [assessment(1)]]) {
+    assert.equal(summarizeTraining(history, "2026-10-07").status, "never_completed");
+  }
+});
+
+test("a draft preserves the previous submitted date and assessment", () => {
+  const result = summarizeTraining([assessment(2), assessment(1, {
+    status: "approved", submittedDate: "2026-09-01", nextReviewDate: "2027-03-01",
+  })], "2026-10-07");
+  assert.equal(result.status, "current");
+  assert.equal(result.submitted?.id, 1);
+  assert.equal(result.lastSubmitted, "2026-09-01");
+});
+
+test("expired training stays highlighted while a replacement awaits sign-off", () => {
+  const result = summarizeTraining([assessment(2, { status: "pending_review", submittedDate: "2026-10-06" }),
+    assessment(1, { status: "approved", nextReviewDate: "2026-10-01" })], "2026-10-07");
+  assert.equal(result.status, "expired");
+  assert.equal(result.needsAttention, true);
+  assert.equal(result.awaitingSignoff, true);
+  assert.equal(result.submitted?.id, 2);
+});
+
+test("a review due today is not expired; missing review dates are explicit", () => {
+  assert.equal(summarizeTraining([assessment(1, { status: "approved", nextReviewDate: "2026-10-07" })], "2026-10-07").status, "current");
+  assert.equal(summarizeTraining([assessment(1, { status: "approved" })], "2026-10-07").status, "review_missing");
+  assert.equal(summarizeTraining([assessment(1, { status: "pending_review" })], "2026-10-07").status, "awaiting_signoff");
+});
+
+test("scores include unrated applicable competencies as zero, not unrelated ratings", () => {
+  assert.equal(trainingScore({ first: 4, unrelated: 4 }, ["first", "second"]), 2);
+  assert.equal(trainingScore({}, []), null);
+});
+
+test("only a new submission clears requests, including a same-day draft submission", () => {
+  const draft = assessment(1);
+  const submitted = assessment(1, { status: "pending_review", submittedDate: "2026-10-07" });
+  assert.equal(isNewTrainingSubmission(draft, submitted), true);
+  assert.equal(isNewTrainingSubmission(undefined, submitted), true);
+  assert.equal(isNewTrainingSubmission(draft, draft), false);
+  assert.equal(isNewTrainingSubmission(submitted, { ...submitted, status: "approved" }), false);
+});

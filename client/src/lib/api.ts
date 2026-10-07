@@ -1,4 +1,5 @@
 import { queryClient } from "./queryClient";
+import type { TeamTrainingRow } from "@shared/teamTraining";
 
 const BASE = "/api";
 
@@ -89,6 +90,8 @@ export const api = {
     deleteItem: (id: number) => apiFetch<void>(`/competency-items/${id}`, { method: "DELETE" }),
   },
   trainingMatrix: {
+    teamSummary: () => apiFetch<TeamTrainingRow[]>("/training-matrix/team-summary"),
+    markSent: (userId: string) => apiFetch<void>(`/training-matrix/requests/${encodePathSegment(userId)}/sent`, { method: "POST" }),
     list: () => apiFetch<any[]>("/training-matrix"),
     get: (userId: string) => apiFetch<any>(`/training-matrix/${encodePathSegment(userId)}`),
     history: (userId: string) => apiFetch<any[]>(`/training-matrix/history/${encodePathSegment(userId)}`),

@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import multer from "multer";
 import { exportFullBackup } from "./backup";
 import { exportTrainingMatrixCsv } from "./trainingMatrixExport";
+import { getTeamTraining } from "./teamTraining";
 import { importFullBackup } from "./restore";
 import { randomInt } from "crypto";
 import bcrypt from "bcryptjs";
@@ -888,6 +889,28 @@ export async function registerRoutes(
   });
 
   // ===== TRAINING MATRIX SUBMISSIONS =====
+  app.get("/api/training-matrix/team-summary", async (req, res, next) => {
+    if (!isPrivilegedRole(req.session.role)) return res.status(403).json({ message: "Manager access required" });
+    try {
+      res.json(await getTeamTraining(req.session.userId!));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/training-matrix/requests/:userId/sent", async (req, res, next) => {
+    if (!isPrivilegedRole(req.session.role) || !await canAccessUser(req, req.params.userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    try {
+      if (!await storage.getUser(req.params.userId)) return res.status(404).json({ message: "User not found" });
+      await storage.markTrainingMatrixSent(req.params.userId);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.get("/api/training-matrix", async (_req, res) => {
     const submissions = await storage.getAllTrainingMatrixSubmissions();
     res.json(submissions);

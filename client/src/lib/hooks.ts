@@ -95,6 +95,17 @@ export function useTrainingMatrixSubmissions() {
   return useQuery({ queryKey: ["training-matrix"], queryFn: api.trainingMatrix.list });
 }
 
+export function useTeamTraining(userId: string, enabled: boolean) {
+  return useQuery({ queryKey: ["training-matrix", "team-summary", userId], queryFn: api.trainingMatrix.teamSummary, enabled });
+}
+
+export function useMarkTrainingSent() {
+  return useMutation({
+    mutationFn: api.trainingMatrix.markSent,
+    onSuccess: () => invalidate("training-matrix"),
+  });
+}
+
 export function useTrainingMatrixForUser(userId: string) {
   return useQuery({ queryKey: ["training-matrix", userId], queryFn: () => api.trainingMatrix.get(userId), enabled: !!userId });
 }

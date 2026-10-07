@@ -124,6 +124,12 @@ export const insertTrainingMatrixSubmissionSchema = createInsertSchema(trainingM
 export type InsertTrainingMatrixSubmission = z.infer<typeof insertTrainingMatrixSubmissionSchema>;
 export type TrainingMatrixSubmission = typeof trainingMatrixSubmissions.$inferSelect;
 
+export const trainingMatrixRequests = pgTable("training_matrix_requests", {
+  userId: varchar("user_id", { length: 50 }).primaryKey(),
+  sentAt: text("sent_at").notNull(),
+  respondedAt: text("responded_at"),
+});
+
 export const standardsSurveyRoles = pgTable("standards_survey_roles", {
   id: serial("id").primaryKey(),
   jobRoleId: integer("job_role_id"),

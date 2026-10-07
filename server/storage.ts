@@ -1,6 +1,7 @@
 import { eq, and, inArray, desc, isNull, ne, sql } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
+import { isNewTrainingSubmission } from "@shared/teamTraining";
 
 type JobRoleCategoryLayoutSection = {
   sectionKey: string;
@@ -97,6 +98,9 @@ export interface IStorage {
   getTrainingMatrixSubmissionById(id: number): Promise<schema.TrainingMatrixSubmission | undefined>;
   getTrainingMatrixHistory(userId: string): Promise<schema.TrainingMatrixSubmission[]>;
   getAllTrainingMatrixSubmissions(): Promise<schema.TrainingMatrixSubmission[]>;
+  getTrainingMatrixSubmissionsForUsers(userIds: string[]): Promise<schema.TrainingMatrixSubmission[]>;
+  getTrainingMatrixRequests(userIds: string[]): Promise<(typeof schema.trainingMatrixRequests.$inferSelect)[]>;
+  markTrainingMatrixSent(userId: string): Promise<void>;
   createTrainingMatrixSubmission(sub: schema.InsertTrainingMatrixSubmission): Promise<schema.TrainingMatrixSubmission>;
   updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>): Promise<schema.TrainingMatrixSubmission | undefined>;
 
@@ -427,15 +431,47 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(schema.trainingMatrixSubmissions);
   }
 
+  async getTrainingMatrixSubmissionsForUsers(userIds: string[]) {
+    if (!userIds.length) return [];
+    return db.select().from(schema.trainingMatrixSubmissions)
+      .where(inArray(schema.trainingMatrixSubmissions.userId, userIds));
+  }
+
+  async getTrainingMatrixRequests(userIds: string[]) {
+    if (!userIds.length) return [];
+    return db.select().from(schema.trainingMatrixRequests)
+      .where(inArray(schema.trainingMatrixRequests.userId, userIds));
+  }
+
+  async markTrainingMatrixSent(userId: string) {
+    const sentAt = new Date().toISOString();
+    await db.insert(schema.trainingMatrixRequests).values({ userId, sentAt })
+      .onConflictDoUpdate({ target: schema.trainingMatrixRequests.userId, set: { sentAt, respondedAt: null } });
+  }
+
   async createTrainingMatrixSubmission(sub: schema.InsertTrainingMatrixSubmission) {
-    const [created] = await db.insert(schema.trainingMatrixSubmissions).values(sub).returning();
-    return created;
+    return db.transaction(async (transaction) => {
+      const [created] = await transaction.insert(schema.trainingMatrixSubmissions).values(sub).returning();
+      if (isNewTrainingSubmission(undefined, created)) {
+        await transaction.update(schema.trainingMatrixRequests).set({ respondedAt: new Date().toISOString() })
+          .where(and(eq(schema.trainingMatrixRequests.userId, created.userId), isNull(schema.trainingMatrixRequests.respondedAt)));
+      }
+      return created;
+    });
   }
 
   async updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>) {
-    const [updated] = await db.update(schema.trainingMatrixSubmissions)
-      .set(data).where(eq(schema.trainingMatrixSubmissions.id, id)).returning();
-    return updated;
+    return db.transaction(async (transaction) => {
+      const [previous] = await transaction.select().from(schema.trainingMatrixSubmissions)
+        .where(eq(schema.trainingMatrixSubmissions.id, id)).for("update");
+      const [updated] = await transaction.update(schema.trainingMatrixSubmissions)
+        .set(data).where(eq(schema.trainingMatrixSubmissions.id, id)).returning();
+      if (updated && isNewTrainingSubmission(previous, updated)) {
+        await transaction.update(schema.trainingMatrixRequests).set({ respondedAt: new Date().toISOString() })
+          .where(and(eq(schema.trainingMatrixRequests.userId, updated.userId), isNull(schema.trainingMatrixRequests.respondedAt)));
+      }
+      return updated;
+    });
   }
 
   async getStandardsSurveyRoles() {

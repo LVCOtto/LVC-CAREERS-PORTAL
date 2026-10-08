@@ -1,4 +1,5 @@
 import type { TrainingMatrixSubmission } from "./schema";
+import { assessmentStatus } from "./trainingAssessment";
 
 export type TeamTrainingStatus = "never_completed" | "expired" | "awaiting_signoff" | "review_missing" | "current";
 
@@ -20,11 +21,11 @@ export function summarizeTraining(
   today: string,
 ) {
   const ordered = [...history].sort((left, right) => right.id - left.id);
-  const submitted = ordered.find((entry) => entry.submittedDate || entry.status === "pending_review" || entry.status === "approved");
-  const approved = ordered.find((entry) => entry.status === "approved");
+  const submitted = ordered.find((entry) => entry.submittedDate || assessmentStatus(entry) === "pending_review" || assessmentStatus(entry) === "approved");
+  const approved = ordered.find((entry) => assessmentStatus(entry) === "approved");
   const reviewDue = approved?.nextReviewDate ?? null;
   const expired = !!reviewDue && reviewDue < today;
-  const awaitingSignoff = submitted?.status === "pending_review";
+  const awaitingSignoff = !!submitted && assessmentStatus(submitted) === "pending_review";
   const status: TeamTrainingStatus = !submitted ? "never_completed"
     : expired ? "expired"
     : awaitingSignoff ? "awaiting_signoff"

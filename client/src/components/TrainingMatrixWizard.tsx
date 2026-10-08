@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -33,7 +33,9 @@ type TrainingMatrixWizardProps = {
   description?: string;
   sectionGroups: WizardSectionGroup[];
   ratings: Record<string, number>;
-  baselineRatings?: Record<string, number>;
+  previousRatings?: Record<string, number>;
+  previousAssessmentDate?: string | null;
+  readOnly?: boolean;
   competencyLevels: WizardCompetencyLevel[];
   isSubmitting?: boolean;
   submitLabel?: string;
@@ -61,14 +63,24 @@ function getSectionLabel(section: WizardSectionGroup, index: number) {
   return section.label || `Section ${index + 1}`;
 }
 
+function PreviousRating({ rating, competencyLevels }: { rating: number | undefined; competencyLevels: WizardCompetencyLevel[] }) {
+  return rating !== undefined ? (
+    <p className="mt-1 text-xs text-muted-foreground">
+      Previous assessment: <span className="font-medium">{rating} - {competencyLevels.find(level => level.value === rating)?.label}</span>
+    </p>
+  ) : null;
+}
+
 function RatingGuide({
   competencyLevels,
   expanded,
   onToggle,
+  readOnly,
 }: {
   competencyLevels: WizardCompetencyLevel[];
   expanded: boolean;
   onToggle: () => void;
+  readOnly: boolean;
 }) {
   return (
     <div className="sticky top-0 z-10 rounded-lg border bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm">
@@ -79,7 +91,7 @@ function RatingGuide({
       >
         <div>
           <p className="text-xs font-semibold text-muted-foreground">Rating guide (0-4)</p>
-          <p className="text-xs text-muted-foreground">Choose the level that best matches each skill today.</p>
+          <p className="text-xs text-muted-foreground">{readOnly ? 'The scale used for these saved scores.' : 'Choose the level that best matches each skill today.'}</p>
         </div>
         <span className="text-xs font-medium text-primary">{expanded ? 'Hide details' : 'Show details'}</span>
       </button>
@@ -122,7 +134,9 @@ export default function TrainingMatrixWizard({
   description,
   sectionGroups,
   ratings,
-  baselineRatings = {},
+  previousRatings = {},
+  previousAssessmentDate,
+  readOnly = false,
   competencyLevels,
   isSubmitting = false,
   submitLabel = 'Submit for sign-off',
@@ -201,7 +215,14 @@ export default function TrainingMatrixWizard({
 
   const sectionMissing = sectionItems.filter((item) => ratings[item.slug] === undefined);
   const allMissing = allItems.filter((item) => ratings[item.slug] === undefined);
-  const changedCount = allItems.filter((item) => baselineRatings[item.slug] !== undefined && baselineRatings[item.slug] !== ratings[item.slug]).length;
+  const changedCount = allItems.filter((item) => ratings[item.slug] !== undefined &&
+    previousRatings[item.slug] !== undefined && previousRatings[item.slug] !== ratings[item.slug]).length;
+  const unchangedCount = allItems.filter(item => ratings[item.slug] !== undefined &&
+    previousRatings[item.slug] === ratings[item.slug]).length;
+  const sectionProgressCounts = steps.slice(0, -1).map(section => {
+    const items = section.categories.flatMap(category => category.items);
+    return { total: items.length, rated: items.filter(item => ratings[item.slug] !== undefined).length };
+  });
   const missingBySection = useMemo(
     () => Array.from(
       allMissing.reduce((map, item) => {
@@ -225,7 +246,7 @@ export default function TrainingMatrixWizard({
   );
 
   const overallProgress = totalItems > 0 ? Math.round((ratedCount / totalItems) * 100) : 0;
-  const sectionProgress = sectionItems.length > 0 ? Math.round((sectionRatedCount / sectionItems.length) * 100) : 100;
+  const sectionProgress = sectionItems.length > 0 ? Math.round((sectionRatedCount / sectionItems.length) * 100) : 0;
   const focusItem = focusMode && sectionItems.length > 0 ? sectionItems[Math.min(focusItemIndex, sectionItems.length - 1)] : null;
 
   const back = () => setStepIndex((prev) => Math.max(0, prev - 1));
@@ -237,6 +258,14 @@ export default function TrainingMatrixWizard({
         <div className="space-y-2">
           <h2 className="font-display text-xl font-semibold">{title}</h2>
           {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+          {previousAssessmentDate && (
+            <p className="text-xs text-muted-foreground" data-testid={`${dataTestPrefix}-previous-reference`}>
+              Previous assessment: {new Date(previousAssessmentDate + 'T00:00:00').toLocaleDateString('en-GB')}.
+              Previous scores are reference only and do not count as answers for this assessment.
+            </p>
+          )}
+          {readOnly && <Badge variant="secondary">Read-only assessment</Badge>}
+          {totalItems === 0 && <p role="alert" className="text-sm text-amber-700">No skills are configured for this assessment. Contact your manager before submitting.</p>}
         </div>
 
         <div className="mt-4 space-y-2">
@@ -265,13 +294,15 @@ export default function TrainingMatrixWizard({
 
         <div className="mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 lg:hidden">
           {steps.slice(0, -1).map((step, index) => {
-            const complete = index < stepIndex;
+            const progress = sectionProgressCounts[index];
+            const complete = progress.total > 0 && progress.rated === progress.total;
             const active = index === stepIndex && !isReviewStep;
             return (
               <button
                 key={step.key}
                 type="button"
                 onClick={() => setStepIndex(index)}
+                aria-current={active ? 'step' : undefined}
                 className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                   active
                     ? 'border-primary bg-primary/10 text-primary'
@@ -281,7 +312,8 @@ export default function TrainingMatrixWizard({
                 }`}
                 data-testid={`${dataTestPrefix}-step-${index + 1}`}
               >
-                {index + 1}. {getSectionLabel(step, index)}
+                {index + 1}. {getSectionLabel(step, index)} - {progress.rated}/{progress.total}
+                {complete ? (readOnly ? ' (complete)' : ' (complete, editable)') : ''}
               </button>
             );
           })}
@@ -303,13 +335,15 @@ export default function TrainingMatrixWizard({
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sections</p>
                 <div className="mt-2 space-y-1">
                   {steps.slice(0, -1).map((step, index) => {
-                    const complete = index < stepIndex;
+                    const progress = sectionProgressCounts[index];
+                    const complete = progress.total > 0 && progress.rated === progress.total;
                     const active = index === stepIndex;
                     return (
                       <button
                         key={step.key}
                         type="button"
                         onClick={() => setStepIndex(index)}
+                        aria-current={active ? 'step' : undefined}
                         className={`w-full rounded-lg border px-2 py-2 text-left text-xs transition-colors ${
                           active
                             ? 'border-primary bg-primary/10 text-primary'
@@ -319,6 +353,9 @@ export default function TrainingMatrixWizard({
                         }`}
                       >
                         {index + 1}. {getSectionLabel(step, index)}
+                        <span className="mt-1 block text-muted-foreground">
+                          {progress.rated}/{progress.total} rated - {readOnly ? 'Saved results' : complete ? 'Complete, editable' : progress.rated ? 'In progress' : 'Not started'}
+                        </span>
                       </button>
                     );
                   })}
@@ -338,6 +375,7 @@ export default function TrainingMatrixWizard({
                 competencyLevels={competencyLevels}
                 expanded={guideExpanded}
                 onToggle={() => setGuideExpanded((prev) => !prev)}
+                readOnly={readOnly}
               />
 
               <div className="sticky top-[4.65rem] z-10 rounded-lg border bg-muted/15 px-4 py-3 backdrop-blur-sm">
@@ -356,9 +394,11 @@ export default function TrainingMatrixWizard({
                   <Progress value={sectionProgress} className="h-1.5" />
                 </div>
                 {sectionMissing.length > 0 ? (
-                  <p className="mt-2 text-xs text-amber-700">{sectionMissing.length} item(s) still unrated in this section.</p>
+                  <p className="mt-2 text-xs text-amber-700">{sectionMissing.length} item(s) {readOnly ? 'have no score in this saved assessment.' : 'still unrated in this section.'}</p>
+                ) : sectionItems.length > 0 ? (
+                  <p className="mt-2 text-xs text-emerald-700">{readOnly ? 'Section complete.' : 'Section complete. You can still change any rating.'}</p>
                 ) : (
-                  <p className="mt-2 text-xs text-emerald-700">Section complete.</p>
+                  <p className="mt-2 text-xs text-muted-foreground">No skills are configured for this section.</p>
                 )}
               </div>
 
@@ -371,6 +411,7 @@ export default function TrainingMatrixWizard({
                   <div className="mt-3 space-y-1">
                     <p className="text-base font-semibold">{focusItem.name}</p>
                     {focusItem.description ? <p className="text-sm text-muted-foreground">{focusItem.description}</p> : null}
+                    <PreviousRating rating={previousRatings[focusItem.slug]} competencyLevels={competencyLevels} />
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border bg-muted/10 p-2">
                     {competencyLevels.map((level) => {
@@ -380,6 +421,9 @@ export default function TrainingMatrixWizard({
                           key={level.value}
                           type="button"
                           onClick={() => onRate(focusItem.slug, level.value)}
+                          disabled={readOnly || isSubmitting || isSavingDraft}
+                          aria-pressed={isActive}
+                          data-testid={`${dataTestPrefix}-rate-${focusItem.slug}-${level.value}`}
                           aria-label={`Rate ${focusItem.name} as ${level.value} - ${level.label}`}
                           title={`${level.value}: ${level.label}`}
                           className={`h-10 w-10 rounded-lg text-sm font-semibold transition-all ${
@@ -422,9 +466,6 @@ export default function TrainingMatrixWizard({
                     <div className="divide-y">
                       {category.items.map((item) => {
                         const currentRating = ratings[item.slug];
-                        const previousRating = baselineRatings[item.slug];
-                        const hasPrevious = previousRating !== undefined && previousRating !== currentRating;
-
                         return (
                           <div
                             key={item.id}
@@ -434,31 +475,28 @@ export default function TrainingMatrixWizard({
                             <div className="min-w-0 flex-1">
                               <p className="text-sm font-semibold">{item.name}</p>
                               {item.description ? <p className="mt-0.5 text-xs text-muted-foreground">{item.description}</p> : null}
+                              <PreviousRating rating={previousRatings[item.slug]} competencyLevels={competencyLevels} />
                             </div>
                             <div className="flex flex-wrap items-center gap-1 rounded-xl border bg-muted/10 p-1">
                               {competencyLevels.map((level) => {
                                 const isActive = currentRating === level.value;
-                                const wasPrevious = hasPrevious && previousRating === level.value;
                                 return (
                                   <button
                                     key={level.value}
                                     type="button"
                                     onClick={() => onRate(item.slug, level.value)}
+                                    disabled={readOnly || isSubmitting || isSavingDraft}
+                                    aria-pressed={isActive}
                                     title={`${level.value}: ${level.label}`}
                                     aria-label={`Rate ${item.name} as ${level.value} - ${level.label}`}
                                     className={`relative h-10 w-10 rounded-lg text-sm font-semibold transition-all ${
                                       isActive
                                         ? `${level.color} scale-105 ring-2 ring-current ring-offset-1`
-                                        : wasPrevious
-                                          ? `${level.color} opacity-35 ring-1 ring-current`
-                                          : 'bg-background text-muted-foreground ring-1 ring-border hover:bg-muted/50'
+                                        : 'bg-background text-muted-foreground ring-1 ring-border hover:bg-muted/50'
                                     }`}
                                     data-testid={`${dataTestPrefix}-rate-${item.slug}-${level.value}`}
                                   >
                                     {level.value}
-                                    {wasPrevious ? (
-                                      <span className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-muted-foreground/40" />
-                                    ) : null}
                                   </button>
                                 );
                               })}
@@ -477,17 +515,17 @@ export default function TrainingMatrixWizard({
             <div className="rounded-lg border bg-muted/10 px-4 py-3">
               <div className="flex items-center gap-2 text-emerald-700">
                 <CheckCircle2 className="h-4 w-4" />
-                <p className="text-sm font-semibold">Review your assessment before submitting</p>
+                <p className="text-sm font-semibold">{readOnly ? 'Assessment results' : 'Review this assessment before submitting'}</p>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                You can jump back to any section to adjust scores.
+                {readOnly ? 'These saved results cannot be changed.' : 'You can jump back to any section to adjust scores. Submitting sends this assessment for manager sign-off; your previous assessment stays unchanged.'}
               </p>
             </div>
 
             {allMissing.length > 0 ? (
               <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3">
                 <p className="text-sm font-medium text-amber-800">
-                  {allMissing.length} item(s) are still unrated.
+                  {allMissing.length} item(s) {readOnly ? 'have no saved rating.' : 'are still unrated.'}
                 </p>
                 <div className="mt-3 space-y-2">
                   {missingBySection.map((section) => (
@@ -502,7 +540,7 @@ export default function TrainingMatrixWizard({
                           className="h-8"
                           data-testid={`${dataTestPrefix}-jump-section-${section.sectionIndex + 1}`}
                         >
-                          Fix {section.count}
+                          {readOnly ? 'View' : 'Fix'} {section.count}
                         </Button>
                       </div>
                       <p className="mt-1 text-xs text-amber-800">
@@ -514,7 +552,7 @@ export default function TrainingMatrixWizard({
               </div>
             ) : (
               <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 px-4 py-3">
-                <p className="text-sm font-medium text-emerald-800">All items are rated. Ready to submit.</p>
+                <p className="text-sm font-medium text-emerald-800">{readOnly ? 'All items are rated.' : 'All items are rated. Ready to submit.'}</p>
               </div>
             )}
 
@@ -528,8 +566,8 @@ export default function TrainingMatrixWizard({
                 <p className="text-lg font-semibold">{overallProgress}%</p>
               </div>
               <div className="rounded-lg border bg-muted/10 px-3 py-2">
-                <p className="text-xs text-muted-foreground">Changed vs previous</p>
-                <p className="text-lg font-semibold">{changedCount}</p>
+                <p className="text-xs text-muted-foreground">Compared with previous assessment</p>
+                <p className="text-sm font-semibold">{changedCount} changed / {unchangedCount} unchanged</p>
               </div>
             </div>
 
@@ -553,7 +591,7 @@ export default function TrainingMatrixWizard({
                           variant="ghost"
                           onClick={() => setStepIndex(sectionIndex)}
                         >
-                          Edit
+                          {readOnly ? 'View' : 'Edit'}
                         </Button>
                       </div>
                     </div>
@@ -569,7 +607,7 @@ export default function TrainingMatrixWizard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {onCancel ? (
-              <Button type="button" variant="ghost" onClick={onCancel} data-testid={`${dataTestPrefix}-cancel`}>
+              <Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting || isSavingDraft} data-testid={`${dataTestPrefix}-cancel`}>
                 {cancelLabel}
               </Button>
             ) : null}
@@ -584,7 +622,7 @@ export default function TrainingMatrixWizard({
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            {onSaveDraft ? (
+            {onSaveDraft && !readOnly ? (
               <Button
                 type="button"
                 variant="outline"
@@ -597,11 +635,11 @@ export default function TrainingMatrixWizard({
             ) : null}
           </div>
 
-          {isReviewStep ? (
+          {isReviewStep ? !readOnly && (
             <Button
               type="button"
               onClick={onSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || isSavingDraft || allMissing.length > 0 || totalItems === 0}
               className="gap-2"
               data-testid={`${dataTestPrefix}-submit`}
             >

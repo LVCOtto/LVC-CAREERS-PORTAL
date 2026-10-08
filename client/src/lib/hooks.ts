@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, invalidate } from "./api";
 import type { JobRoleMatrixLayout } from "./api";
+import { queryClient } from "./queryClient";
 
 export function useUsers(options?: { enabled?: boolean }) {
   return useQuery({ queryKey: ["users"], queryFn: api.users.list, enabled: options?.enabled ?? true });
@@ -121,10 +122,21 @@ export function useCreateTrainingMatrix() {
   });
 }
 
+export function useStartTrainingMatrix() {
+  return useMutation({
+    mutationFn: api.trainingMatrix.start,
+    onSuccess: submission => {
+      queryClient.setQueryData(["training-matrix", submission.userId], submission);
+      invalidate("training-matrix", "training-matrix-history");
+    },
+  });
+}
+
 export function useUpdateTrainingMatrix() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.trainingMatrix.update(id, data),
     onSuccess: () => invalidate("training-matrix", "training-matrix-history"),
+    onError: () => invalidate("training-matrix", "training-matrix-history"),
   });
 }
 
@@ -299,8 +311,16 @@ export function useSharedTrainingMatrix(token: string) {
 
 export function useUpdateSharedTrainingMatrix() {
   return useMutation({
-    mutationFn: ({ token, data }: { token: string; data: any }) => api.trainingMatrix.updateShared(token, data),
-    onSuccess: () => invalidate("shared-training-matrix"),
+    mutationFn: ({ token, data }: { token: string; data: Parameters<typeof api.trainingMatrix.updateShared>[1] }) => api.trainingMatrix.updateShared(token, data),
+    onSuccess: () => invalidate("shared-training-matrix", "training-matrix", "training-matrix-history"),
+    onError: () => invalidate("shared-training-matrix"),
+  });
+}
+
+export function useStartSharedTrainingMatrix() {
+  return useMutation({
+    mutationFn: api.trainingMatrix.startShared,
+    onSuccess: () => invalidate("shared-training-matrix", "training-matrix", "training-matrix-history"),
   });
 }
 

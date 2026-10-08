@@ -2,6 +2,7 @@ import { eq, and, inArray, desc, isNull, ne, sql } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { isNewTrainingSubmission } from "@shared/teamTraining";
+import { assessmentStatus, assessmentToResume, assertEditableAssessment, TrainingAssessmentError } from "@shared/trainingAssessment";
 
 type JobRoleCategoryLayoutSection = {
   sectionKey: string;
@@ -102,7 +103,8 @@ export interface IStorage {
   getTrainingMatrixRequests(userIds: string[]): Promise<(typeof schema.trainingMatrixRequests.$inferSelect)[]>;
   markTrainingMatrixSent(userId: string): Promise<void>;
   createTrainingMatrixSubmission(sub: schema.InsertTrainingMatrixSubmission): Promise<schema.TrainingMatrixSubmission>;
-  updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>): Promise<schema.TrainingMatrixSubmission | undefined>;
+  startTrainingMatrixAssessment(userId: string): Promise<schema.TrainingMatrixSubmission>;
+  updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>, mode?: "assessment" | "review"): Promise<schema.TrainingMatrixSubmission | undefined>;
 
   getStandardsSurveyRoles(): Promise<schema.StandardsSurveyRole[]>;
   getStandardsSurveyItems(surveyRoleId: number): Promise<schema.StandardsSurveyItem[]>;
@@ -412,29 +414,32 @@ export class DatabaseStorage implements IStorage {
     const subs = await db.select().from(schema.trainingMatrixSubmissions)
       .where(eq(schema.trainingMatrixSubmissions.userId, userId))
       .orderBy(desc(schema.trainingMatrixSubmissions.id));
-    return subs[0];
+    return subs[0] ? { ...subs[0], status: assessmentStatus(subs[0]) } : undefined;
   }
 
   async getTrainingMatrixSubmissionById(id: number) {
     const [submission] = await db.select().from(schema.trainingMatrixSubmissions)
       .where(eq(schema.trainingMatrixSubmissions.id, id));
-    return submission;
+    return submission ? { ...submission, status: assessmentStatus(submission) } : undefined;
   }
 
   async getTrainingMatrixHistory(userId: string) {
-    return db.select().from(schema.trainingMatrixSubmissions)
+    const history = await db.select().from(schema.trainingMatrixSubmissions)
       .where(eq(schema.trainingMatrixSubmissions.userId, userId))
       .orderBy(desc(schema.trainingMatrixSubmissions.id));
+    return history.map(entry => ({ ...entry, status: assessmentStatus(entry) }));
   }
 
   async getAllTrainingMatrixSubmissions() {
-    return db.select().from(schema.trainingMatrixSubmissions);
+    const submissions = await db.select().from(schema.trainingMatrixSubmissions);
+    return submissions.map(entry => ({ ...entry, status: assessmentStatus(entry) }));
   }
 
   async getTrainingMatrixSubmissionsForUsers(userIds: string[]) {
     if (!userIds.length) return [];
-    return db.select().from(schema.trainingMatrixSubmissions)
+    const submissions = await db.select().from(schema.trainingMatrixSubmissions)
       .where(inArray(schema.trainingMatrixSubmissions.userId, userIds));
+    return submissions.map(entry => ({ ...entry, status: assessmentStatus(entry) }));
   }
 
   async getTrainingMatrixRequests(userIds: string[]) {
@@ -460,10 +465,41 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>) {
+  async startTrainingMatrixAssessment(userId: string) {
     return db.transaction(async (transaction) => {
+      const [user] = await transaction.select().from(schema.users).where(eq(schema.users.id, userId)).for("update");
+      if (!user) throw new TrainingAssessmentError("Colleague not found.", 404);
+      const history = await transaction.select().from(schema.trainingMatrixSubmissions)
+        .where(eq(schema.trainingMatrixSubmissions.userId, userId)).orderBy(desc(schema.trainingMatrixSubmissions.id));
+      const draft = assessmentToResume(history);
+      if (draft) return draft;
+      const [created] = await transaction.insert(schema.trainingMatrixSubmissions).values({
+        userId, status: "draft", ratings: {}, lastAssessment: new Date().toISOString().slice(0, 10),
+        nextReviewDate: history.find(entry => assessmentStatus(entry) === "approved")?.nextReviewDate ?? null,
+        userNameSnapshot: user.name, departmentIdSnapshot: user.departmentId, departmentSnapshot: user.department,
+        jobRoleIdSnapshot: user.jobRoleId, jobRoleSnapshot: user.jobRole,
+      }).returning();
+      return created;
+    });
+  }
+
+  async updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>, mode: "assessment" | "review" = "review") {
+    return db.transaction(async (transaction) => {
+      const [owner] = await transaction.select({ userId: schema.trainingMatrixSubmissions.userId })
+        .from(schema.trainingMatrixSubmissions).where(eq(schema.trainingMatrixSubmissions.id, id));
+      if (!owner) return undefined;
+      await transaction.select().from(schema.users).where(eq(schema.users.id, owner.userId)).for("update");
       const [previous] = await transaction.select().from(schema.trainingMatrixSubmissions)
         .where(eq(schema.trainingMatrixSubmissions.id, id)).for("update");
+      if (mode === "assessment") {
+        const history = await transaction.select().from(schema.trainingMatrixSubmissions)
+          .where(eq(schema.trainingMatrixSubmissions.userId, owner.userId)).orderBy(desc(schema.trainingMatrixSubmissions.id));
+        const current = assessmentToResume(history);
+        assertEditableAssessment(previous, current?.id ?? -1);
+      } else if ((data.status === "approved" && assessmentStatus(previous) !== "pending_review") ||
+        (data.status !== undefined && data.status !== "approved") || data.ratings !== undefined) {
+        throw new TrainingAssessmentError("Only an assessment awaiting sign-off can be approved. Submitted ratings cannot be changed.");
+      }
       const [updated] = await transaction.update(schema.trainingMatrixSubmissions)
         .set(data).where(eq(schema.trainingMatrixSubmissions.id, id)).returning();
       if (updated && isNewTrainingSubmission(previous, updated)) {
@@ -676,15 +712,20 @@ export class DatabaseStorage implements IStorage {
   async getTrainingMatrixByToken(token: string) {
     const [sub] = await db.select().from(schema.trainingMatrixSubmissions)
       .where(eq(schema.trainingMatrixSubmissions.shareToken, token));
-    return sub;
+    return sub ? { ...sub, status: assessmentStatus(sub) } : undefined;
   }
 
   async generateShareToken(submissionId: number) {
-    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
-    await db.update(schema.trainingMatrixSubmissions)
-      .set({ shareToken: token })
-      .where(eq(schema.trainingMatrixSubmissions.id, submissionId));
-    return token;
+    return db.transaction(async transaction => {
+      const [submission] = await transaction.select().from(schema.trainingMatrixSubmissions)
+        .where(eq(schema.trainingMatrixSubmissions.id, submissionId)).for("update");
+      if (!submission) throw new TrainingAssessmentError("Assessment not found.", 404);
+      if (submission.shareToken) return submission.shareToken;
+      const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+      await transaction.update(schema.trainingMatrixSubmissions)
+        .set({ shareToken: token }).where(eq(schema.trainingMatrixSubmissions.id, submissionId));
+      return token;
+    });
   }
 
   async generateInductionShareToken(instanceId: number) {
@@ -807,7 +848,7 @@ export class DatabaseStorage implements IStorage {
           items: itemsByCategoryId.get(category.id) || [],
         };
       })
-      .filter((category): category is schema.CompetencyCategory & { items: schema.CompetencyItem[] } => !!category);
+      .filter((category) => category !== null);
   }
 
   async getPortalSettings() {

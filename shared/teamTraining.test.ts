@@ -53,3 +53,14 @@ test("only a new submission clears requests, including a same-day draft submissi
   assert.equal(isNewTrainingSubmission(draft, draft), false);
   assert.equal(isNewTrainingSubmission(submitted, { ...submitted, status: "approved" }), false);
 });
+
+test("legacy shared-link drafts with submission metadata retain sign-off and review status", () => {
+  assert.equal(summarizeTraining([assessment(1, {
+    submittedDate: "2026-10-01",
+  })], "2026-10-08").awaitingSignoff, true);
+  const approved = summarizeTraining([assessment(1, {
+    submittedDate: "2026-09-01", approvedDate: "2026-09-02", nextReviewDate: "2027-03-01",
+  })], "2026-10-08");
+  assert.equal(approved.status, "current");
+  assert.equal(approved.reviewDue, "2027-03-01");
+});

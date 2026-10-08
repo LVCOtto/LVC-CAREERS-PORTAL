@@ -1,5 +1,7 @@
 import { queryClient } from "./queryClient";
 import type { TeamTrainingRow } from "@shared/teamTraining";
+import type { AssessmentUpdate, SharedTrainingAssessment } from "@shared/trainingAssessment";
+import type { TrainingMatrixSubmission } from "@shared/schema";
 
 const BASE = "/api";
 
@@ -93,8 +95,9 @@ export const api = {
     teamSummary: () => apiFetch<TeamTrainingRow[]>("/training-matrix/team-summary"),
     markSent: (userId: string) => apiFetch<void>(`/training-matrix/requests/${encodePathSegment(userId)}/sent`, { method: "POST" }),
     list: () => apiFetch<any[]>("/training-matrix"),
-    get: (userId: string) => apiFetch<any>(`/training-matrix/${encodePathSegment(userId)}`),
-    history: (userId: string) => apiFetch<any[]>(`/training-matrix/history/${encodePathSegment(userId)}`),
+    get: (userId: string) => apiFetch<TrainingMatrixSubmission | null>(`/training-matrix/${encodePathSegment(userId)}`),
+    history: (userId: string) => apiFetch<TrainingMatrixSubmission[]>(`/training-matrix/history/${encodePathSegment(userId)}`),
+    start: (userId: string) => apiFetch<TrainingMatrixSubmission>("/training-matrix/start", { method: "POST", body: JSON.stringify({ userId }) }),
     create: (data: any) => apiFetch<any>("/training-matrix", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/training-matrix/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     exportCsv: (params: { scope: "all" | "department" | "team" | "user"; history?: "latest" | "all"; detail?: "summary" | "competency"; userId?: string; departmentId?: number; department?: string; managerId?: string; }) => {
@@ -112,8 +115,9 @@ export const api = {
     generateShareToken: (id: number) => apiFetch<{ token: string }>(`/training-matrix/${id}/share`, { method: "POST" }),
     generateShareTokenForUser: (userId: string) =>
       apiFetch<{ token: string; submission: any }>("/training-matrix/share", { method: "POST", body: JSON.stringify({ userId }) }),
-    getShared: (token: string) => apiFetch<any>(`/training-matrix/shared/${token}`),
-    updateShared: (token: string, data: any) => apiFetch<any>(`/training-matrix/shared/${token}`, { method: "PATCH", body: JSON.stringify(data) }),
+    getShared: (token: string) => apiFetch<SharedTrainingAssessment>(`/training-matrix/shared/${token}`),
+    startShared: (token: string) => apiFetch<{ token: string; submission: TrainingMatrixSubmission }>(`/training-matrix/shared/${token}/start`, { method: "POST" }),
+    updateShared: (token: string, data: AssessmentUpdate) => apiFetch<TrainingMatrixSubmission>(`/training-matrix/shared/${token}`, { method: "PATCH", body: JSON.stringify(data) }),
   },
   standardsSurveys: {
     list: () => apiFetch<any[]>("/standards-surveys"),

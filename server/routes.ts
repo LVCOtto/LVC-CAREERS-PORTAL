@@ -1,5 +1,5 @@
 import { getAllSeedRoles, markSeedRoleAsDeleted } from "./ensureJobRoles";
-import type { Express, Request } from "express";
+import type { Express, Request, RequestHandler, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
@@ -9,6 +9,9 @@ import { getTeamTraining } from "./teamTraining";
 import { importFullBackup } from "./restore";
 import { randomInt } from "crypto";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+import { assessmentAwaitingSignoff, assessmentUpdateSchema, previousAssessment, ratingProgress, TrainingAssessmentError } from "@shared/trainingAssessment";
+import type { TrainingMatrixSubmission } from "@shared/schema";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
@@ -26,6 +29,9 @@ function isPublicApiRoute(req: Request) {
   const isSharedTrainingMatrixPatch =
     req.method === "PATCH" &&
     /^\/api\/training-matrix\/shared\/[^/]+$/.test(routePath);
+  const isSharedTrainingMatrixStart =
+    req.method === "POST" &&
+    /^\/api\/training-matrix\/shared\/[^/]+\/start$/.test(routePath);
 
   if (routePath === "/api/auth/request-code") return true;
   if (routePath === "/api/auth/verify-code") return true;
@@ -33,6 +39,7 @@ function isPublicApiRoute(req: Request) {
   if (isSharedInductionItemPatch) return true;
   if (req.method === "GET" && routePath.startsWith("/api/training-matrix/shared/")) return true;
   if (isSharedTrainingMatrixPatch) return true;
+  if (isSharedTrainingMatrixStart) return true;
   return false;
 }
 
@@ -90,34 +97,56 @@ function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-const trainingMatrixSnapshotFields = [
-  "userNameSnapshot",
-  "departmentIdSnapshot",
-  "departmentSnapshot",
-  "jobRoleIdSnapshot",
-  "jobRoleSnapshot",
-] as const;
-
-async function buildTrainingMatrixSnapshot(userId: string) {
-  const user = await storage.getUser(userId);
-  if (!user) return {};
-  return {
-    userNameSnapshot: user.name,
-    departmentIdSnapshot: user.departmentId ?? null,
-    departmentSnapshot: user.department,
-    jobRoleIdSnapshot: user.jobRoleId ?? null,
-    jobRoleSnapshot: user.jobRole,
+function assessmentRoute(handler: (req: Request, res: Response) => Promise<unknown>): RequestHandler {
+  return async (req, res, next) => {
+    try {
+      await handler(req, res);
+    } catch (error) {
+      if (error instanceof TrainingAssessmentError) {
+        res.status(error.status).json({ message: error.message });
+      } else if (error instanceof z.ZodError) {
+        res.status(400).json({ message: error.issues.map(issue => issue.message).join("; ") });
+      } else {
+        next(error);
+      }
+    }
   };
 }
 
-function mergeMissingTrainingMatrixSnapshot(existing: Record<string, any> | undefined, updates: Record<string, any>, snapshot: Record<string, any>) {
-  const next = { ...updates };
-  for (const field of trainingMatrixSnapshotFields) {
-    if (next[field] === undefined && !existing?.[field] && snapshot[field] !== undefined) {
-      next[field] = snapshot[field];
+async function trainingAssessmentCompetencies(userId: string) {
+  const user = await storage.getUser(userId);
+  if (!user) throw new TrainingAssessmentError("Colleague not found.", 404);
+  const assigned = await storage.getCompetencyCategoriesForJobRole(user.jobRoleId ?? user.jobRole);
+  if (assigned?.length) return assigned;
+  const categories = await storage.getCompetencyCategories(user.department || "Universal");
+  const items = await storage.getCompetencyItems();
+  return categories.map(category => ({ ...category, items: items.filter(item => item.categoryId === category.id) }));
+}
+
+async function saveTrainingAssessment(submission: TrainingMatrixSubmission, input: unknown) {
+  const update = assessmentUpdateSchema.parse(input);
+  const competencies = await trainingAssessmentCompetencies(submission.userId);
+  const slugs = competencies.flatMap(category => category.items.map(item => item.slug));
+  const validSlugs = new Set(slugs);
+  if (Object.keys(update.ratings).some(slug => !validSlugs.has(slug))) {
+    throw new TrainingAssessmentError("Some skills are no longer part of this matrix. Reload the assessment before saving.", 400);
+  }
+  if (update.status === "pending_review") {
+    const progress = ratingProgress(slugs, update.ratings);
+    if (!progress.total || progress.missing.length) {
+      throw new TrainingAssessmentError("Rate every applicable skill before submitting. Use 0 for no experience.", 400);
     }
   }
-  return next;
+  const today = new Date().toISOString().slice(0, 10);
+  const saved = await storage.updateTrainingMatrixSubmission(submission.id, {
+    ...update,
+    lastAssessment: update.status === "pending_review" ? today : submission.lastAssessment || today,
+    submittedDate: update.status === "pending_review" ? today : null,
+    approvedBy: null,
+    approvedDate: null,
+  }, "assessment");
+  if (!saved) throw new TrainingAssessmentError("Assessment not found.", 404);
+  return saved;
 }
 
 function toOptionalInt(value: unknown): number | null | undefined {
@@ -1016,29 +1045,51 @@ export async function registerRoutes(
     res.json(submission || null);
   });
 
-  app.post("/api/training-matrix", async (req, res) => {
+  app.post("/api/training-matrix/start", assessmentRoute(async (req, res) => {
+    const { userId } = z.object({ userId: z.string().min(1) }).strict().parse(req.body);
+    if (!await canAccessUser(req, userId)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    res.json(await storage.startTrainingMatrixAssessment(userId));
+  }));
+
+  app.post("/api/training-matrix", assessmentRoute(async (req, res) => {
     if (!req.body?.userId || !await canAccessUser(req, req.body.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const snapshot = await buildTrainingMatrixSnapshot(req.body.userId);
-    const submission = await storage.createTrainingMatrixSubmission({
-      ...req.body,
-      ...snapshot,
-    });
-    res.status(201).json(submission);
-  });
+    const input = z.object({ userId: z.string(), status: z.literal("draft").optional(), ratings: z.record(z.never()).optional() })
+      .strict().parse(req.body);
+    res.json(await storage.startTrainingMatrixAssessment(input.userId));
+  }));
 
-  app.patch("/api/training-matrix/:id", async (req, res) => {
+  app.patch("/api/training-matrix/:id", assessmentRoute(async (req, res) => {
     const existing = await storage.getTrainingMatrixSubmissionById(Number(req.params.id));
     if (!existing) return res.status(404).json({ message: "Not found" });
     if (!await canAccessUser(req, existing.userId)) {
       return res.status(403).json({ message: "Forbidden" });
     }
-    const snapshot = await buildTrainingMatrixSnapshot(existing.userId);
-    const submission = await storage.updateTrainingMatrixSubmission(
-      existing.id,
-      mergeMissingTrainingMatrixSnapshot(existing, req.body, snapshot)
-    );
+    const isAssessmentUpdate = !isPrivilegedRole(req.session.role) || req.body?.ratings !== undefined ||
+      req.body?.status === "draft" || req.body?.status === "pending_review";
+    let submission;
+    if (isAssessmentUpdate) {
+      submission = await saveTrainingAssessment(existing, req.body);
+    } else {
+      const review = z.object({
+        status: z.literal("approved").optional(),
+        approvedBy: z.string().optional(),
+        approvedDate: z.string().optional(),
+        nextReviewDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+      }).strict().parse(req.body);
+      if (!review.status && review.nextReviewDate === undefined) {
+        throw new TrainingAssessmentError("Specify an approval or a next review date.", 400);
+      }
+      submission = await storage.updateTrainingMatrixSubmission(existing.id, {
+        ...(review.nextReviewDate !== undefined ? { nextReviewDate: review.nextReviewDate } : {}),
+        ...(review.status ? {
+          status: review.status, approvedBy: req.session.userId, approvedDate: new Date().toISOString().slice(0, 10),
+        } : {}),
+      }, "review");
+    }
     if (!submission) return res.status(404).json({ message: "Not found" });
     
     // Sync to Outlook if nextReviewDate was updated
@@ -1053,9 +1104,9 @@ export async function registerRoutes(
     }
     
     res.json(submission);
-  });
+  }));
 
-  app.post("/api/training-matrix/share", async (req, res) => {
+  app.post("/api/training-matrix/share", assessmentRoute(async (req, res) => {
     const userId = typeof req.body?.userId === "string" ? req.body.userId : "";
     if (!userId) {
       return res.status(400).json({ message: "userId is required" });
@@ -1067,13 +1118,7 @@ export async function registerRoutes(
     let createdDraft = false;
     let submission = await storage.getTrainingMatrixSubmission(userId);
     if (!submission) {
-      const snapshot = await buildTrainingMatrixSnapshot(userId);
-      submission = await storage.createTrainingMatrixSubmission({
-        userId,
-        status: "draft",
-        ratings: {},
-        ...snapshot,
-      });
+      submission = await storage.startTrainingMatrixAssessment(userId);
       createdDraft = true;
     }
 
@@ -1085,9 +1130,9 @@ export async function registerRoutes(
     const updated = await storage.getTrainingMatrixSubmissionById(submission.id);
     res.status(createdDraft ? 201 : 200)
       .json({ token, submission: updated || { ...submission, shareToken: token } });
-  });
+  }));
 
-  app.post("/api/training-matrix/:id/share", async (req, res) => {
+  app.post("/api/training-matrix/:id/share", assessmentRoute(async (req, res) => {
     const found = await storage.getTrainingMatrixSubmissionById(Number(req.params.id));
     if (!found) return res.status(404).json({ message: "Submission not found" });
     if (!await canAccessUser(req, found.userId)) {
@@ -1098,46 +1143,40 @@ export async function registerRoutes(
     }
     const token = await storage.generateShareToken(found.id);
     res.json({ token });
-  });
+  }));
 
-  app.get("/api/training-matrix/shared/:token", async (req, res) => {
+  app.post("/api/training-matrix/shared/:token/start", assessmentRoute(async (req, res) => {
+    const existing = await storage.getTrainingMatrixByToken(req.params.token);
+    if (!existing) return res.status(404).json({ message: "Link not found." });
+    const submission = await storage.startTrainingMatrixAssessment(existing.userId);
+    const token = await storage.generateShareToken(submission.id);
+    res.json({ token, submission: { ...submission, shareToken: token } });
+  }));
+
+  app.get("/api/training-matrix/shared/:token", assessmentRoute(async (req, res) => {
     const submission = await storage.getTrainingMatrixByToken(req.params.token);
     if (!submission) return res.status(404).json({ message: "Not found" });
     const user = await storage.getUser(submission.userId);
-    let competencies: any[] | null = null;
-    if (user?.jobRoleId || user?.jobRole) {
-      competencies = await storage.getCompetencyCategoriesForJobRole(user.jobRoleId ?? user.jobRole);
-    }
-    if (!competencies) {
-      const userDept = user?.department || '';
-      const allCats = userDept
-        ? await storage.getCompetencyCategories(userDept)
-        : await storage.getCompetencyCategories('Universal');
-      const items = await storage.getCompetencyItems();
-      competencies = allCats.map(cat => ({
-        ...cat,
-        items: items.filter(item => item.categoryId === cat.id),
-      }));
-    }
+    const competencies = await trainingAssessmentCompetencies(submission.userId);
+    const history = await storage.getTrainingMatrixHistory(submission.userId);
     res.json({
       submission,
+      previousAssessment: previousAssessment(history, submission.id),
+      currentAssessment: history[0] ? { id: history[0].id, status: history[0].status } : null,
+      awaitingSignoff: assessmentAwaitingSignoff(history),
       competencies,
       userName: submission.userNameSnapshot || user?.name || 'Unknown',
       jobRole: submission.jobRoleSnapshot || user?.jobRole || '',
       department: submission.departmentSnapshot || user?.department || '',
     });
-  });
+  }));
 
-  app.patch("/api/training-matrix/shared/:token", async (req, res) => {
+  app.patch("/api/training-matrix/shared/:token", assessmentRoute(async (req, res) => {
     const submission = await storage.getTrainingMatrixByToken(req.params.token);
     if (!submission) return res.status(404).json({ message: "Not found" });
-    const snapshot = await buildTrainingMatrixSnapshot(submission.userId);
-    const updated = await storage.updateTrainingMatrixSubmission(
-      submission.id,
-      mergeMissingTrainingMatrixSnapshot(submission, req.body, snapshot)
-    );
+    const updated = await saveTrainingAssessment(submission, req.body);
     res.json(updated);
-  });
+  }));
 
   // ===== STANDARDS SURVEYS =====
   app.get("/api/standards-surveys", async (_req, res) => {

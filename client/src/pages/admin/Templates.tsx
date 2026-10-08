@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/authContext';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,11 +60,14 @@ import {
   useInductionSectionSettings,
   useUpsertInductionSectionSetting,
   useDepartments,
+  useJobRoles,
 } from '@/lib/hooks';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
 import { CsvImportDialog } from '@/components/CsvImportDialog';
 import { api } from '@/lib/api';
+import type { JobRole } from '@shared/schema';
+import { applicableInductionSections, roleMatchesDepartment, surveyMatchesRoles } from '@/lib/templateFilters';
 
 export default function AdminTemplates() {
   const { currentUser } = useAuth();
@@ -72,7 +75,7 @@ export default function AdminTemplates() {
   const queryClient = useQueryClient();
 
   const { data: inductionItems = [], isLoading: loadingInduction } = useInductionTemplates();
-  const { data: sectionSettings = [] } = useInductionSectionSettings();
+  const { data: sectionSettings = [], isLoading: loadingSectionSettings, error: sectionSettingsError } = useInductionSectionSettings();
   const upsertSectionSetting = useUpsertInductionSectionSetting();
   const { data: competencies = [], isLoading: loadingCompetencies } = useCompetencies();
   const { data: standardsSurveys = [], isLoading: loadingStandards } = useStandardsSurveys();
@@ -93,7 +96,39 @@ export default function AdminTemplates() {
 
   const createSurveyRole = useCreateStandardsSurveyRole();
   const deleteSurveyRole = useDeleteStandardsSurveyRole();
-  const { data: departments = [] } = useDepartments();
+  const { data: departments = [], isLoading: loadingDepartments, error: departmentsError } = useDepartments();
+  const { data: jobRoles = [], isLoading: loadingJobRoles, error: jobRolesError } = useJobRoles();
+  const [activeTab, setActiveTab] = useState('induction');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterSection, setFilterSection] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const selectedDepartment = departments.find(department => String(department.id) === filterDepartment);
+  const departmentRoles: JobRole[] = jobRoles.filter(role =>
+    filterDepartment === 'all' || (selectedDepartment && roleMatchesDepartment(role, selectedDepartment))
+  );
+  const relevantRoles = departmentRoles.filter(role => filterRole === 'all' || String(role.id) === filterRole);
+  const hasRoleFilter = filterRole !== 'all' || filterDepartment !== 'all';
+  const inductionRoleQueries = useQueries({
+    queries: hasRoleFilter && activeTab === 'induction' ? relevantRoles.map(role => ({
+      queryKey: ['job-role-induction-sections', role.id],
+      queryFn: () => api.jobRoleInductionSections.get(role.id),
+    })) : [],
+  });
+  const trainingRoleQueries = useQueries({
+    queries: filterRole !== 'all' && activeTab === 'training' ? relevantRoles.map(role => ({
+      queryKey: ['competencies-for-role', role.id],
+      queryFn: () => api.competenciesForRole.get(role.id),
+    })) : [],
+  });
+  const trainingFallbackQueries = useQueries({
+    queries: activeTab === 'training' ? relevantRoles.filter((role, index) =>
+      filterRole !== 'all' && trainingRoleQueries[index]?.isSuccess && !trainingRoleQueries[index]?.data?.length
+    ).map(role => ({
+      queryKey: ['competencies', role.department],
+      queryFn: () => api.competencies.list(role.department),
+    })) : [],
+  });
 
   const [surveySearch, setSurveySearch] = useState('');
   const [editingSurvey, setEditingSurvey] = useState<any | null>(null);
@@ -171,6 +206,40 @@ export default function AdminTemplates() {
   const sortedInductionSections = [...inductionSections].sort(
     (a, b) => getSectionMinSort(a) - getSectionMinSort(b)
   );
+  const universalSections = sectionSettings.filter(setting => setting.isUniversal).map(setting => setting.sectionName);
+  const allowedInductionSections = hasRoleFilter
+    ? new Set(inductionRoleQueries.flatMap(query =>
+      applicableInductionSections(sortedInductionSections, universalSections, query.data || [])
+    ))
+    : new Set(sortedInductionSections);
+  const visibleInductionSections = sortedInductionSections.filter(section =>
+    allowedInductionSections.has(section) && (filterSection === 'all' || filterSection === section)
+  );
+  const roleCategoryIds = new Set([...trainingRoleQueries, ...trainingFallbackQueries].flatMap(query =>
+    (query.data || []).map(category => category.id)
+  ));
+  const filteredCompetencies = competencies.filter(category =>
+    (filterCategory === 'all' || String(category.id) === filterCategory) &&
+    (filterRole !== 'all'
+      ? roleCategoryIds.has(category.id)
+      : filterDepartment === 'all' || category.departmentType === 'Universal' ||
+        (selectedDepartment && roleMatchesDepartment({
+          departmentId: category.departmentId, department: category.departmentType,
+        }, selectedDepartment)))
+  );
+  const filterQueries = activeTab === 'induction' ? inductionRoleQueries
+    : activeTab === 'training' ? [...trainingRoleQueries, ...trainingFallbackQueries] : [];
+  const loadingFilters = loadingDepartments || loadingJobRoles || filterQueries.some(query => query.isLoading) ||
+    (hasRoleFilter && activeTab === 'induction' && loadingSectionSettings);
+  const filterError = departmentsError || jobRolesError || filterQueries.find(query => query.error)?.error ||
+    (hasRoleFilter && activeTab === 'induction' ? sectionSettingsError : null);
+  const clearFilters = () => {
+    setFilterDepartment('all');
+    setFilterRole('all');
+    setFilterSection('all');
+    setFilterCategory('all');
+    setSurveySearch('');
+  };
 
   const moveSection = async (sectionIndex: number, direction: 'up' | 'down') => {
     const swapIndex = direction === 'up' ? sectionIndex - 1 : sectionIndex + 1;
@@ -513,7 +582,8 @@ export default function AdminTemplates() {
   };
 
   const filteredSurveys = standardsSurveys.filter((s: any) =>
-    s.roleTitle.toLowerCase().includes(surveySearch.toLowerCase())
+    s.roleTitle.toLowerCase().includes(surveySearch.trim().toLowerCase()) &&
+    (!hasRoleFilter || surveyMatchesRoles(s, relevantRoles))
   );
 
   return (
@@ -526,7 +596,7 @@ export default function AdminTemplates() {
           </p>
         </div>
 
-        <Tabs defaultValue="induction">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="induction" className="gap-2" data-testid="tab-induction-templates">
               <ClipboardCheck className="w-4 h-4" />
@@ -545,6 +615,78 @@ export default function AdminTemplates() {
               Data Backup
             </TabsTrigger>
           </TabsList>
+
+          {activeTab !== 'backup' && (
+            <div className="mb-6 space-y-3 rounded-lg border bg-muted/20 p-4">
+              <div className="flex flex-wrap items-end gap-4">
+                <div className="w-full sm:w-56 space-y-2">
+                  <Label htmlFor="template-department-filter">Department</Label>
+                  <Select value={filterDepartment} onValueChange={value => {
+                    setFilterDepartment(value);
+                    setFilterRole('all');
+                  }}>
+                    <SelectTrigger id="template-department-filter" data-testid="select-template-department">
+                      <SelectValue placeholder="All departments" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All departments</SelectItem>
+                      {departments.map(department => (
+                        <SelectItem key={department.id} value={String(department.id)}>{department.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="w-full sm:w-64 space-y-2">
+                  <Label htmlFor="template-role-filter">Job role</Label>
+                  <Select value={filterRole} onValueChange={setFilterRole}>
+                    <SelectTrigger id="template-role-filter" data-testid="select-template-role">
+                      <SelectValue placeholder="All job roles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All job roles</SelectItem>
+                      {departmentRoles.map(role => (
+                        <SelectItem key={role.id} value={String(role.id)}>{role.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {activeTab === 'induction' && (
+                  <div className="w-full sm:w-64 space-y-2">
+                    <Label htmlFor="template-section-filter">Section</Label>
+                    <Select value={filterSection} onValueChange={setFilterSection}>
+                      <SelectTrigger id="template-section-filter" data-testid="select-template-section"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All sections</SelectItem>
+                        {sortedInductionSections.map(section => <SelectItem key={section} value={section}>{section}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {activeTab === 'training' && (
+                  <div className="w-full sm:w-64 space-y-2">
+                    <Label htmlFor="template-category-filter">Category</Label>
+                    <Select value={filterCategory} onValueChange={setFilterCategory}>
+                      <SelectTrigger id="template-category-filter" data-testid="select-template-category"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All categories</SelectItem>
+                        {competencies.map(category => (
+                          <SelectItem key={category.id} value={String(category.id)}>{category.name} ({category.departmentType})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button variant="outline" onClick={clearFilters} data-testid="button-clear-template-filters"
+                  disabled={!hasRoleFilter && filterSection === 'all' && filterCategory === 'all' && !surveySearch}>
+                  <X className="w-4 h-4 mr-2" />Clear filters
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Filters only change this view; exports still include all templates. Universal induction sections and default role assignments are included.
+              </p>
+              {filterError && <p role="alert" className="text-sm text-destructive">Unable to load template filters: {filterError.message}</p>}
+            </div>
+          )}
 
           <TabsContent value="induction">
             <div className="space-y-6">
@@ -574,14 +716,14 @@ export default function AdminTemplates() {
                 </div>
               </div>
 
-              {loadingInduction ? (
+              {filterError ? null : loadingInduction || loadingFilters ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
-              ) : sortedInductionSections.length === 0 ? (
+              ) : visibleInductionSections.length === 0 ? (
                 <Card className="border-border/50">
                   <CardContent className="py-12 text-center">
                     <ClipboardCheck className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                    <p className="font-medium">No induction items yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">Click "New Item" to create your first checklist item.</p>
+                    <p className="font-medium">{inductionItems.length ? 'No induction sections match these filters' : 'No induction items yet'}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{inductionItems.length ? 'Change or clear the filters to see more sections.' : 'Click "New Item" to create your first checklist item.'}</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -594,14 +736,15 @@ export default function AdminTemplates() {
                       <div>
                         <CardTitle className="text-lg">Standard Induction Checklist</CardTitle>
                         <CardDescription>
-                          {inductionItems.length} items across {sortedInductionSections.length} sections
+                          {inductionItems.filter(item => visibleInductionSections.includes(item.section)).length} items across {visibleInductionSections.length} sections
                         </CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     <Accordion type="single" collapsible>
-                      {sortedInductionSections.map((section, sectionIdx) => {
+                      {visibleInductionSections.map((section) => {
+                        const sectionIdx = sortedInductionSections.indexOf(section);
                         const isUniversal = sectionSettings.find((s: any) => s.sectionName === section)?.isUniversal ?? false;
                         const sectionItems = inductionItems
                           .filter((i: any) => i.section === section)
@@ -615,7 +758,7 @@ export default function AdminTemplates() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-5 w-5"
-                                  disabled={sectionIdx === 0}
+                                  disabled={sectionIdx === 0 || hasRoleFilter || filterSection !== 'all'}
                                   onClick={(e) => { e.stopPropagation(); moveSection(sectionIdx, 'up'); }}
                                   data-testid={`button-section-up-${section}`}
                                 >
@@ -625,7 +768,7 @@ export default function AdminTemplates() {
                                   variant="ghost"
                                   size="icon"
                                   className="h-5 w-5"
-                                  disabled={sectionIdx === sortedInductionSections.length - 1}
+                                  disabled={sectionIdx === sortedInductionSections.length - 1 || hasRoleFilter || filterSection !== 'all'}
                                   onClick={(e) => { e.stopPropagation(); moveSection(sectionIdx, 'down'); }}
                                   data-testid={`button-section-down-${section}`}
                                 >
@@ -845,19 +988,19 @@ export default function AdminTemplates() {
                 </div>
               </div>
 
-              {loadingCompetencies ? (
+              {filterError ? null : loadingCompetencies || loadingFilters ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
-              ) : competencies.length === 0 ? (
+              ) : filteredCompetencies.length === 0 ? (
                 <Card className="border-border/50">
                   <CardContent className="py-12 text-center">
                     <GraduationCap className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                    <p className="font-medium">No skill categories yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">Click "New Category" to create your first skill category, or import from CSV.</p>
+                    <p className="font-medium">{competencies.length ? 'No skill categories match these filters' : 'No skill categories yet'}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{competencies.length ? 'Change or clear the filters to see more categories.' : 'Click "New Category" to create your first skill category, or import from CSV.'}</p>
                   </CardContent>
                 </Card>
               ) : (() => {
                 const grouped: Record<string, any[]> = {};
-                competencies.forEach((cat: any) => {
+                filteredCompetencies.forEach((cat: any) => {
                   const key = cat.departmentType || 'Universal';
                   if (!grouped[key]) grouped[key] = [];
                   grouped[key].push(cat);
@@ -1043,7 +1186,7 @@ export default function AdminTemplates() {
                 </div>
               </div>
 
-              {loadingStandards ? (
+              {filterError ? null : loadingStandards || loadingFilters ? (
                 <div className="flex justify-center py-12"><Spinner /></div>
               ) : (
                 <div className="grid gap-4">
@@ -1121,8 +1264,8 @@ export default function AdminTemplates() {
                     <Card className="border-border/50">
                       <CardContent className="py-12 text-center">
                         <ClipboardList className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-                        <p className="font-medium">{surveySearch ? 'No job roles match that search' : 'No survey templates yet'}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{surveySearch ? 'Try a different keyword.' : 'Click "New Survey" to create your first survey template.'}</p>
+                        <p className="font-medium">{surveySearch || hasRoleFilter ? 'No surveys match these filters' : 'No survey templates yet'}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{surveySearch || hasRoleFilter ? 'Change or clear the filters, or try a different keyword.' : 'Click "New Survey" to create your first survey template.'}</p>
                       </CardContent>
                     </Card>
                   )}

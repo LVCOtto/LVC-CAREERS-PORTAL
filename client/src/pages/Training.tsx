@@ -24,7 +24,9 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useUser, useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useTrainingMatrixHistory, useCreateTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareToken } from '@/lib/hooks';
+import { useUser, useCompetencies, useCompetenciesForRole, useTrainingMatrixForUser, useTrainingMatrixHistory, useStartTrainingMatrix, useUpdateTrainingMatrix, useGenerateShareTokenForUser } from '@/lib/hooks';
+import type { TrainingMatrixSubmission } from '@shared/schema';
+import { assessmentAwaitingSignoff, previousAssessment, ratingsForSkills, trainingRatingsSchema } from '@shared/trainingAssessment';
 import {
   LineChart,
   Line,
@@ -115,8 +117,9 @@ function groupCategoriesBySection(categories: any[]) {
     }));
 }
 
-function RatingCell({ rating, compact = false }: { rating: number; compact?: boolean }) {
+function RatingCell({ rating, compact = false }: { rating: number | undefined; compact?: boolean }) {
   const competencyLevels = useCompetencyLevels();
+  if (rating === undefined) return <span className="text-xs text-muted-foreground">Not rated</span>;
   const level = competencyLevels[rating] || competencyLevels[0];
 
   return (
@@ -204,7 +207,7 @@ function CategorySection({
                   <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
                 )}
               </div>
-              <RatingCell rating={ratings[item.slug] ?? 0} compact />
+              <RatingCell rating={ratings[item.slug]} compact />
             </div>
           ))}
         </div>
@@ -547,6 +550,7 @@ export default function Training() {
   const { toast } = useToast();
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [dialogRatings, setDialogRatings] = useState<Record<string, number>>({});
+  const [editingAssessment, setEditingAssessment] = useState<TrainingMatrixSubmission | null>(null);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
   const [copied, setCopied] = useState(false);
@@ -554,15 +558,16 @@ export default function Training() {
 
   const departmentType = currentUser?.department || getCompetencyDepartmentType(currentUser);
 
-  const { data: roleCategories, isLoading: roleLoading } = useCompetenciesForRole(currentUser?.jobRoleId ?? currentUser?.jobRole);
-  const { data: deptCategories = [], isLoading: deptLoading } = useCompetencies(departmentType);
+  const { data: roleCategories, isLoading: roleLoading, error: roleError } = useCompetenciesForRole(currentUser?.jobRoleId ?? currentUser?.jobRole);
+  const { data: deptCategories = [], isLoading: deptLoading, error: departmentError } = useCompetencies(departmentType);
   const categories = roleCategories && roleCategories.length > 0 ? roleCategories : deptCategories;
-  const categoriesLoading = roleLoading || deptLoading;
-  const { data: matrixSubmission, isLoading: matrixLoading } = useTrainingMatrixForUser(currentUser?.id || '');
+  const categoriesLoading = roleLoading || (!roleCategories?.length && deptLoading);
+  const { data: matrixSubmission, isLoading: matrixLoading, error: matrixError } = useTrainingMatrixForUser(currentUser?.id || '');
+  const { data: history = [], isLoading: historyLoading, error: historyError } = useTrainingMatrixHistory(currentUser?.id || '');
   const { data: approverUser } = useUser(matrixSubmission?.approvedBy || '');
-  const createMatrix = useCreateTrainingMatrix();
+  const startMatrix = useStartTrainingMatrix();
   const updateMatrix = useUpdateTrainingMatrix();
-  const generateShareToken = useGenerateShareToken();
+  const generateShareToken = useGenerateShareTokenForUser();
 
   const setRating = useCallback((slug: string, value: number) => {
     setDialogRatings(prev => ({ ...prev, [slug]: value }));
@@ -573,7 +578,7 @@ export default function Training() {
   if (!currentUser) return null;
 
   const isColleague = currentUser.role === 'colleague';
-  const isLoading = categoriesLoading || matrixLoading;
+  const isLoading = categoriesLoading || matrixLoading || historyLoading;
 
   if (isLoading) {
     return (
@@ -585,14 +590,28 @@ export default function Training() {
     );
   }
 
+  const assessmentLoadError = matrixError || historyError || roleError || (!roleCategories?.length ? departmentError : null);
+  if (assessmentLoadError) {
+    return <Layout><Card><CardContent className="py-8">
+      <p role="alert" className="text-destructive">Unable to load your assessment: {assessmentLoadError.message}</p>
+      <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>Try again</Button>
+    </CardContent></Card></Layout>;
+  }
+
   const ratings: Record<string, number> = (matrixSubmission?.ratings as Record<string, number>) || {};
   const matrixStatus = matrixSubmission?.status || 'draft';
-  const submitButtonDisabled = matrixStatus === 'pending_review';
+  const submitButtonDisabled = matrixStatus === 'pending_review' || assessmentAwaitingSignoff(history);
   const submitButtonLabel = matrixStatus === 'approved'
     ? 'Start new self-assessment'
     : matrixStatus === 'pending_review'
       ? 'Awaiting manager sign-off'
-      : 'Submit training matrix';
+      : matrixSubmission ? 'Continue assessment' : 'Start self-assessment';
+  const previous = matrixSubmission ? previousAssessment(history, matrixSubmission.id) : null;
+  const dialogPrevious = editingAssessment ? previousAssessment(history, editingAssessment.id) : null;
+  const skillSlugs = categories.flatMap((category: any) => category.items.map((item: any) => item.slug));
+  const removedDraftAnswers = editingAssessment
+    ? Object.keys(trainingRatingsSchema.parse(editingAssessment.ratings)).filter(slug => !skillSlugs.includes(slug)).length
+    : 0;
   const totalSkills = categories.reduce((count: number, category: any) => count + category.items.length, 0);
   const ratedSkills = categories.reduce(
     (count: number, category: any) => count + category.items.filter((item: any) => ratings[item.slug] !== undefined).length,
@@ -600,11 +619,13 @@ export default function Training() {
   );
   const completionPercent = totalSkills > 0 ? Math.round((ratedSkills / totalSkills) * 100) : 0;
   const overallScore = calculateOverallAverage(ratings, categories);
-  const nextActionText = matrixStatus === 'pending_review'
+  const nextActionText = submitButtonDisabled
     ? 'No action needed right now. Your manager will review and sign this off.'
     : matrixStatus === 'approved'
       ? 'Your last matrix is approved. Start a new self-assessment when ready.'
-      : 'Continue rating your skills, then submit for manager sign-off.';
+      : matrixSubmission
+        ? 'This is your current draft. Rate each skill for this assessment, then submit for manager sign-off.'
+        : 'Start a new assessment and rate your skills as they are today.';
   const statusPanelTone = matrixStatus === 'approved'
     ? 'border-emerald-200 bg-emerald-50/40'
     : matrixStatus === 'pending_review'
@@ -628,42 +649,43 @@ export default function Training() {
         ? 'text-amber-600'
         : 'text-muted-foreground';
 
-  const openSelfAssessment = () => {
-    if (matrixStatus === 'approved') {
-      setDialogRatings({});
-    } else {
-      setDialogRatings({ ...ratings });
+  const openSelfAssessment = async () => {
+    try {
+      const draft = await startMatrix.mutateAsync(currentUser.id);
+      setEditingAssessment(draft);
+      setDialogRatings(ratingsForSkills(trainingRatingsSchema.parse(draft.ratings), skillSlugs));
+      setIsSubmitOpen(true);
+    } catch (error) {
+      toast({ title: 'Could not open assessment', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
     }
-    setIsSubmitOpen(true);
+  };
+
+  const closeSelfAssessment = () => {
+    if (updateMatrix.isPending) return;
+    const savedRatings = ratingsForSkills(trainingRatingsSchema.parse(editingAssessment?.ratings || {}), skillSlugs);
+    const changed = Object.keys({ ...savedRatings, ...dialogRatings }).some(slug => savedRatings[slug] !== dialogRatings[slug]);
+    if (changed && !window.confirm('Leave without saving your latest answers? Your saved draft will still be available.')) return;
+    setIsSubmitOpen(false);
+    setEditingAssessment(null);
   };
 
   const handleSubmit = async () => {
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      if (matrixSubmission?.id && matrixStatus !== 'approved') {
-        await updateMatrix.mutateAsync({
-          id: matrixSubmission.id,
-          data: { ratings: dialogRatings, status: 'pending_review', submittedDate: today, lastAssessment: today },
-        });
-      } else {
-        await createMatrix.mutateAsync({
-          userId: currentUser.id,
-          status: 'pending_review',
-          ratings: dialogRatings,
-          lastAssessment: today,
-          submittedDate: today,
-          nextReviewDate: matrixSubmission?.nextReviewDate || undefined,
-        });
-      }
+      if (!editingAssessment) throw new Error('Open your assessment draft before submitting.');
+      await updateMatrix.mutateAsync({
+        id: editingAssessment.id,
+        data: { ratings: dialogRatings, status: 'pending_review' },
+      });
       setIsSubmitOpen(false);
+      setEditingAssessment(null);
       toast({
         title: 'Submitted for sign-off',
         description: 'Your line manager can now review and approve your training matrix.',
       });
-    } catch (e) {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to submit training matrix.',
+        description: error instanceof Error ? error.message : 'Failed to submit training matrix.',
         variant: 'destructive',
       });
     }
@@ -671,35 +693,22 @@ export default function Training() {
 
   const handleSaveDraft = async () => {
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      if (matrixSubmission?.id && matrixStatus !== 'approved') {
-        await updateMatrix.mutateAsync({
-          id: matrixSubmission.id,
-          data: {
-            ratings: dialogRatings,
-            status: 'draft',
-            lastAssessment: matrixSubmission.lastAssessment || today,
-          },
-        });
-      } else {
-        await createMatrix.mutateAsync({
-          userId: currentUser.id,
-          status: 'draft',
-          ratings: dialogRatings,
-          lastAssessment: today,
-          nextReviewDate: matrixSubmission?.nextReviewDate || undefined,
-        });
-      }
+      if (!editingAssessment) throw new Error('Open your assessment draft before saving.');
+      await updateMatrix.mutateAsync({
+        id: editingAssessment.id,
+        data: { ratings: dialogRatings, status: 'draft' },
+      });
 
       setIsSubmitOpen(false);
+      setEditingAssessment(null);
       toast({
         title: 'Draft saved',
         description: 'Your progress has been saved and you can continue later.',
       });
-    } catch {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to save draft.',
+        description: error instanceof Error ? error.message : 'Failed to save draft.',
         variant: 'destructive',
       });
     }
@@ -707,25 +716,15 @@ export default function Training() {
 
   const handleShareLink = async () => {
     try {
-      let submissionId = matrixSubmission?.id;
-      if (!submissionId) {
-        const newSub = await createMatrix.mutateAsync({
-          userId: currentUser.id,
-          status: 'draft',
-          ratings: ratings,
-          lastAssessment: new Date().toISOString().slice(0, 10),
-        });
-        submissionId = newSub.id;
-      }
-      const result = await generateShareToken.mutateAsync(submissionId);
+      const result = await generateShareToken.mutateAsync(currentUser.id);
       const url = `${window.location.origin}/training-matrix/shared/${result.token}`;
       setShareUrl(url);
       setCopied(false);
       setIsShareOpen(true);
-    } catch (e) {
+    } catch (error) {
       toast({
         title: 'Error',
-        description: 'Failed to generate shareable link.',
+        description: error instanceof Error ? error.message : 'Failed to generate shareable link.',
         variant: 'destructive',
       });
     }
@@ -783,10 +782,10 @@ export default function Training() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
-                  My Training Matrix
+                  {matrixStatus === 'draft' ? 'Current assessment' : 'Latest submitted assessment'}
                 </CardTitle>
                 <CardDescription className="mt-1">
-                  Clear status, clear next step, and your latest competency snapshot.
+                  {matrixStatus === 'draft' ? 'Your answers and progress for this assessment only.' : 'Saved results. Start a new assessment to rate your skills again.'}
                 </CardDescription>
               </div>
 
@@ -808,12 +807,13 @@ export default function Training() {
                       )}
                       {matrixStatus === 'draft' && (
                         <Badge variant="secondary" className="bg-slate-100 text-slate-800" data-testid="status-matrix-draft">
-                          Draft
+                          {previous ? 'New assessment - draft' : 'Assessment draft'}
                         </Badge>
                       )}
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      {matrixStatus === 'draft' && lastAssessment && <span>Started: {new Date(lastAssessment + 'T00:00:00').toLocaleDateString('en-GB')}</span>}
                       {matrixSubmission?.submittedDate && (
                         <span data-testid="text-colleague-submitted-date">
                           Submitted: {new Date(matrixSubmission.submittedDate + 'T00:00:00').toLocaleDateString('en-GB')}
@@ -858,11 +858,11 @@ export default function Training() {
                       <Button
                         onClick={openSelfAssessment}
                         className="gap-2 justify-start"
-                        disabled={submitButtonDisabled}
+                        disabled={submitButtonDisabled || startMatrix.isPending}
                         data-testid="button-submit-matrix"
                       >
                         <Send className="h-4 w-4" />
-                        {submitButtonLabel}
+                        {startMatrix.isPending ? 'Opening assessment...' : submitButtonDisabled ? 'Awaiting manager sign-off' : submitButtonLabel}
                       </Button>
 
                       <Button
@@ -888,15 +888,15 @@ export default function Training() {
 
               <div className="grid gap-2 sm:grid-cols-3" data-testid="matrix-snapshot-cards">
                 <div className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 px-3 py-2">
-                  <p className="text-xs text-muted-foreground">Overall score</p>
-                  <p className="text-xl font-semibold">{overallScore.toFixed(1)} / 4</p>
+                  <p className="text-xs text-muted-foreground">{matrixStatus === 'draft' ? 'Current draft score' : 'Overall score'}</p>
+                  <p className="text-xl font-semibold">{matrixStatus === 'draft' && ratedSkills < totalSkills ? 'Available when complete' : `${overallScore.toFixed(1)} / 4`}</p>
                 </div>
                 <div className="rounded-lg border border-sky-200 bg-gradient-to-br from-sky-50 to-sky-100/60 px-3 py-2">
                   <p className="text-xs text-muted-foreground">Completion</p>
                   <p className="text-xl font-semibold">{completionPercent}%</p>
                 </div>
                 <div className="rounded-lg border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-100/60 px-3 py-2">
-                  <p className="text-xs text-muted-foreground">Rated skills</p>
+                  <p className="text-xs text-muted-foreground">Skills rated this assessment</p>
                   <p className="text-xl font-semibold">{ratedSkills} / {totalSkills}</p>
                 </div>
               </div>
@@ -908,7 +908,7 @@ export default function Training() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="pt-3">
+          {matrixStatus !== 'draft' && <CardContent className="pt-3">
             <IndividualView
               name={currentUser.name}
               jobRole={currentUser.jobRole || 'Engineer'}
@@ -919,8 +919,24 @@ export default function Training() {
               showBackButton={false}
               compact
             />
-          </CardContent>
+          </CardContent>}
         </Card>
+
+        {previous && (
+          <Card className="border-border/60" data-testid="card-previous-assessment">
+            <CardHeader>
+              <CardTitle className="text-lg">Previous assessment - read-only</CardTitle>
+              <CardDescription>
+                Submitted {previous.submittedDate ? new Date(previous.submittedDate + 'T00:00:00').toLocaleDateString('en-GB') : 'previously'}.
+                These results are saved separately and do not count towards your current assessment.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <IndividualView name={currentUser.name} jobRole={currentUser.jobRole} department={currentUser.department}
+                ratings={trainingRatingsSchema.parse(previous.ratings)} categories={categories} showBackButton={false} compact />
+            </CardContent>
+          </Card>
+        )}
 
         {categories.length > 0 && (
           <Card className="border-border/60 shadow-sm">
@@ -970,25 +986,30 @@ export default function Training() {
           </Card>
         )}
 
-        <Dialog open={isSubmitOpen} onOpenChange={setIsSubmitOpen}>
+        <Dialog open={isSubmitOpen} onOpenChange={open => { if (!open) closeSelfAssessment(); }}>
           <DialogContent className="max-w-4xl h-[90vh] max-h-[90vh] p-0 overflow-hidden flex flex-col [display:flex]" data-testid="dialog-submit-matrix">
-            <TrainingMatrixWizard
-              title="Self-Assessment"
-              description={getSetting('page.training.assessmentInstructions')}
+            <DialogTitle className="sr-only">{dialogPrevious ? 'New self-assessment' : 'Self-assessment draft'}</DialogTitle>
+            <DialogDescription className="sr-only">Rate each skill for this assessment, save your draft, or submit all answers for manager sign-off.</DialogDescription>
+            {editingAssessment && <TrainingMatrixWizard
+              key={editingAssessment.id}
+              title={dialogPrevious ? 'New self-assessment' : 'Self-assessment draft'}
+              description={`Rate every skill for this assessment based on your ability today. Use 0 for no experience. ${removedDraftAnswers ? 'Your skill list has changed; saved answers for removed skills will not be included in this draft. ' : ''}${getSetting('page.training.assessmentInstructions')}`}
               sectionGroups={dialogSectionGroups.length > 0 ? dialogSectionGroups : [{ key: 'default', label: 'Training Matrix', sortOrder: 0, categories }]}
               ratings={dialogRatings}
-              baselineRatings={ratings}
+              previousRatings={trainingRatingsSchema.parse(dialogPrevious?.ratings || {})}
+              previousAssessmentDate={dialogPrevious?.submittedDate || dialogPrevious?.lastAssessment}
+              readOnly={submitButtonDisabled || matrixSubmission?.id !== editingAssessment.id || matrixSubmission?.status !== 'draft'}
               competencyLevels={competencyLevels}
               onRate={setRating}
               onSubmit={handleSubmit}
-              onCancel={() => setIsSubmitOpen(false)}
+              onCancel={closeSelfAssessment}
               onSaveDraft={handleSaveDraft}
-              isSubmitting={createMatrix.isPending || updateMatrix.isPending}
-              isSavingDraft={createMatrix.isPending || updateMatrix.isPending}
+              isSubmitting={updateMatrix.isPending}
+              isSavingDraft={updateMatrix.isPending}
               submitLabel="Submit for sign-off"
               saveDraftLabel="Save draft"
               dataTestPrefix="dialog-wizard"
-            />
+            />}
           </DialogContent>
         </Dialog>
 

@@ -43,7 +43,8 @@ export function assessmentStatus(assessment: Pick<TrainingMatrixSubmission, "sta
 
 export function previousAssessment(history: TrainingMatrixSubmission[], currentId: number): AssessmentReference | null {
   const previous = history
-    .filter(entry => entry.id < currentId && ["approved", "pending_review"].includes(assessmentStatus(entry)))
+    .filter(entry => entry.id < currentId && (["approved", "pending_review"].includes(assessmentStatus(entry)) ||
+      (entry.status === "superseded" && !!entry.submittedDate)))
     .sort((a, b) => b.id - a.id)[0];
   return previous ? {
     id: previous.id, ratings: previous.ratings, submittedDate: previous.submittedDate,
@@ -52,7 +53,8 @@ export function previousAssessment(history: TrainingMatrixSubmission[], currentI
 }
 
 export function assessmentAwaitingSignoff(history: TrainingMatrixSubmission[]): boolean {
-  const latestSubmitted = [...history].sort((a, b) => b.id - a.id).find(entry => assessmentStatus(entry) !== "draft");
+  const latestSubmitted = [...history].sort((a, b) => b.id - a.id).find(entry =>
+    assessmentStatus(entry) !== "draft" && (entry.status !== "superseded" || !!entry.submittedDate));
   return !!latestSubmitted && assessmentStatus(latestSubmitted) === "pending_review";
 }
 
@@ -62,10 +64,14 @@ export function assessmentToResume(history: TrainingMatrixSubmission[]): Trainin
   }
   const latest = [...history].sort((a, b) => b.id - a.id)[0];
   if (latest && assessmentStatus(latest) === "draft") return latest;
-  if (latest && assessmentStatus(latest) !== "approved") {
+  if (latest && !["approved", "superseded"].includes(assessmentStatus(latest))) {
     throw new TrainingAssessmentError("This assessment cannot be restarted in its current state.");
   }
   return undefined;
+}
+
+export function assessmentsToSupersede(history: TrainingMatrixSubmission[]): number[] {
+  return history.filter(entry => ["draft", "pending_review"].includes(assessmentStatus(entry))).map(entry => entry.id);
 }
 
 export function assertEditableAssessment(

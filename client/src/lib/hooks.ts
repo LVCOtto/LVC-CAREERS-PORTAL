@@ -132,6 +132,17 @@ export function useStartTrainingMatrix() {
   });
 }
 
+export function useResetTrainingMatrix() {
+  return useMutation({
+    mutationFn: api.trainingMatrix.reset,
+    onSuccess: submission => {
+      queryClient.setQueryData(["training-matrix", submission.userId], submission);
+      invalidate("training-matrix", "training-matrix-history", "shared-training-matrix");
+    },
+    onError: () => invalidate("training-matrix", "training-matrix-history", "shared-training-matrix"),
+  });
+}
+
 export function useUpdateTrainingMatrix() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: any }) => api.trainingMatrix.update(id, data),

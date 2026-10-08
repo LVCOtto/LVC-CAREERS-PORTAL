@@ -111,6 +111,8 @@ export default function SharedTrainingMatrix() {
     ? 'Pending review'
     : submission?.status === 'approved'
       ? 'Approved'
+      : submission?.status === 'superseded'
+        ? 'Superseded by manager reset'
       : 'Draft in progress';
   const hasUnsavedChanges = useMemo(() => {
     const keys = Object.keys({ ...existingRatings, ...ratings });

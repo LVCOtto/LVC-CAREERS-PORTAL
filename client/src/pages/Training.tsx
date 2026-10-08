@@ -414,7 +414,8 @@ export function TrainingProgressChart({
 
   const chartData = useMemo(() => {
     const points = (history as any[])
-      .filter((sub) => sub.status === 'approved' || sub.status === 'pending_review')
+      .filter((sub) => sub.status === 'approved' || sub.status === 'pending_review' ||
+        (sub.status === 'superseded' && sub.submittedDate))
       .map((sub) => ({
         date: sub.lastAssessment || sub.submittedDate || '',
         score: parseFloat(
@@ -468,7 +469,7 @@ export function TrainingProgressChart({
   const CustomDot = (props: any) => {
     const { cx, cy, payload } = props;
     if (payload.isNextReview || payload.score == null) return null;
-    const fill = payload.status === 'approved' ? '#10b981' : '#f59e0b';
+    const fill = payload.status === 'approved' ? '#10b981' : payload.status === 'superseded' ? '#94a3b8' : '#f59e0b';
     return <circle cx={cx} cy={cy} r={5} fill={fill} stroke="white" strokeWidth={2} />;
   };
 
@@ -507,7 +508,7 @@ export function TrainingProgressChart({
                     </span>
                   </p>
                   <p className="text-muted-foreground capitalize mt-0.5">
-                    {d.status === 'pending_review' ? 'Pending review' : d.status}
+                    {d.status === 'pending_review' ? 'Pending review' : d.status === 'superseded' ? 'Superseded by reset' : d.status}
                   </p>
                 </div>
               );
@@ -962,6 +963,10 @@ export default function Training() {
                       <span className="inline-flex items-center gap-1">
                         <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
                         Pending review
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" />
+                        Superseded
                       </span>
                     </span>
                   </CardDescription>

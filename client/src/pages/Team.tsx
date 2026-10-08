@@ -38,6 +38,7 @@ import {
 import { getCompetencyDepartmentType } from '@/lib/departmentClassification';
 import { buildTeamMemberHref, decodeTeamMemberRouteId } from '@/lib/teamRoutes';
 import { IndividualView, TrainingProgressChart } from '@/pages/Training';
+import { ResetTrainingMatrixButton } from '@/components/ResetTrainingMatrixButton';
 import {
   ArrowLeft,
   User as UserIcon,
@@ -1148,6 +1149,12 @@ function TeamMemberProfile({ memberId, initialTab = 'induction' }: { memberId: s
                 </CardDescription>
 
                 <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <ResetTrainingMatrixButton userId={member.id} userName={member.name} onReset={() => {
+                    setMatrixShareUrl('');
+                    setMatrixShareCopied(false);
+                    setShowApproveConfirm(false);
+                    setEditingNextReview(false);
+                  }} />
                   <Button
                     size="sm"
                     variant="outline"
@@ -1487,6 +1494,10 @@ function TeamMemberProfile({ memberId, initialTab = 'induction' }: { memberId: s
                             <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
                             Pending review
                           </span>
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" />
+                            Superseded
+                          </span>
                         </span>
                       </p>
                       <TrainingProgressChart
@@ -1509,10 +1520,11 @@ function TeamMemberProfile({ memberId, initialTab = 'induction' }: { memberId: s
             </Card>
 
             {(() => {
-              const pastApproved = matrixHistory
-                ? matrixHistory.slice(1).filter((e: any) => e.status === 'approved')
+              const pastAssessments = matrixHistory
+                ? matrixHistory.filter(entry => entry.id !== matrixSubmission?.id &&
+                  ['approved', 'pending_review', 'superseded'].includes(entry.status))
                 : [];
-              return pastApproved.length > 0 ? (
+              return pastAssessments.length > 0 ? (
               <Card className="mt-6 border-border/50">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -1520,12 +1532,12 @@ function TeamMemberProfile({ memberId, initialTab = 'induction' }: { memberId: s
                     Assessment History
                   </CardTitle>
                   <CardDescription>
-                    Previous approved training matrix submissions for this colleague
+                    Previous submitted results and superseded assessments for this colleague
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-2">
-                    {pastApproved.map((entry: any) => {
+                    {pastAssessments.map((entry: any) => {
                       const entryRatings = (entry.ratings || {}) as Record<string, number>;
                       let entryTotal = 0;
                       let entryCount = 0;
@@ -1552,7 +1564,7 @@ function TeamMemberProfile({ memberId, initialTab = 'induction' }: { memberId: s
                                 entry.status === 'pending_review' ? 'bg-amber-100 text-amber-800' :
                                 'bg-slate-100 text-slate-800'
                               }>
-                                {entry.status === 'approved' ? 'Approved' : entry.status === 'pending_review' ? 'Pending' : 'Draft'}
+                                {entry.status === 'approved' ? 'Approved' : entry.status === 'pending_review' ? 'Pending' : entry.status === 'superseded' ? 'Superseded by reset' : 'Draft'}
                               </Badge>
                               {entry.submittedDate && (
                                 <span className="text-xs text-muted-foreground">
@@ -1563,6 +1575,9 @@ function TeamMemberProfile({ memberId, initialTab = 'induction' }: { memberId: s
                                 <span className="text-xs text-muted-foreground">
                                   Approved: {new Date(entry.approvedDate + 'T00:00:00').toLocaleDateString('en-GB')}
                                 </span>
+                              )}
+                              {entry.status === 'superseded' && !entry.submittedDate && (
+                                <span className="text-xs text-muted-foreground">Unsubmitted draft</span>
                               )}
                             </div>
                             <span className="text-sm font-medium text-muted-foreground">

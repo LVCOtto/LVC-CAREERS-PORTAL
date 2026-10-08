@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { TrainingMatrixSubmission } from "./schema";
-import { assessmentAwaitingSignoff, assessmentStatus, assessmentToResume, assessmentUpdateSchema, assertEditableAssessment, previousAssessment, ratingProgress, ratingsForSkills } from "./trainingAssessment";
+import { assessmentAwaitingSignoff, assessmentsToSupersede, assessmentStatus, assessmentToResume, assessmentUpdateSchema, assertEditableAssessment, previousAssessment, ratingProgress, ratingsForSkills } from "./trainingAssessment";
 
 function assessment(id: number, fields: Partial<TrainingMatrixSubmission> = {}): TrainingMatrixSubmission {
   return { id, userId: "member", status: "draft", ratings: {}, submittedDate: null,
@@ -80,4 +80,19 @@ test("legacy shared-link saves cannot disguise previously submitted records as e
   assert.throws(() => assertEditableAssessment(legacyPending, 2), /read-only/);
   assert.deepEqual(legacyApproved.ratings, { first: 4 });
   assert.equal(legacyApproved.status, "draft");
+});
+
+test("manager resets supersede draft and pending work, but never approved results", () => {
+  const approved = assessment(1, { status: "approved", ratings: { first: 4 } });
+  const legacyApproved = assessment(2, { approvedBy: "manager", approvedDate: "2026-09-01" });
+  const pending = assessment(3, { status: "pending_review", submittedDate: "2026-10-01", ratings: { first: 3 } });
+  const draft = assessment(4, { ratings: { first: 2 } });
+  assert.deepEqual(assessmentsToSupersede([approved, legacyApproved, pending, draft]), [3, 4]);
+  const history = [assessment(5), { ...draft, status: "superseded" }, { ...pending, status: "superseded" }, approved];
+  assert.equal(assessmentAwaitingSignoff(history), false);
+  assert.equal(assessmentToResume(history)?.id, 5);
+  assert.equal(previousAssessment(history, 5)?.id, 3);
+  assert.deepEqual(previousAssessment(history, 5)?.ratings, { first: 3 });
+  assert.throws(() => assertEditableAssessment(history[1], 5), /read-only/);
+  assert.throws(() => assertEditableAssessment(history[2], 5), /read-only/);
 });

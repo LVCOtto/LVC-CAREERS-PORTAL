@@ -1053,6 +1053,17 @@ export async function registerRoutes(
     res.json(await storage.startTrainingMatrixAssessment(userId));
   }));
 
+  app.post("/api/training-matrix/reset", assessmentRoute(async (req, res) => {
+    if (!isPrivilegedRole(req.session.role)) {
+      return res.status(403).json({ message: "Manager access required." });
+    }
+    const { userId } = z.object({ userId: z.string().min(1) }).strict().parse(req.body);
+    if (!await canAccessUser(req, userId) || (req.session.role === "manager" && req.session.userId === userId)) {
+      return res.status(403).json({ message: "You can only reset assessments for your direct reports." });
+    }
+    res.json(await storage.startTrainingMatrixAssessment(userId, { reset: true }));
+  }));
+
   app.post("/api/training-matrix", assessmentRoute(async (req, res) => {
     if (!req.body?.userId || !await canAccessUser(req, req.body.userId)) {
       return res.status(403).json({ message: "Forbidden" });

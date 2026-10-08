@@ -2,7 +2,7 @@ import { eq, and, inArray, desc, isNull, ne, sql } from "drizzle-orm";
 import { db } from "./db";
 import * as schema from "@shared/schema";
 import { isNewTrainingSubmission } from "@shared/teamTraining";
-import { assessmentStatus, assessmentToResume, assertEditableAssessment, TrainingAssessmentError } from "@shared/trainingAssessment";
+import { assessmentStatus, assessmentsToSupersede, assessmentToResume, assertEditableAssessment, TrainingAssessmentError } from "@shared/trainingAssessment";
 
 type JobRoleCategoryLayoutSection = {
   sectionKey: string;
@@ -103,7 +103,7 @@ export interface IStorage {
   getTrainingMatrixRequests(userIds: string[]): Promise<(typeof schema.trainingMatrixRequests.$inferSelect)[]>;
   markTrainingMatrixSent(userId: string): Promise<void>;
   createTrainingMatrixSubmission(sub: schema.InsertTrainingMatrixSubmission): Promise<schema.TrainingMatrixSubmission>;
-  startTrainingMatrixAssessment(userId: string): Promise<schema.TrainingMatrixSubmission>;
+  startTrainingMatrixAssessment(userId: string, options?: { reset?: boolean }): Promise<schema.TrainingMatrixSubmission>;
   updateTrainingMatrixSubmission(id: number, data: Partial<schema.InsertTrainingMatrixSubmission>, mode?: "assessment" | "review"): Promise<schema.TrainingMatrixSubmission | undefined>;
 
   getStandardsSurveyRoles(): Promise<schema.StandardsSurveyRole[]>;
@@ -465,14 +465,22 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async startTrainingMatrixAssessment(userId: string) {
+  async startTrainingMatrixAssessment(userId: string, options: { reset?: boolean } = {}) {
     return db.transaction(async (transaction) => {
       const [user] = await transaction.select().from(schema.users).where(eq(schema.users.id, userId)).for("update");
       if (!user) throw new TrainingAssessmentError("Colleague not found.", 404);
       const history = await transaction.select().from(schema.trainingMatrixSubmissions)
         .where(eq(schema.trainingMatrixSubmissions.userId, userId)).orderBy(desc(schema.trainingMatrixSubmissions.id));
-      const draft = assessmentToResume(history);
-      if (draft) return draft;
+      if (options.reset) {
+        const supersededIds = assessmentsToSupersede(history);
+        if (supersededIds.length) {
+          await transaction.update(schema.trainingMatrixSubmissions).set({ status: "superseded" })
+            .where(inArray(schema.trainingMatrixSubmissions.id, supersededIds));
+        }
+      } else {
+        const draft = assessmentToResume(history);
+        if (draft) return draft;
+      }
       const [created] = await transaction.insert(schema.trainingMatrixSubmissions).values({
         userId, status: "draft", ratings: {}, lastAssessment: new Date().toISOString().slice(0, 10),
         nextReviewDate: history.find(entry => assessmentStatus(entry) === "approved")?.nextReviewDate ?? null,

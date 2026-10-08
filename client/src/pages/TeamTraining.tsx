@@ -14,6 +14,7 @@ import { buildTeamMemberHref } from "@/lib/teamRoutes";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import type { TeamTrainingRow, TeamTrainingStatus } from "@shared/teamTraining";
+import { ResetTrainingMatrixButton } from "@/components/ResetTrainingMatrixButton";
 
 const statusLabels: Record<TeamTrainingStatus, string> = {
   never_completed: "Never completed", expired: "Expired", awaiting_signoff: "Awaiting sign-off",
@@ -158,6 +159,10 @@ export default function TeamTraining() {
                     <IconAction label={member.awaitingResponse ? "Mark reminder as sent today" : "Mark request as sent today"}>
                       <Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Mark request as sent for ${member.name}`} onClick={() => setSentMember(member)}><Send className="h-3.5 w-3.5" /></Button>
                     </IconAction>
+                    <ResetTrainingMatrixButton userId={member.userId} userName={member.name} compact onReset={() => {
+                      setCopied(null);
+                      setFallbackLink("");
+                    }} />
                   </div></td>
                 </tr>)}
                 {!visible.length && <tr><td colSpan={7} className="py-10 text-center text-sm text-muted-foreground">{members.length ? "No matching team members." : "No team members assigned."}</td></tr>}

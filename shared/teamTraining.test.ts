@@ -64,3 +64,16 @@ test("legacy shared-link drafts with submission metadata retain sign-off and rev
   assert.equal(approved.status, "current");
   assert.equal(approved.reviewDue, "2027-03-01");
 });
+
+test("manager reset keeps submitted scores and review dates without counting a superseded draft as a submission", () => {
+  const history = [assessment(4), assessment(3, { status: "superseded", ratings: { first: 0 } }),
+    assessment(2, { status: "superseded", submittedDate: "2026-10-01", ratings: { first: 3 } }),
+    assessment(1, { status: "approved", submittedDate: "2026-09-01", nextReviewDate: "2027-03-01" })];
+  const summary = summarizeTraining(history, "2026-10-08");
+  assert.equal(summary.submitted?.id, 2);
+  assert.equal(summary.lastSubmitted, "2026-10-01");
+  assert.equal(summary.reviewDue, "2027-03-01");
+  assert.equal(summary.awaitingSignoff, false);
+  assert.equal(summary.status, "current");
+  assert.equal(isNewTrainingSubmission(history[1], history[0]), false);
+});

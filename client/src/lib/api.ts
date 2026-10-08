@@ -98,6 +98,7 @@ export const api = {
     get: (userId: string) => apiFetch<TrainingMatrixSubmission | null>(`/training-matrix/${encodePathSegment(userId)}`),
     history: (userId: string) => apiFetch<TrainingMatrixSubmission[]>(`/training-matrix/history/${encodePathSegment(userId)}`),
     start: (userId: string) => apiFetch<TrainingMatrixSubmission>("/training-matrix/start", { method: "POST", body: JSON.stringify({ userId }) }),
+    reset: (userId: string) => apiFetch<TrainingMatrixSubmission>("/training-matrix/reset", { method: "POST", body: JSON.stringify({ userId }) }),
     create: (data: any) => apiFetch<any>("/training-matrix", { method: "POST", body: JSON.stringify(data) }),
     update: (id: number, data: any) => apiFetch<any>(`/training-matrix/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
     exportCsv: (params: { scope: "all" | "department" | "team" | "user"; history?: "latest" | "all"; detail?: "summary" | "competency"; userId?: string; departmentId?: number; department?: string; managerId?: string; }) => {

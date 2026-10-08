@@ -4,7 +4,7 @@ import express from "express";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { InsertTrainingMatrixSubmission, TrainingMatrixSubmission, User } from "@shared/schema";
-import { assertEditableAssessment, assessmentToResume, TrainingAssessmentError } from "@shared/trainingAssessment";
+import { assertEditableAssessment, assessmentAwaitingSignoff, assessmentsToSupersede, assessmentToResume, TrainingAssessmentError } from "@shared/trainingAssessment";
 import { storage } from "./storage";
 import { registerRoutes } from "./routes";
 import { db } from "./db";
@@ -31,7 +31,7 @@ async function harness(context: TestContext, initial: TrainingMatrixSubmission[]
     req.session = { userId: req.header("x-test-user"), role: req.header("x-test-role") } as typeof req.session;
     next();
   });
-  context.mock.method(storage, "getUser", async () => member);
+  context.mock.method(storage, "getUser", async (id: string) => id === member.id ? member : undefined);
   context.mock.method(storage, "getTrainingMatrixHistory", async () => [...history].sort((a, b) => b.id - a.id));
   context.mock.method(storage, "getTrainingMatrixSubmission", async () => [...history].sort((a, b) => b.id - a.id)[0]);
   context.mock.method(storage, "getTrainingMatrixSubmissionById", async (id: number) => history.find(entry => entry.id === id));
@@ -41,10 +41,15 @@ async function harness(context: TestContext, initial: TrainingMatrixSubmission[]
     sectionKey: "core", sectionLabel: "Core", sectionSortOrder: 0, roleSortOrder: 0,
     items: ["first", "second"].map((slug, index) => ({ id: index + 1, slug, name: slug, description: null, sortOrder: index, categoryId: 1 })),
   }]);
-  const start = context.mock.method(storage, "startTrainingMatrixAssessment", async (userId: string) => {
+  const start = context.mock.method(storage, "startTrainingMatrixAssessment", async (userId: string, options: { reset?: boolean } = {}) => {
     assert.equal(userId, member.id);
-    const draft = assessmentToResume(history);
-    if (draft) return draft;
+    if (options.reset) {
+      const ids = assessmentsToSupersede(history);
+      history = history.map(entry => ids.includes(entry.id) ? { ...entry, status: "superseded" } : entry);
+    } else {
+      const draft = assessmentToResume(history);
+      if (draft) return draft;
+    }
     const created = assessment(Math.max(0, ...history.map(entry => entry.id)) + 1, {
       lastAssessment: "2026-10-08", nextReviewDate: history.find(entry => entry.status === "approved")?.nextReviewDate || null,
     });
@@ -56,7 +61,10 @@ async function harness(context: TestContext, initial: TrainingMatrixSubmission[]
   ) => {
     const existing = history.find(entry => entry.id === id);
     if (!existing) return undefined;
-    if (mode === "assessment") assertEditableAssessment(existing, Math.max(...history.map(entry => entry.id)));
+    if (mode === "assessment") {
+      if (assessmentAwaitingSignoff(history)) throw new TrainingAssessmentError("Awaiting manager sign-off");
+      assertEditableAssessment(existing, Math.max(...history.map(entry => entry.id)));
+    }
     else if (data.status === "approved" && existing.status !== "pending_review") throw new TrainingAssessmentError("Only pending assessments can be approved.");
     const saved = { ...existing, ...data };
     history = history.map(entry => entry.id === id ? saved : entry);
@@ -173,4 +181,48 @@ test("start endpoints enforce access and legacy create cannot inject completed a
   assert.equal((await request("/shared/missing/start", "POST")).status, 404);
   assert.equal((await request("", "POST", { userId: member.id, status: "approved", ratings: { first: 4 } }, "colleague")).status, 400);
   assert.equal((await request("", "POST", { userId: member.id, status: "draft", ratings: {} }, "colleague")).status, 200);
+});
+
+test("only managers of the colleague or admins can reset assessments", async context => {
+  const { request, start } = await harness(context, []);
+  const body = { userId: member.id };
+  assert.equal((await request("/reset", "POST", body)).status, 401);
+  assert.equal((await request("/reset", "POST", body, "colleague")).status, 403);
+  assert.equal((await request("/reset", "POST", body, "manager", "other-manager")).status, 403);
+  assert.equal((await request("/reset", "POST", body, "manager", member.id)).status, 403);
+  assert.equal((await request("/start", "POST", { ...body, reset: true }, "colleague")).status, 400);
+  assert.equal(start.mock.callCount(), 0);
+  assert.equal((await request("/reset", "POST", body, "admin", "admin")).status, 200);
+  assert.deepEqual(start.mock.calls[0].arguments, [member.id, { reset: true }]);
+});
+
+test("manager reset creates a blank draft and preserves approved and superseded submitted history", async context => {
+  const original = assessment(1, { status: "approved", ratings: { first: 4, second: 3 },
+    submittedDate: "2026-09-01", nextReviewDate: "2027-03-01", shareToken: "approved" });
+  const pending = assessment(2, { status: "pending_review", ratings: { first: 2, second: 0 },
+    submittedDate: "2026-10-08", shareToken: "pending" });
+  const draft = assessment(3, { ratings: { first: 1 }, shareToken: "draft" });
+  const { request, history } = await harness(context, [draft, pending, original]);
+  const response = await request("/reset", "POST", { userId: member.id }, "manager", "manager");
+  assert.equal(response.status, 200);
+  const reset = await response.json();
+  assert.equal(reset.id, 4);
+  assert.equal(reset.status, "draft");
+  assert.deepEqual(reset.ratings, {});
+  assert.equal(reset.submittedDate, null);
+  assert.equal(reset.approvedDate, null);
+  assert.equal(reset.nextReviewDate, "2027-03-01");
+  assert.deepEqual(history().find(entry => entry.id === 1), original);
+  assert.deepEqual(history().find(entry => entry.id === 2), { ...pending, status: "superseded" });
+  assert.deepEqual(history().find(entry => entry.id === 3), { ...draft, status: "superseded" });
+  assert.equal((await request("/shared/pending", "PATCH", { status: "draft", ratings: {} })).status, 409);
+  assert.equal((await request("/shared/draft", "PATCH", { status: "draft", ratings: {} })).status, 409);
+  assert.equal((await request("/2", "PATCH", { status: "approved" }, "manager", "manager")).status, 409);
+  const next = await request("/shared/pending/start", "POST");
+  assert.equal(next.status, 200);
+  assert.equal((await next.json()).submission.id, 4);
+  const contextResponse = await request("/shared/pending");
+  const data = await contextResponse.json();
+  assert.equal(data.awaitingSignoff, false);
+  assert.equal(data.currentAssessment.id, 4);
 });
